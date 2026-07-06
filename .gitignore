@@ -1,0 +1,32 @@
+# ===== 编译产物 =====
+target/
+*.class
+
+# ===== 工具（本地下载，不入库） =====
+.tooling/
+Redis-8.8.0-Windows-x64-cygwin-with-Service/
+
+# ===== 备份 / 临时 =====
+.backup-frontend/
+*.log
+*.tmp
+upload/
+
+# ===== IDE =====
+.idea/
+*.iml
+.settings/
+.classpath
+.project
+.vscode/*
+!.vscode/settings.json
+
+# ===== 系统 =====
+.DS_Store
+Thumbs.db
+
+# ===== Maven Wrapper（如有） =====
+!.mvn/wrapper/maven-wrapper.jar
+
+# 前端改造备份（任意层级）
+**/.backup-frontend/
