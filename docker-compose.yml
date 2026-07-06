@@ -1,0 +1,78 @@
+services:
+  # ---------- MySQL 数据库 ----------
+  mysql:
+    image: mysql:8.0
+    container_name: medical-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "123456"
+      MYSQL_DATABASE: medical_doctor
+      TZ: Asia/Shanghai
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p123456"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - medical-net
+
+  # ---------- Redis 缓存 ----------
+  redis:
+    image: redis:7-alpine
+    container_name: medical-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - medical-net
+
+  # ---------- Spring Boot 应用 ----------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: medical-app
+    restart: unless-stopped
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_DB: medical_doctor
+      MYSQL_USER: root
+      MYSQL_PASSWORD: "123456"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      TZ: Asia/Shanghai
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - medical-net
+
+  # ---------- Nginx 反向代理 ----------
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: medical-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
+    networks:
+      - medical-net
+
+volumes:
+  mysql-data:
+
+networks:
+  medical-net:
+    driver: bridge

@@ -1,0 +1,11 @@
+target/
+.tooling/
+Redis-8.8.0-Windows-x64-cygwin-with-Service/
+.backup-frontend/
+**/.backup-frontend/
+.git/
+.idea/
+.vscode/
+docs/
+*.log
+*.md
