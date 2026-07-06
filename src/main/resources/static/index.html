@@ -326,7 +326,7 @@
                         <button type="submit" class="login-btn" id="loginBtn">登录系统</button>
                     </form>
                     <div class="login-footer">
-                        <label><input type="checkbox"> 记住我</label>
+                        <a href="#" onclick="showRegisterModal();return false;">注册账号</a>
                         <a href="#" onclick="showResetModal();return false;">忘记密码？</a>
                     </div>
                 </div>
@@ -348,6 +348,80 @@
                     document.getElementById('captchaKey').value = data.data.key;
                 }
             }).catch(() => {});
+        }
+
+        // ===== 注册账号（深色风格） =====
+        function showRegisterModal() {
+            if (document.getElementById('regModal')) return;
+            const modal = document.createElement('div');
+            modal.id = 'regModal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,14,18,0.70);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;';
+            modal.innerHTML = `<div style="background:var(--bg-overlay);border:1px solid var(--border-base);border-radius:16px;padding:30px;width:420px;max-width:92%;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-overlay);" onclick="event.stopPropagation()">
+                <h3 style="margin-bottom:20px;color:var(--text-primary);">📝 注册账号</h3>
+                <div style="margin-bottom:14px;"><label style="font-size:13px;color:var(--text-secondary);">用户名 *</label><input type="text" id="regUsername" class="form-input" placeholder="用于登录，4-20位字母或数字" maxlength="20"></div>
+                <div style="margin-bottom:14px;"><label style="font-size:13px;color:var(--text-secondary);">真实姓名</label><input type="text" id="regRealName" class="form-input" placeholder="请输入您的真实姓名"></div>
+                <div style="margin-bottom:14px;"><label style="font-size:13px;color:var(--text-secondary);">手机号</label><input type="text" id="regPhone" class="form-input" placeholder="选填，用于密码找回" maxlength="11"></div>
+                <div style="margin-bottom:14px;"><label style="font-size:13px;color:var(--text-secondary);">角色</label><select id="regUserType" class="form-input" style="height:50px;"><option value="2">医生</option><option value="3">护士</option></select></div>
+                <div style="margin-bottom:14px;"><label style="font-size:13px;color:var(--text-secondary);">密码 *</label><input type="password" id="regPassword" class="form-input" placeholder="至少6位" maxlength="30"></div>
+                <div style="margin-bottom:14px;"><label style="font-size:13px;color:var(--text-secondary);">确认密码 *</label><input type="password" id="regConfirmPwd" class="form-input" placeholder="再次输入密码"></div>
+                <div style="margin-bottom:16px;" class="captcha-row"><label style="font-size:13px;color:var(--text-secondary);">验证码</label><div class="captcha-wrapper"><input type="text" id="regCaptchaCode" class="form-input captcha-input" placeholder="输入验证码" maxlength="4" autocomplete="off"><img id="regCaptchaImg" class="captcha-image" src="" alt="验证码" title="点击刷新" onclick="refreshRegCaptcha()" style="cursor:pointer;"><input type="hidden" id="regCaptchaKey" value=""></div></div>
+                <div style="display:flex;gap:10px;margin-top:20px;">
+                    <button onclick="closeRegModal()" style="flex:1;padding:12px;border:1px solid var(--border-base);border-radius:8px;background:var(--bg-hover);color:var(--text-regular);cursor:pointer;font-size:15px;">取消</button>
+                    <button onclick="submitRegister(this)" style="flex:1;padding:12px;border:none;border-radius:8px;background:var(--primary);color:#0A1413;cursor:pointer;font-size:15px;font-weight:700;">提交注册</button>
+                </div>
+            </div>`;
+            modal.addEventListener('click', function(e) { if (e.target === modal) closeRegModal(); });
+            document.addEventListener('keydown', regEscHandler);
+            document.body.appendChild(modal);
+            refreshRegCaptcha();
+        }
+        function regEscHandler(e) { if (e.key === 'Escape') closeRegModal(); }
+        function closeRegModal() {
+            const modal = document.getElementById('regModal');
+            if (modal) modal.remove();
+            document.removeEventListener('keydown', regEscHandler);
+        }
+        function refreshRegCaptcha() {
+            fetch('/api/auth/captcha').then(r => r.json()).then(data => {
+                if (data.code === 200 && document.getElementById('regCaptchaImg')) {
+                    document.getElementById('regCaptchaImg').src = data.data.image;
+                    document.getElementById('regCaptchaKey').value = data.data.key;
+                }
+            }).catch(() => {});
+        }
+        async function submitRegister(btn) {
+            const username = document.getElementById('regUsername').value.trim();
+            const realName = document.getElementById('regRealName').value.trim();
+            const phone = document.getElementById('regPhone').value.trim();
+            const userType = parseInt(document.getElementById('regUserType').value);
+            const password = document.getElementById('regPassword').value;
+            const confirmPwd = document.getElementById('regConfirmPwd').value;
+            const captchaCode = document.getElementById('regCaptchaCode').value.trim();
+            const captchaKey = document.getElementById('regCaptchaKey').value;
+            if (!username) { showToast('请输入用户名', 'error'); return; }
+            if (username.length < 4) { showToast('用户名至少4位', 'error'); return; }
+            if (!password) { showToast('请输入密码', 'error'); return; }
+            if (password.length < 6) { showToast('密码至少6位', 'error'); return; }
+            if (password !== confirmPwd) { showToast('两次输入的密码不一致', 'error'); return; }
+            if (!captchaCode) { showToast('请输入验证码', 'error'); return; }
+            btn.disabled = true; btn.innerText = '注册中...';
+            try {
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, confirmPassword: confirmPwd, realName, phone, userType, captchaKey, captchaCode })
+                });
+                const data = await res.json();
+                if (data.code === 200) {
+                    showToast('注册成功！请登录', 'success');
+                    closeRegModal();
+                } else {
+                    showToast(data.msg || '注册失败', 'error');
+                    refreshRegCaptcha();
+                    document.getElementById('regCaptchaCode').value = '';
+                }
+            } catch(e) { showToast('网络错误，请稍后再试', 'error'); }
+            finally { btn.disabled = false; btn.innerText = '提交注册'; }
         }
 
         // 忘记密码弹窗
