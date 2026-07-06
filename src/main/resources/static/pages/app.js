@@ -285,17 +285,17 @@ createApp({
             </header>
 <section v-if="activeTab==='dashboard'" class="grid-1">
                 <div class="panel-grid">
-                    <div class="card stat-card" style="border-top: 4px solid #4A80C0; padding-right: 60px;">
+                    <div class="card stat-card" style="border-top: 4px solid #409EFF; padding-right: 60px;">
                         <div class="stat-label">老人总数</div>
-                        <div class="stat-value" style="color: #4A80C0;">{{ dashboard.stats.eldersTotal || 0 }}</div>
+                        <div class="stat-value" style="color: #409EFF;">{{ dashboard.stats.eldersTotal || 0 }}</div>
                         <div class="stat-sub">当前平台管理的老人档案数量</div>
-                        <div style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); font-size: 40px; opacity: 0.15; color: #4A80C0;">👥</div>
+                        <div style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); font-size: 40px; opacity: 0.15; color: #409EFF;">👥</div>
                     </div>
-                    <div class="card stat-card" style="border-top: 4px solid #E06A6A; padding-right: 60px;">
+                    <div class="card stat-card" style="border-top: 4px solid #F56C6C; padding-right: 60px;">
                         <div class="stat-label">待处理预警</div>
-                        <div class="stat-value" style="color: #E06A6A;">{{ dashboard.stats.warningPending || 0 }}</div>
+                        <div class="stat-value" style="color: #F56C6C;">{{ dashboard.stats.warningPending || 0 }}</div>
                         <div class="stat-sub">高优先级预警需要优先处置</div>
-                        <div style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); font-size: 40px; opacity: 0.15; color: #E06A6A;">🚨</div>
+                        <div style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); font-size: 40px; opacity: 0.15; color: #F56C6C;">🚨</div>
                     </div>
                     <div class="card stat-card" style="border-top: 4px solid #E6A23C; padding-right: 60px;">
                         <div class="stat-label">进行中随访</div>
@@ -335,7 +335,7 @@ createApp({
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                                 <button class="primary-btn" @click="switchTab('elders')" style="display: flex; align-items: center; justify-content: center; gap: 8px;">👥 新增档案</button>
                                 <button class="primary-btn" @click="switchTab('followup')" style="background: linear-gradient(135deg, #E6A23C, #F5B041); display: flex; align-items: center; justify-content: center; gap: 8px;">📅 今日随访</button>
-                                <button class="primary-btn" @click="switchTab('warnings')" style="background: linear-gradient(135deg, #E06A6A, #F78989); display: flex; align-items: center; justify-content: center; gap: 8px;">🚨 预警处理</button>
+                                <button class="primary-btn" @click="switchTab('warnings')" style="background: linear-gradient(135deg, #F56C6C, #F78989); display: flex; align-items: center; justify-content: center; gap: 8px;">🚨 预警处理</button>
                                 <button class="primary-btn" @click="switchTab('referral')" style="background: linear-gradient(135deg, #909399, #A6A9AD); display: flex; align-items: center; justify-content: center; gap: 8px;">🔄 转诊申请</button>
                             </div>
                         </div>
@@ -369,7 +369,7 @@ createApp({
                         </div>
                     </div>
                     <div class="panel-grid" style="grid-template-columns: repeat(5, 1fr);">
-                        <div class="card stat-card" style="border-top: 4px solid #4A80C0; padding: 14px 10px;">
+                        <div class="card stat-card" style="border-top: 4px solid #409EFF; padding: 14px 10px;">
                             <div class="stat-label">管理老人总数</div>
                             <div class="stat-value" style="font-size: 24px;">{{ chronicOverview.totalElders || 0 }}</div>
                             <div class="stat-sub">签约管理总人数</div>
@@ -379,9 +379,9 @@ createApp({
                             <div class="stat-value" style="font-size: 24px; color: #E6A23C;">{{ chronicOverview.hypertension || 0 }}</div>
                             <div class="stat-sub">高血压管理人数</div>
                         </div>
-                        <div class="card stat-card" style="border-top: 4px solid #E06A6A; padding: 14px 10px;">
+                        <div class="card stat-card" style="border-top: 4px solid #F56C6C; padding: 14px 10px;">
                             <div class="stat-label">糖尿病</div>
-                            <div class="stat-value" style="font-size: 24px; color: #E06A6A;">{{ chronicOverview.diabetes || 0 }}</div>
+                            <div class="stat-value" style="font-size: 24px; color: #F56C6C;">{{ chronicOverview.diabetes || 0 }}</div>
                             <div class="stat-sub">糖尿病管理人数</div>
                         </div>
                         <div class="card stat-card" style="border-top: 4px solid #67C23A; padding: 14px 10px;">
@@ -1394,7 +1394,7 @@ createApp({
                 </template>
                 <template v-else-if="modal==='assessment-report'">
                     <div v-if="reportData.loading" class="empty-state">正在生成报告...</div>
-                    <div v-else-if="reportData.error" class="empty-state" style="color:#E06A6A;">{{ reportData.error }}</div>
+                    <div v-else-if="reportData.error" class="empty-state" style="color:#f56c6c;">{{ reportData.error }}</div>
                     <div v-else-if="reportData.data" class="report-container">
                         <!-- 报告头部 -->
                         <div class="report-header">
@@ -1738,7 +1738,7 @@ createApp({
                         <div class="timeline-card" v-if="modalData.item?.recordContent"><div class="desc">护理内容</div><div>{{ modalData.item.recordContent }}</div></div>
                         <div class="timeline-card" v-if="modalData.item?.nursingMeasures"><div class="desc">护理措施</div><div>{{ modalData.item.nursingMeasures }}</div></div>
                         <div class="timeline-card" v-if="modalData.item?.observation"><div class="desc">观察结果</div><div>{{ modalData.item.observation }}</div></div>
-                        <div class="timeline-card" v-if="modalData.item?.abnormalDesc"><div class="desc">异常描述</div><div style="color:#E06A6A;">{{ modalData.item.abnormalDesc }}</div></div>
+                        <div class="timeline-card" v-if="modalData.item?.abnormalDesc"><div class="desc">异常描述</div><div style="color:#f56c6c;">{{ modalData.item.abnormalDesc }}</div></div>
                     </div></div>
                 </template>
                 <!-- ====== 审核计划详情 ====== -->
@@ -1789,8 +1789,8 @@ createApp({
             isCollapse: false,
             chartType: 'gender',
             dashboardStatsMap: {
-                eldersTotal: { label: '管理老人总数', icon: 'User', color: '#4A80C0' },
-                warningPending: { label: '待处理预警', icon: 'Bell', color: '#E06A6A' },
+                eldersTotal: { label: '管理老人总数', icon: 'User', color: '#409EFF' },
+                warningPending: { label: '待处理预警', icon: 'Bell', color: '#F56C6C' },
                 followupActive: { label: '进行中随访', icon: 'Calendar', color: '#E6A23C' },
                 todayTodo: { label: '今日待办任务', icon: 'List', color: '#67C23A' }
             },
@@ -2334,21 +2334,12 @@ createApp({
                 if (this.charts.adminGender && !this.charts.adminGender.isDisposed()) this.charts.adminGender.dispose();
                 this.charts.adminGender = echarts.init(genderEl);
                 this.charts.adminGender.setOption({
-                    backgroundColor: 'transparent',
-                    textStyle: { color: '#B8C2CC', fontFamily: 'Rajdhani, "PingFang SC", sans-serif' },
-                    tooltip: {
-                        trigger: 'item',
-                        backgroundColor: 'rgba(27,34,43,0.92)',
-                        borderColor: 'rgba(59,179,155,0.35)', borderWidth: 1,
-                        textStyle: { color: '#E6EDF3' },
-                        extraCssText: 'backdrop-filter:blur(8px);box-shadow:0 8px 24px rgba(0,0,0,.5);'
-                    },
-                    legend: { bottom: 0, textStyle: { color: '#8B98A5' }, inactiveColor: '#454F5B' },
-                    color: ['#3BB39B', '#E06A6A'],
+                    tooltip: { trigger: 'item' },
+                    legend: { bottom: 0 },
+                    color: ['#00b55a', '#f56c6c'],
                     series: [{
                         type: 'pie', radius: ['45%', '70%'], center: ['50%', '45%'],
-                        itemStyle: { borderColor: '#0D1117', borderWidth: 3 },
-                        label: { formatter: '{b}\n{c}人 ({d}%)', color: '#B8C2CC' },
+                        label: { formatter: '{b}\n{c}人 ({d}%)' },
                         data: [
                             { name: '男', value: s.elderMale || 0 },
                             { name: '女', value: s.elderFemale || 0 }
@@ -2361,41 +2352,14 @@ createApp({
                 if (this.charts.adminRole && !this.charts.adminRole.isDisposed()) this.charts.adminRole.dispose();
                 this.charts.adminRole = echarts.init(roleEl);
                 this.charts.adminRole.setOption({
-                    backgroundColor: 'transparent',
-                    textStyle: { color: '#B8C2CC', fontFamily: 'Rajdhani, "PingFang SC", sans-serif' },
-                    tooltip: {
-                        trigger: 'axis',
-                        backgroundColor: 'rgba(27,34,43,0.92)',
-                        borderColor: 'rgba(59,179,155,0.35)', borderWidth: 1,
-                        textStyle: { color: '#E6EDF3' },
-                        axisPointer: { type: 'line', lineStyle: { color: 'rgba(59,179,155,0.4)', width: 1, type: 'dashed' } },
-                        extraCssText: 'backdrop-filter:blur(8px);box-shadow:0 8px 24px rgba(0,0,0,.5);'
-                    },
+                    tooltip: { trigger: 'axis' },
                     grid: { left: 40, right: 20, top: 30, bottom: 30 },
-                    xAxis: {
-                        type: 'category', data: ['管理员', '医生', '护士'],
-                        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.15)' } },
-                        axisTick: { show: false },
-                        axisLabel: { color: '#8B98A5' },
-                        splitLine: { show: false }
-                    },
-                    yAxis: {
-                        type: 'value',
-                        axisLine: { show: false },
-                        axisLabel: { color: '#8B98A5' },
-                        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)', type: 'dashed' } }
-                    },
-                    color: ['#3BB39B'],
+                    xAxis: { type: 'category', data: ['管理员', '医生', '护士'] },
+                    yAxis: { type: 'value' },
+                    color: ['#00b55a'],
                     series: [{
                         type: 'bar', barWidth: 40,
-                        itemStyle: {
-                            borderRadius: [4, 4, 0, 0],
-                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                                { offset: 0, color: '#3BB39B' },
-                                { offset: 1, color: 'rgba(59,179,155,0.15)' }
-                            ]),
-                            shadowColor: 'rgba(59,179,155,0.4)', shadowBlur: 10
-                        },
+                        itemStyle: { borderRadius: [6, 6, 0, 0] },
                         data: [s.adminCount || 1, s.doctorCount || 0, s.nurseCount || 0]
                     }]
                 });
@@ -2405,37 +2369,17 @@ createApp({
                 if (this.charts.adminBiz && !this.charts.adminBiz.isDisposed()) this.charts.adminBiz.dispose();
                 this.charts.adminBiz = echarts.init(bizEl);
                 this.charts.adminBiz.setOption({
-                    backgroundColor: 'transparent',
-                    textStyle: { color: '#B8C2CC', fontFamily: 'Rajdhani, "PingFang SC", sans-serif' },
-                    tooltip: {
-                        trigger: 'axis',
-                        backgroundColor: 'rgba(27,34,43,0.92)',
-                        borderColor: 'rgba(59,179,155,0.35)', borderWidth: 1,
-                        textStyle: { color: '#E6EDF3' },
-                        axisPointer: { type: 'line', lineStyle: { color: 'rgba(59,179,155,0.4)', width: 1, type: 'dashed' } },
-                        extraCssText: 'backdrop-filter:blur(8px);box-shadow:0 8px 24px rgba(0,0,0,.5);'
-                    },
+                    tooltip: { trigger: 'axis' },
                     grid: { left: 50, right: 20, top: 30, bottom: 40 },
-                    xAxis: {
-                        type: 'category', data: ['预警', '随访', '干预', '评估', '转诊', '体检'],
-                        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.15)' } },
-                        axisTick: { show: false },
-                        axisLabel: { color: '#8B98A5' },
-                        splitLine: { show: false }
-                    },
-                    yAxis: {
-                        type: 'value',
-                        axisLine: { show: false },
-                        axisLabel: { color: '#8B98A5' },
-                        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)', type: 'dashed' } }
-                    },
-                    color: ['#3BB39B'],
+                    xAxis: { type: 'category', data: ['预警', '随访', '干预', '评估', '转诊', '体检'] },
+                    yAxis: { type: 'value' },
+                    color: ['#409eff'],
                     series: [{
                         type: 'bar', barWidth: 32,
-                        itemStyle: { borderRadius: [4, 4, 0, 0], color: {
+                        itemStyle: { borderRadius: [6, 6, 0, 0], color: {
                             type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
-                            colorStops: [{ offset: 0, color: '#3BB39B' }, { offset: 1, color: 'rgba(59,179,155,0.15)' }]
-                        }, shadowColor: 'rgba(59,179,155,0.4)', shadowBlur: 10 },
+                            colorStops: [{ offset: 0, color: '#00e676' }, { offset: 1, color: '#00b55a' }]
+                        }},
                         data: [s.warningTotal, s.followupTotal, s.interventionTotal, s.assessmentTotal, s.referralTotal, s.examTotal]
                     }]
                 });
@@ -2510,15 +2454,9 @@ createApp({
             const female = data?.female || 0;
             const total = male + female;
             chart.setOption({
-                backgroundColor: 'transparent',
-                textStyle: { color: '#B8C2CC', fontFamily: 'Rajdhani, "PingFang SC", sans-serif' },
-                title: { text: '性别比例', left: 'center', top: 6, textStyle: { fontSize: 14, fontWeight: 600, color: '#E6EDF3' } },
+                title: { text: '性别比例', left: 'center', top: 6, textStyle: { fontSize: 14, fontWeight: 600, color: '#1a2332' } },
                 tooltip: {
                     trigger: 'item',
-                    backgroundColor: 'rgba(27,34,43,0.92)',
-                    borderColor: 'rgba(59,179,155,0.35)', borderWidth: 1,
-                    textStyle: { color: '#E6EDF3' },
-                    extraCssText: 'backdrop-filter:blur(8px);box-shadow:0 8px 24px rgba(0,0,0,.5);',
                     formatter: (p) => {
                         const pct = total ? ((p.value / total) * 100).toFixed(1) : 0;
                         return `<strong>${p.name}</strong><br/>人数：${p.value} 人<br/>占比：${pct}%`;
@@ -2526,21 +2464,20 @@ createApp({
                 },
                 graphic: [{
                     type: 'text', left: 'center', top: '46%',
-                    style: { text: `${total} 人`, fontSize: 18, fontWeight: 'bold', fill: '#E6EDF3', textAlign: 'center', textVerticalAlign: 'middle' }
+                    style: { text: `${total} 人`, fontSize: 18, fontWeight: 'bold', fill: '#1a2332', textAlign: 'center', textVerticalAlign: 'middle' }
                 }],
                 series: [{
                     type: 'pie',
                     radius: ['52%', '72%'],
                     avoidLabelOverlap: true,
                     padAngle: 2,
-                    itemStyle: { borderRadius: 6, borderColor: '#0D1117', borderWidth: 3 },
+                    itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
                     label: {
                         formatter: (p) => `${p.name}\n${p.percent?.toFixed(1) || 0}%`,
-                        fontSize: 12, fontWeight: 500, color: '#B8C2CC'
+                        fontSize: 12, fontWeight: 500
                     },
-                    labelLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } },
                     emphasis: {
-                        itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(59,179,155,0.5)' },
+                        itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0,0,0,0.2)' },
                         label: { fontSize: 14, fontWeight: 'bold' }
                     },
                     animationDelay: () => Math.random() * 200,
@@ -2548,7 +2485,7 @@ createApp({
                         { value: male, name: '男' },
                         { value: female, name: '女' }
                     ],
-                    color: ['#4FB6C4', '#E8895A']
+                    color: ['#3b82f6', '#f472b6']
                 }]
             }, true);
             chart.resize();
@@ -2562,15 +2499,9 @@ createApp({
             const red = data?.red || 0;
             const total = yellow + orange + red;
             chart.setOption({
-                backgroundColor: 'transparent',
-                textStyle: { color: '#B8C2CC', fontFamily: 'Rajdhani, "PingFang SC", sans-serif' },
-                title: { text: '预警级别分布', left: 'center', top: 6, textStyle: { fontSize: 14, fontWeight: 600, color: '#E6EDF3' } },
+                title: { text: '预警级别分布', left: 'center', top: 6, textStyle: { fontSize: 14, fontWeight: 600, color: '#1a2332' } },
                 tooltip: {
                     trigger: 'item',
-                    backgroundColor: 'rgba(27,34,43,0.92)',
-                    borderColor: 'rgba(59,179,155,0.35)', borderWidth: 1,
-                    textStyle: { color: '#E6EDF3' },
-                    extraCssText: 'backdrop-filter:blur(8px);box-shadow:0 8px 24px rgba(0,0,0,.5);',
                     formatter: (p) => {
                         const pct = total ? ((p.value / total) * 100).toFixed(1) : 0;
                         return `<strong>${p.name}级别</strong><br/>数量：${p.value} 条<br/>占比：${pct}%`;
@@ -2578,8 +2509,7 @@ createApp({
                 },
                 legend: {
                     bottom: 4,
-                    textStyle: { fontSize: 11, color: '#8B98A5' },
-                    inactiveColor: '#454F5B',
+                    textStyle: { fontSize: 11 },
                     itemWidth: 10,
                     itemHeight: 10
                 },
@@ -2589,22 +2519,21 @@ createApp({
                     center: ['50%', '44%'],
                     avoidLabelOverlap: true,
                     padAngle: 1.5,
-                    itemStyle: { borderRadius: 4, borderColor: '#0D1117', borderWidth: 3 },
+                    itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
                     label: {
                         formatter: (p) => `${p.name}\n${p.value}条`,
-                        fontSize: 11, color: '#B8C2CC'
+                        fontSize: 11
                     },
-                    labelLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } },
                     emphasis: {
-                        itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(59,179,155,0.5)' },
+                        itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0,0,0,0.2)' },
                         label: { fontSize: 13, fontWeight: 'bold' }
                     },
                     animationType: 'scale',
                     animationDelay: () => Math.random() * 200,
                     data: [
-                        { value: yellow, name: '低', itemStyle: { color: '#E0A44E' } },
-                        { value: orange, name: '中', itemStyle: { color: '#FF8A3D' } },
-                        { value: red, name: '高', itemStyle: { color: '#E06A6A' } }
+                        { value: yellow, name: '低', itemStyle: { color: '#fbbf24' } },
+                        { value: orange, name: '中', itemStyle: { color: '#f97316' } },
+                        { value: red, name: '高', itemStyle: { color: '#ef4444' } }
                     ]
                 }]
             }, true);
@@ -2623,23 +2552,17 @@ createApp({
             const total = data?.totalPlans || 0;
             const pct = total ? Math.round((active / total) * 100) : 0;
             chart.setOption({
-                backgroundColor: 'transparent',
-                textStyle: { color: '#B8C2CC', fontFamily: 'Rajdhani, "PingFang SC", sans-serif' },
-                title: { text: '随访进度', left: 'center', top: 6, textStyle: { fontSize: 14, fontWeight: 600, color: '#E6EDF3' } },
+                title: { text: '随访进度', left: 'center', top: 6, textStyle: { fontSize: 14, fontWeight: 600, color: '#1a2332' } },
                 tooltip: {
                     trigger: 'item',
-                    backgroundColor: 'rgba(27,34,43,0.92)',
-                    borderColor: 'rgba(59,179,155,0.35)', borderWidth: 1,
-                    textStyle: { color: '#E6EDF3' },
-                    extraCssText: 'backdrop-filter:blur(8px);box-shadow:0 8px 24px rgba(0,0,0,.5);',
                     formatter: (p) => `<strong>${p.name}</strong><br/>数量：${p.value} 个<br/>占比：${p.percent?.toFixed(1) || 0}%`
                 },
                 graphic: [{
                     type: 'text', left: 'center', top: '44%',
-                    style: { text: `${pct}%`, fontSize: 28, fontWeight: 'bold', fill: '#3BB39B', textAlign: 'center', textVerticalAlign: 'middle' }
+                    style: { text: `${pct}%`, fontSize: 28, fontWeight: 'bold', fill: '#059669', textAlign: 'center', textVerticalAlign: 'middle' }
                 }, {
                     type: 'text', left: 'center', top: '54%',
-                    style: { text: `${active}/${total}`, fontSize: 13, fill: '#8B98A5', textAlign: 'center', textVerticalAlign: 'middle' }
+                    style: { text: `${active}/${total}`, fontSize: 13, fill: '#6b7280', textAlign: 'center', textVerticalAlign: 'middle' }
                 }],
                 series: [{
                     type: 'pie',
@@ -2647,10 +2570,10 @@ createApp({
                     avoidLabelOverlap: true,
                     padAngle: 3,
                     clockwise: true,
-                    itemStyle: { borderRadius: 8, borderColor: '#0D1117', borderWidth: 3 },
+                    itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 3 },
                     label: { show: false },
                     emphasis: {
-                        itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(59,179,155,0.5)' },
+                        itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0,0,0,0.2)' },
                         scale: true,
                         scaleSize: 6
                     },
@@ -2658,8 +2581,8 @@ createApp({
                     animationEasing: 'elasticOut',
                     animationDelay: () => Math.random() * 150,
                     data: [
-                        { value: active, name: '进行中', itemStyle: { color: new window.echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#3BB39B' }, { offset: 1, color: '#2E9683' }]) } },
-                        { value: Math.max(total - active, 0), name: '待执行', itemStyle: { color: 'rgba(255,255,255,0.08)' } }
+                        { value: active, name: '进行中', itemStyle: { color: new window.echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#10b981' }, { offset: 1, color: '#059669' }]) } },
+                        { value: Math.max(total - active, 0), name: '待执行', itemStyle: { color: '#e5e7eb' } }
                     ]
                 }]
             }, true);
@@ -3263,20 +3186,13 @@ createApp({
                 const max = Math.max(...y);
                 const min = Math.min(...y);
                 this.charts.trend.setOption({
-                    backgroundColor: 'transparent',
-                    textStyle: { color: '#B8C2CC', fontFamily: 'Rajdhani, "PingFang SC", sans-serif' },
                     title: {
                         text: `${this.vitalTypeText(this.vitalsState.metric)}趋势`,
                         left: 'center', top: 6,
-                        textStyle: { fontSize: 15, fontWeight: 600, color: '#E6EDF3' }
+                        textStyle: { fontSize: 15, fontWeight: 600, color: '#1a2332' }
                     },
                     tooltip: {
                         trigger: 'axis',
-                        backgroundColor: 'rgba(27,34,43,0.92)',
-                        borderColor: 'rgba(59,179,155,0.35)', borderWidth: 1,
-                        textStyle: { color: '#E6EDF3' },
-                        axisPointer: { type: 'line', lineStyle: { color: 'rgba(59,179,155,0.4)', width: 1, type: 'dashed' } },
-                        extraCssText: 'backdrop-filter:blur(8px);box-shadow:0 8px 24px rgba(0,0,0,.5);',
                         formatter: (params) => {
                             const p = params[0];
                             return `<strong>${p.axisValue}</strong><br/>${p.marker} ${p.seriesName}: <strong>${p.value}</strong>`;
@@ -3286,15 +3202,13 @@ createApp({
                     xAxis: {
                         type: 'category',
                         data: x,
-                        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.15)' } },
-                        axisTick: { show: false },
-                        axisLabel: { fontSize: 10, color: '#8B98A5' }
+                        axisLine: { lineStyle: { color: '#d1d5db' } },
+                        axisLabel: { fontSize: 10, color: '#6b7280' }
                     },
                     yAxis: {
                         type: 'value',
-                        axisLine: { show: false },
-                        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)', type: 'dashed' } },
-                        axisLabel: { fontSize: 10, color: '#8B98A5' }
+                        splitLine: { lineStyle: { color: 'rgba(0,0,0,0.06)', type: 'dashed' } },
+                        axisLabel: { fontSize: 10, color: '#6b7280' }
                     },
                     series: [{
                         name: this.vitalTypeText(this.vitalsState.metric),
@@ -3304,18 +3218,14 @@ createApp({
                         symbol: 'circle',
                         symbolSize: 6,
                         showSymbol: x.length <= 31,
-                        lineStyle: { width: 3, color: '#3BB39B', shadowColor: 'rgba(59,179,155,0.6)', shadowBlur: 12 },
-                        itemStyle: { color: '#3BB39B', borderColor: '#0D1117', borderWidth: 2 },
-                        areaStyle: { color: new window.echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                            { offset: 0, color: 'rgba(59,179,155,0.35)' },
-                            { offset: 1, color: 'rgba(59,179,155,0.02)' }
-                        ]) },
-                        emphasis: { focus: 'series', lineStyle: { shadowBlur: 20 } },
+                        lineStyle: { width: 2.5, color: '#10b981' },
+                        itemStyle: { color: '#10b981' },
+                        areaStyle: { color: 'rgba(16,185,129,0.1)' },
                         markLine: {
                             silent: true,
                             symbol: 'none',
                             data: [
-                                { yAxis: avg, name: '均值', label: { formatter: `${avg.toFixed(1)}`, fontSize: 10, color: '#8B98A5' }, lineStyle: { color: '#8B98A5', type: 'dashed', width: 1 } }
+                                { yAxis: avg, name: '均值', label: { formatter: `${avg.toFixed(1)}`, fontSize: 10, color: '#6b7280' }, lineStyle: { color: '#6b7280', type: 'dashed', width: 1 } }
                             ]
                         },
                         animationDuration: 600,
