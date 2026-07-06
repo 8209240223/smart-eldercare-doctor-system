@@ -47,6 +47,8 @@ public class ReferralOrder implements Serializable {
     private LocalDateTime completeTime;
     private String dischargeSummary;
     private String rejectReason;
+    /** 取消原因（步骤 B3 新增） */
+    private String cancelReason;
     private String remark;
 
     @TableField(fill = FieldFill.INSERT)

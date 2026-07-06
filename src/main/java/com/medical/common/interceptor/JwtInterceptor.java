@@ -49,6 +49,7 @@ public class JwtInterceptor implements HandlerInterceptor {
         // 2. 获取用户信息
         Long userId = jwtUtils.getUserIdFromToken(token);
         String username = jwtUtils.getUsernameFromToken(token);
+        Integer userType = jwtUtils.getUserTypeFromToken(token);
 
         // 3. 校验 Token 是否在 Redis 中存在（用于强制登出/分布式会话管理）
         boolean redisTokenValid = false;

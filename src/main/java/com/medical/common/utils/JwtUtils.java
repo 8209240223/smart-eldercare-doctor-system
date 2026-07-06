@@ -25,10 +25,11 @@ public class JwtUtils {
     /**
      * 生成Token
      */
-    public String generateToken(Long userId, String username) {
+    public String generateToken(Long userId, String username, Integer userType) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("username", username);
+        claims.put("userType", userType);
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(username)
@@ -68,6 +69,17 @@ public class JwtUtils {
         Claims claims = getClaimsFromToken(token);
         if (claims == null) return null;
         return claims.getSubject();
+    }
+
+    /**
+     * 获取用户类型（步骤 B2：用于后端角色校验）
+     */
+    public Integer getUserTypeFromToken(String token) {
+        Claims claims = getClaimsFromToken(token);
+        if (claims == null) return null;
+        Object userType = claims.get("userType");
+        if (userType == null) return null;
+        return Integer.valueOf(userType.toString());
     }
 
     /**

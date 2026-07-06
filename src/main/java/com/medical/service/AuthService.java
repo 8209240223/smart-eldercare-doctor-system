@@ -28,6 +28,11 @@ public interface AuthService {
     void resetPassword(String username, String newPassword);
 
     /**
+     * 用户注册
+     */
+    void register(String username, String password, String realName, String phone, Integer userType);
+
+    /**
      * 登出（从Redis移除Token）
      */
     void logout(String tokenId);

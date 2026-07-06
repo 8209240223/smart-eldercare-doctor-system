@@ -38,3 +38,10 @@ Thumbs.db
 
 # 前端改造备份（任意层级）
 **/.backup-frontend/
+
+# 运行时/临时产物
+dump.rdb
+*.pid
+tmp_*
+tmp_pdf_render_three_modules/
+generate_three_module_pdf.py

@@ -46,28 +46,40 @@ public class ReferralController {
 
     @PutMapping("/{id}/accept")
     @OperationLog(module = "双向转诊", type = "接收", desc = "接收转诊")
-    public R<?> accept(@PathVariable Long id) {
-        referralService.acceptReferral(id);
+    public R<?> accept(@PathVariable Long id, javax.servlet.http.HttpServletRequest request) {
+        referralService.acceptReferral(id,
+                (Long) request.getAttribute("currentUserId"),
+                (Integer) request.getAttribute("currentUserType"));
         return R.ok("已接收");
     }
 
     @PutMapping("/{id}/complete")
     @OperationLog(module = "双向转诊", type = "完成", desc = "完成转诊")
-    public R<?> complete(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        referralService.completeReferral(id, body.get("dischargeSummary"));
+    public R<?> complete(@PathVariable Long id, @RequestBody Map<String, String> body,
+                         javax.servlet.http.HttpServletRequest request) {
+        referralService.completeReferral(id, body.get("dischargeSummary"),
+                (Long) request.getAttribute("currentUserId"),
+                (Integer) request.getAttribute("currentUserType"));
         return R.ok("已完成");
     }
 
     @PutMapping("/{id}/reject")
     @OperationLog(module = "双向转诊", type = "拒绝", desc = "拒绝转诊")
-    public R<?> reject(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        referralService.rejectReferral(id, body.get("reason"));
+    public R<?> reject(@PathVariable Long id, @RequestBody Map<String, String> body,
+                       javax.servlet.http.HttpServletRequest request) {
+        referralService.rejectReferral(id, body.get("reason"),
+                (Long) request.getAttribute("currentUserId"),
+                (Integer) request.getAttribute("currentUserType"));
         return R.ok("已拒绝");
     }
 
     @PutMapping("/{id}/cancel")
-    public R<?> cancel(@PathVariable Long id) {
-        referralService.cancelReferral(id);
+    public R<?> cancel(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body,
+                       javax.servlet.http.HttpServletRequest request) {
+        String reason = body == null ? null : body.get("reason");
+        referralService.cancelReferral(id, reason,
+                (Long) request.getAttribute("currentUserId"),
+                (Integer) request.getAttribute("currentUserType"));
         return R.ok("已取消");
     }
 }

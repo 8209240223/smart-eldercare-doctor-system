@@ -59,6 +59,34 @@ public class AuthController {
     }
 
     /**
+     * 用户注册
+     */
+    @PostMapping("/register")
+    public R<?> register(@RequestBody RegisterDTO dto) {
+        if (!StringUtils.hasText(dto.getUsername()) || !StringUtils.hasText(dto.getPassword())) {
+            return R.fail(400, "用户名和密码不能为空");
+        }
+        if (!StringUtils.hasText(dto.getConfirmPassword())) {
+            return R.fail(400, "请确认密码");
+        }
+        if (!dto.getPassword().equals(dto.getConfirmPassword())) {
+            return R.fail(400, "两次输入的密码不一致");
+        }
+        if (dto.getPassword().length() < 6) {
+            return R.fail(400, "密码至少6位");
+        }
+        // 验证码校验
+        if (StringUtils.hasText(dto.getCaptchaKey())) {
+            if (!captchaController.verify(dto.getCaptchaKey(), dto.getCaptchaCode())) {
+                return R.fail(400, "验证码错误或已过期");
+            }
+        }
+        authService.register(dto.getUsername(), dto.getPassword(),
+                dto.getRealName(), dto.getPhone(), dto.getUserType());
+        return R.ok("注册成功，请登录");
+    }
+
+    /**
      * 密码找回(模拟实现 - 通过手机号验证)
      */
     @PostMapping("/resetPassword")
@@ -92,5 +120,17 @@ public class AuthController {
         private String username;
         private String phone;
         private String newPassword;
+    }
+
+    @Data
+    static class RegisterDTO {
+        private String username;
+        private String password;
+        private String confirmPassword;
+        private String realName;
+        private String phone;
+        private Integer userType;
+        private String captchaKey;
+        private String captchaCode;
     }
 }

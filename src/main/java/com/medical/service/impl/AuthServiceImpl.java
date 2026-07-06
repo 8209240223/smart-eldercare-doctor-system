@@ -82,7 +82,7 @@ public class AuthServiceImpl implements AuthService {
         redisUtils.delete(loginErrorKey);
 
         // 5. 生成Token并存入Redis（分布式会话共享）
-        String token = jwtUtils.generateToken(user.getId(), user.getUsername());
+        String token = jwtUtils.generateToken(user.getId(), user.getUsername(), user.getUserType());
         String tokenId = UUID.randomUUID().toString().replace("-", "");
         String redisTokenKey = RedisKeyConstant.buildTokenKey(tokenId);
 
@@ -182,6 +182,43 @@ public class AuthServiceImpl implements AuthService {
 
         // 重置密码后清除用户缓存
         redisUtils.delete(RedisKeyConstant.buildUserKey(user.getId()));
+    }
+
+    @Override
+    public void register(String username, String password, String realName, String phone, Integer userType) {
+        // 1. 用户名唯一性校验
+        Long count = sysUserMapper.selectCount(
+                new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, username));
+        if (count > 0) {
+            throw new BusinessException(400, "用户名已存在，请更换");
+        }
+
+        // 2. 手机号校验（非必填，填了则校验格式和唯一性）
+        if (phone != null && !phone.trim().isEmpty()) {
+            if (!phone.matches("^1[3-9]\\d{9}$")) {
+                throw new BusinessException(400, "手机号格式不正确");
+            }
+            Long phoneCount = sysUserMapper.selectCount(
+                    new LambdaQueryWrapper<SysUser>().eq(SysUser::getPhone, phone));
+            if (phoneCount > 0) {
+                throw new BusinessException(400, "该手机号已被注册");
+            }
+        }
+
+        // 3. 密码强度校验
+        if (password == null || password.length() < 6) {
+            throw new BusinessException(400, "密码至少6位");
+        }
+
+        // 4. 创建用户
+        SysUser user = new SysUser();
+        user.setUsername(username);
+        user.setPassword(BCrypt.hashpw(password));
+        user.setRealName(realName != null ? realName : username);
+        user.setPhone(phone);
+        user.setUserType(userType != null ? userType : 2); // 默认医生
+        user.setStatus(1); // 直接激活
+        sysUserMapper.insert(user);
     }
 
     /**
