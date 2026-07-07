@@ -431,19 +431,37 @@
 
         // 忘记密码弹窗
         function showResetModal() {
+            if (document.getElementById('resetModal')) return;
             const modal = document.createElement('div');
+            modal.id = 'resetModal';
             modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,14,18,0.70);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;';
-            modal.innerHTML = `<div style="background:var(--bg-overlay);border:1px solid var(--border-base);border-radius:16px;padding:30px;width:380px;max-width:90%;box-shadow:var(--shadow-overlay);">
+            modal.innerHTML = `<div style="background:var(--bg-overlay);border:1px solid var(--border-base);border-radius:16px;padding:30px;width:380px;max-width:90%;box-shadow:var(--shadow-overlay);" onclick="event.stopPropagation()">
                 <h3 style="margin-bottom:20px;color:var(--text-primary);">🔒 密码找回</h3>
                 <div style="margin-bottom:14px;"><label style="font-size:13px;color:var(--text-secondary);">用户名</label><input type="text" id="resetUsername" class="form-input" placeholder="请输入用户名"></div>
                 <div style="margin-bottom:14px;"><label style="font-size:13px;color:var(--text-secondary);">绑定手机号</label><input type="text" id="resetPhone" class="form-input" placeholder="请输入手机号"></div>
                 <div style="margin-bottom:20px;"><label style="font-size:13px;color:var(--text-secondary);">新密码</label><input type="password" id="resetNewPwd" class="form-input" placeholder="至少6位新密码"></div>
                 <div style="display:flex;gap:10px;">
-                    <button onclick="this.closest('div[style]').parentElement.remove()" style="flex:1;padding:10px;border:1px solid var(--border-base);border-radius:8px;background:var(--bg-hover);color:var(--text-regular);cursor:pointer;">取消</button>
+                    <button onclick="closeResetModal()" style="flex:1;padding:10px;border:1px solid var(--border-base);border-radius:8px;background:var(--bg-hover);color:var(--text-regular);cursor:pointer;">返回登录</button>
                     <button onclick="submitReset(this)" style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--primary);color:#0A1413;font-weight:700;cursor:pointer;">确认重置</button>
                 </div>
             </div>`;
+            modal.addEventListener('click', closeResetModal);
+            document.addEventListener('keydown', resetEscHandler);
             document.body.appendChild(modal);
+            const resetUsername = document.getElementById('resetUsername');
+            if (resetUsername) resetUsername.focus();
+        }
+
+        function resetEscHandler(e) {
+            if (e.key === 'Escape') closeResetModal();
+        }
+
+        function closeResetModal() {
+            const modal = document.getElementById('resetModal');
+            if (modal) modal.remove();
+            document.removeEventListener('keydown', resetEscHandler);
+            const username = document.getElementById('username');
+            if (username) username.focus();
         }
 
         async function submitReset(btn) {
@@ -461,7 +479,7 @@
                 const data = await res.json();
                 if (data.code === 200) {
                     showToast('密码重置成功！');
-                    btn.closest('div[style]').parentElement.remove();
+                    closeResetModal();
                 } else {
                     showToast(data.msg || '重置失败', true);
                 }
