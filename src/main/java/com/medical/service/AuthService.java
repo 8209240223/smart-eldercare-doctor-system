@@ -28,6 +28,11 @@ public interface AuthService {
     void resetPassword(String username, String newPassword);
 
     /**
+     * 注册参数预校验
+     */
+    void validateRegistration(String username, String password, String realName, String phone, Integer userType);
+
+    /**
      * 用户注册
      */
     void register(String username, String password, String realName, String phone, Integer userType);

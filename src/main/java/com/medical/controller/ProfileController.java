@@ -33,18 +33,28 @@ public class ProfileController {
     @Autowired
     private SysMessageMapper sysMessageMapper;
 
+    @Autowired
+    private com.medical.common.utils.RedisUtils redisUtils;
+
     @PutMapping("/info")
     @OperationLog(module = "个人中心", type = "修改", desc = "修改个人信息")
-    public R<?> updateProfile(@RequestBody SysUser user, @RequestAttribute(required = false) Long userId) {
-        Long uid = userId != null ? userId : user.getId();
+    public R<?> updateProfile(@RequestBody SysUser user, javax.servlet.http.HttpServletRequest request) {
+        Long uid = (Long) request.getAttribute("currentUserId");
+        if (uid == null) {
+            return R.fail(401, "未登录或Token无效");
+        }
         SysUser existing = sysUserMapper.selectById(uid);
         if (existing == null) {
-            return R.fail("用户不存在");
+            return R.fail(404, "用户不存在");
         }
         if (user.getRealName() != null) existing.setRealName(user.getRealName());
         if (user.getPhone() != null) existing.setPhone(user.getPhone());
         if (user.getEmail() != null) existing.setEmail(user.getEmail());
         sysUserMapper.updateById(existing);
+        try {
+            redisUtils.delete(com.medical.common.constant.RedisKeyConstant.buildUserKey(uid));
+        } catch (Exception ignored) {
+        }
         return R.ok("修改成功");
     }
 

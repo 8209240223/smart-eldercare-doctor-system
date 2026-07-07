@@ -81,6 +81,7 @@ public class JwtInterceptor implements HandlerInterceptor {
         // 将用户信息放入request属性中
         request.setAttribute("currentUserId", userId);
         request.setAttribute("currentUsername", username);
+        request.setAttribute("currentUserType", userType);
         return true;
     }
 

@@ -75,6 +75,8 @@ public class AuthController {
         if (dto.getPassword().length() < 6) {
             return R.fail(400, "密码至少6位");
         }
+        authService.validateRegistration(dto.getUsername(), dto.getPassword(),
+                dto.getRealName(), dto.getPhone(), dto.getUserType());
         // 验证码校验
         if (StringUtils.hasText(dto.getCaptchaKey())) {
             if (!captchaController.verify(dto.getCaptchaKey(), dto.getCaptchaCode())) {
