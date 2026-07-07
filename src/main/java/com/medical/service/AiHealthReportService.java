@@ -129,7 +129,7 @@ public class AiHealthReportService {
         existing.setRiskScore(existingReport.getInt("riskScore", existing.getRiskScore()));
         existing.setRiskLevel(existingReport.getStr("riskLevel", existing.getRiskLevel()));
         existing.setReportJson(existingReport.toString());
-        existing.setModelName("deepseek-chat");
+        existing.setModelName(aiConfig.getModel());
         existing.setPromptVersion("v1.0");
         reportMapper.updateById(existing);
 
@@ -278,7 +278,7 @@ public class AiHealthReportService {
     }
 
     /**
-     * 调用 DeepSeek API
+     * 调用兼容 OpenAI Chat Completions 协议的 AI API。
      */
     private String callDeepSeek(JSONObject report) {
         String apiKey = aiConfig.getApiKey();
@@ -291,10 +291,8 @@ public class AiHealthReportService {
         int timeout = aiConfig.getTimeoutSeconds() * 1000;
         int maxRetries = aiConfig.getMaxRetries();
 
-        // 构建 prompt
         String prompt = buildAiPrompt(report);
 
-        // 构建请求体
         JSONObject body = new JSONObject();
         body.set("model", model);
         body.set("messages", new Object[]{
@@ -303,27 +301,42 @@ public class AiHealthReportService {
         });
         body.set("temperature", 0.3);
         body.set("max_tokens", 1500);
-        body.set("response_format", new JSONObject() {{ set("type", "json_object"); }});
+
+        // baseUrl 应包含完整路径（如 https://open.bigmodel.cn/api/paas/v4/chat/completions）
+        // 如果配置时没加/chat/completions 则自动补上
+        String normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        String fullUrl = normalizedBaseUrl.endsWith("/chat/completions") ? normalizedBaseUrl : normalizedBaseUrl + "/chat/completions";
+        System.out.println("[AI] 请求: " + fullUrl);
 
         Exception lastError = null;
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-                HttpResponse resp = HttpRequest.post(baseUrl + "/v1/chat/completions")
-                        .header("Authorization", "Bearer " + apiKey)
-                        .header("Content-Type", "application/json")
-                        .body(body.toString())
-                        .timeout(timeout)
-                        .execute();
+                java.net.URL url = new java.net.URL(fullUrl);
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setConnectTimeout(timeout);
+                conn.setReadTimeout(timeout);
+                conn.setDoOutput(true);
 
-                if (resp.getStatus() == 200) {
-                    JSONObject respObj = JSONUtil.parseObj(resp.body());
-                    String content = respObj.getJSONArray("choices")
-                            .getJSONObject(0)
-                            .getJSONObject("message")
-                            .getStr("content");
-                    return content;
+                byte[] bodyBytes = body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                conn.getOutputStream().write(bodyBytes);
+                conn.getOutputStream().flush();
+                conn.getOutputStream().close();
+
+                int status = conn.getResponseCode();
+                java.io.InputStream is = (status >= 200 && status < 300) ? conn.getInputStream() : conn.getErrorStream();
+                String respBody = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                is.close();
+                conn.disconnect();
+
+                if (status == 200) {
+                    JSONObject respObj = JSONUtil.parseObj(respBody);
+                    return respObj.getJSONArray("choices").getJSONObject(0)
+                            .getJSONObject("message").getStr("content");
                 } else {
-                    lastError = new BusinessException(500, "AI API 返回错误: " + resp.getStatus() + " " + resp.body());
+                    lastError = new BusinessException(500, "AI API 返回错误: " + status + " " + respBody);
                 }
             } catch (Exception e) {
                 lastError = e;

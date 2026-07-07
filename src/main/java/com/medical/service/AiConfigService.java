@@ -105,9 +105,9 @@ public class AiConfigService {
     /** 便捷方法 */
     public boolean isMockEnabled() { return getBool("ai.mock_enabled", true); }
     public String getApiKey() { return get("ai.api_key", ""); }
-    public String getBaseUrl() { return get("ai.base_url", "https://api.deepseek.com"); }
-    public String getModel() { return get("ai.model", "deepseek-chat"); }
+    public String getBaseUrl() { return get("ai.base_url", "https://open.bigmodel.cn/api/paas/v4/chat/completions"); }
+    public String getModel() { return get("ai.model", "glm-4.7-flash"); }
     public int getMaxPerDay() { return getInt("ai.max_per_day", 20); }
-    public int getTimeoutSeconds() { return getInt("ai.timeout_seconds", 30); }
+    public int getTimeoutSeconds() { return getInt("ai.timeout_seconds", 60); }
     public int getMaxRetries() { return getInt("ai.max_retries", 2); }
 }
