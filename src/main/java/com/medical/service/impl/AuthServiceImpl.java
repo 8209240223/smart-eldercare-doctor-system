@@ -185,7 +185,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public void register(String username, String password, String realName, String phone, Integer userType) {
+    public void validateRegistration(String username, String password, String realName, String phone, Integer userType) {
         // 1. 用户名唯一性校验
         Long count = sysUserMapper.selectCount(
                 new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, username));
@@ -209,7 +209,11 @@ public class AuthServiceImpl implements AuthService {
         if (password == null || password.length() < 6) {
             throw new BusinessException(400, "密码至少6位");
         }
+    }
 
+    @Override
+    public void register(String username, String password, String realName, String phone, Integer userType) {
+        validateRegistration(username, password, realName, phone, userType);
         // 4. 创建用户
         SysUser user = new SysUser();
         user.setUsername(username);

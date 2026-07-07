@@ -370,7 +370,12 @@
                     <button onclick="submitRegister(this)" style="flex:1;padding:12px;border:none;border-radius:8px;background:var(--primary);color:#0A1413;cursor:pointer;font-size:15px;font-weight:700;">提交注册</button>
                 </div>
             </div>`;
-            modal.addEventListener('click', function(e) { if (e.target === modal) closeRegModal(); });
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            });
             document.addEventListener('keydown', regEscHandler);
             document.body.appendChild(modal);
             refreshRegCaptcha();

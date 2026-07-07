@@ -2175,7 +2175,7 @@ createApp({
                 return data;
             } catch (e) {
                 console.error(e);
-                this.toast('提示', res?.msg || res?.message || '操作失败', 'error');
+                this.toast('提示', e?.message || '操作失败', 'error');
                 return null;
             }
         },

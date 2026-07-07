@@ -320,6 +320,9 @@ CREATE TABLE IF NOT EXISTS referral_order (
     KEY idx_create_time (create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='转诊单表';
 
+-- 给旧库转诊单表补充取消原因字段
+ALTER TABLE referral_order ADD COLUMN cancel_reason VARCHAR(500) DEFAULT NULL COMMENT '取消原因（B3 新增）' AFTER reject_reason;
+
 -- 可穿戴设备绑定表
 CREATE TABLE IF NOT EXISTS wearable_device (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -549,18 +552,8 @@ CREATE TABLE IF NOT EXISTS physical_exam (
     KEY idx_doctor_id (doctor_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='体检记录表';
 
--- 给护理记录表增加医生审核相关字段（通过存储过程避免重复执行错误）
-DELIMITER $$
-DROP PROCEDURE IF EXISTS add_column_if_not_exists$$
-CREATE PROCEDURE add_column_if_not_exists()
-BEGIN
-    IF NOT EXISTS (SELECT * FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='nursing_record' AND COLUMN_NAME='doctor_review') THEN
-        ALTER TABLE nursing_record ADD COLUMN doctor_review TINYINT DEFAULT 0 COMMENT '医生审核:0未审核 1已查看 2已处理' AFTER report_status;
-        ALTER TABLE nursing_record ADD COLUMN review_doctor_id BIGINT DEFAULT NULL COMMENT '审核医生ID' AFTER doctor_review;
-        ALTER TABLE nursing_record ADD COLUMN review_comment VARCHAR(500) DEFAULT NULL COMMENT '医生审核意见' AFTER review_doctor_id;
-        ALTER TABLE nursing_record ADD COLUMN review_time DATETIME DEFAULT NULL COMMENT '审核时间' AFTER review_comment;
-    END IF;
-END$$
-DELIMITER ;
-CALL add_column_if_not_exists();
-DROP PROCEDURE IF EXISTS add_column_if_not_exists;
+-- 给护理记录表增加医生审核相关字段
+ALTER TABLE nursing_record ADD COLUMN doctor_review TINYINT DEFAULT 0 COMMENT '医生审核:0未审核 1已查看 2已处理' AFTER report_status;
+ALTER TABLE nursing_record ADD COLUMN review_doctor_id BIGINT DEFAULT NULL COMMENT '审核医生ID' AFTER doctor_review;
+ALTER TABLE nursing_record ADD COLUMN review_comment VARCHAR(500) DEFAULT NULL COMMENT '医生审核意见' AFTER review_doctor_id;
+ALTER TABLE nursing_record ADD COLUMN review_time DATETIME DEFAULT NULL COMMENT '审核时间' AFTER review_comment;
