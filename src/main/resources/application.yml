@@ -102,7 +102,7 @@ ai:
   rate-limit:
     max-per-day: 20      # 每个医生每日最大 AI 调用次数
   timeout:
-    seconds: 30          # AI 调用超时时间
+    seconds: 60          # AI 调用超时时间
   retry:
     max-attempts: 2      # 调用失败重试次数
 
