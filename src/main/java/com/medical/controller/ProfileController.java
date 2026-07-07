@@ -50,6 +50,7 @@ public class ProfileController {
         if (user.getRealName() != null) existing.setRealName(user.getRealName());
         if (user.getPhone() != null) existing.setPhone(user.getPhone());
         if (user.getEmail() != null) existing.setEmail(user.getEmail());
+        if (user.getAvatar() != null) existing.setAvatar(user.getAvatar());
         sysUserMapper.updateById(existing);
         try {
             redisUtils.delete(com.medical.common.constant.RedisKeyConstant.buildUserKey(uid));

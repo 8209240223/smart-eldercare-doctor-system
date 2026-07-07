@@ -277,7 +277,10 @@ createApp({
                 </div>
                 <div class="toolbar">
                     <div class="user-chip">
-                        <div class="avatar">{{ userAvatar }}</div>
+                        <div class="avatar">
+                            <img v-if="userAvatarUrl" :src="userAvatarUrl" alt="头像" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+                            <span v-else>{{ userAvatar }}</span>
+                        </div>
                         <div>
                             <div class="name">{{ userDisplayName }}</div>
                             <div class="role">{{ userRoleText }}</div>
@@ -779,6 +782,7 @@ createApp({
                         <div class="timeline-card"><div class="desc">姓名</div><div>{{ profile.info.realName || '-' }}</div></div>
                         <div class="timeline-card"><div class="desc">手机号</div><div>{{ profile.info.phone || '-' }}</div></div>
                         <div class="timeline-card"><div class="desc">邮箱</div><div>{{ profile.info.email || '-' }}</div></div>
+                        <div class="timeline-card"><div class="desc">头像</div><div>{{ profile.info.avatar || '-' }}</div></div>
                         <div class="timeline-card"><div class="desc">角色</div><div>{{ userRoleText }}</div></div>
                         <div style="margin-top:16px;" class="actions"><button class="primary-btn" @click="saveProfile">保存基本信息</button></div>
                     </div>
@@ -788,6 +792,7 @@ createApp({
                             <div class="field"><label>姓名</label><input v-model="profile.info.realName" placeholder="请输入新的姓名"></div>
                             <div class="field"><label>手机号</label><input v-model="profile.info.phone" placeholder="请输入新的手机号"></div>
                             <div class="field"><label>邮箱</label><input v-model="profile.info.email" placeholder="请输入新的邮箱"></div>
+                            <div class="field"><label>头像URL</label><input v-model="profile.info.avatar" placeholder="请输入头像图片地址"></div>
                         </div>
                     </div>
                 </div>
@@ -2302,6 +2307,9 @@ createApp({
         },
         userAvatar() {
             return (this.userDisplayName || '医').charAt(0);
+        },
+        userAvatarUrl() {
+            return this.userInfo.avatar || this.profile.info.avatar || '';
         },
         currentTabLabel() {
             const tab = this.tabs.find(t => t.key === this.activeTab);
@@ -4480,13 +4488,20 @@ createApp({
                 id: this.profile.info.id || this.userInfo.id || this.userInfo.userId,
                 realName: this.profile.info.realName,
                 phone: this.profile.info.phone,
-                email: this.profile.info.email
+                email: this.profile.info.email,
+                avatar: this.profile.info.avatar || ''
             };
             const res = await this.api('/api/profile/info', {
                 method: 'PUT',
                 body: JSON.stringify(body)
             });
             if (res?.code === 200) {
+                const updatedUserInfo = { ...this.userInfo };
+                ['realName', 'phone', 'email', 'avatar'].forEach(key => {
+                    if (body[key] !== undefined) updatedUserInfo[key] = body[key];
+                });
+                this.userInfo = updatedUserInfo;
+                localStorage.setItem('userInfo', JSON.stringify(this.userInfo));
                 this.toast('成功', '基本信息保存成功');
                 this.loadProfile();
             } else {
