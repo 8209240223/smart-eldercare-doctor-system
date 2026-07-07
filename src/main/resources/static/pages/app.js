@@ -106,6 +106,7 @@ const NURSE_TAB_META = [
     { key: 'elders', label: '老人档案', icon: 'E' },
     { key: 'warnings', label: '预警中心', icon: 'W' },
     { key: 'followup', label: '随访计划', icon: 'F' },
+    { key: 'assessment', label: 'AI评估', icon: 'A' },
     { key: 'vitals', label: '生命体征', icon: 'V' },
     { key: 'timeline', label: '服务时间线', icon: 'T' },
     { key: 'profile', label: '个人中心', icon: 'P' }
@@ -548,7 +549,7 @@ createApp({
                                         <div class="rt-feed-title">{{ ev.warningTitle }}</div>
                                         <div class="rt-feed-meta">老人 {{ ev.elderId }} · {{ warnTypeText(ev.warningType) }} · {{ ev._time }}</div>
                                     </div>
-                                    <button class="link" @click="loadWarnings(1)">查看</button>
+                                    <button class="link" @click="ev.id ? openWarningDetail(ev.id) : loadWarnings(1)">查看</button>
                                 </div>
                             </div>
                             <div class="rt-feed-empty" v-else>暂无实时推送，新预警将自动出现在此</div>
@@ -2430,6 +2431,7 @@ createApp({
                 if (tab === 'elders') this.loadElders(1);
                 if (tab === 'warnings') this.loadWarnings(1);
                 if (tab === 'followup') this.loadFollowups(1);
+                if (tab === 'assessment') this.loadAssessments(1);
                 if (tab === 'vitals') this.loadVitals();
                 if (tab === 'timeline') this.loadTimeline(1);
                 if (tab === 'profile') this.loadProfile();
@@ -3071,6 +3073,7 @@ createApp({
                     pages: pg.pages || 0,
                     total: pg.total || 0
                 };
+                this.syncRealtimeFeedFromWarnings(this.warningPage.records);
             }
         },
         async loadRealtimeStats() {
@@ -3084,7 +3087,13 @@ createApp({
                     hourlyTrend: res.data.hourlyTrend || [],
                     onlineDoctors: res.data.onlineDoctors || 0
                 };
-                this.$nextTick(() => this.renderRtTrendChart());
+                this.$nextTick(() => this.renderRtTrendChartWithRetry());
+            }
+        },
+        renderRtTrendChartWithRetry(retry = 0) {
+            const rendered = this.renderRtTrendChart();
+            if (!rendered && retry < 8) {
+                setTimeout(() => this.renderRtTrendChartWithRetry(retry + 1), 200);
             }
         },
         renderRtTrendChart() {
@@ -3164,14 +3173,34 @@ createApp({
                 }
             };
         },
+        warningToRealtimeFeedItem(row, index = 0) {
+            const createdAt = row?.createTime || row?.triggerTime || row?.eventTime || row?.createdAt;
+            const timeText = createdAt
+                ? this.dateTimeText(createdAt).slice(11) || this.dateTimeText(createdAt)
+                : new Date().toLocaleTimeString('zh-CN', { hour12: false });
+            return {
+                id: row?.id || null,
+                warningId: row?.id || row?.warningId || null,
+                warningLevel: Number(row?.warningLevel || row?.level || 1),
+                warningTitle: row?.warningTitle || row?.title || '健康异常预警',
+                warningType: Number(row?.warningType || row?.type || 9),
+                elderId: row?.elderId || '-',
+                _key: `warning_${row?.id || Date.now()}_${index}`,
+                _time: timeText
+            };
+        },
+        syncRealtimeFeedFromWarnings(records = []) {
+            const feed = (records || []).slice(0, 8).map((row, index) => this.warningToRealtimeFeedItem(row, index));
+            if (feed.length) {
+                this.realtimeFeed = feed;
+            }
+        },
         onSseWarning(e) {
             let data;
             try { data = JSON.parse(e.data); } catch (_) { return; }
-            const item = {
-                ...data,
-                _key: Date.now() + '_' + Math.random(),
-                _time: new Date().toLocaleTimeString('zh-CN', { hour12: false })
-            };
+            const item = this.warningToRealtimeFeedItem(data);
+            item._key = Date.now() + '_' + Math.random();
+            item._time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
             this.realtimeFeed.unshift(item);
             if (this.realtimeFeed.length > 20) this.realtimeFeed.pop();
             // 弹出提醒
