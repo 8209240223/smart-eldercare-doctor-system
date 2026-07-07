@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.medical.entity.*;
 import com.medical.mapper.*;
 import com.medical.service.DashboardEnhancedService;
+import com.medical.service.FollowupTaskService;
+import com.medical.service.RiskProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -34,6 +36,12 @@ public class DashboardEnhancedServiceImpl implements DashboardEnhancedService {
 
     @Autowired
     private MedicalHistoryMapper medicalHistoryMapper;
+
+    @Autowired
+    private RiskProfileService riskProfileService;
+
+    @Autowired
+    private FollowupTaskService followupTaskService;
 
     @Override
     public Map<String, Object> getTodoList(Long doctorId) {
@@ -172,5 +180,39 @@ public class DashboardEnhancedServiceImpl implements DashboardEnhancedService {
         overview.put("activePlans", activePlans);
 
         return overview;
+    }
+
+    @Override
+    public Map<String, Object> getKeyPopulationStats() {
+        Map<String, Object> stats = new HashMap<>();
+
+        // 获取风险等级统计
+        Map<String, Object> riskStats = riskProfileService.getRiskLevelStats();
+        stats.put("highRisk", riskStats.get("highRisk"));
+        stats.put("keyPopulation", riskStats.get("key"));
+        stats.put("attention", riskStats.get("attention"));
+        stats.put("normal", riskStats.get("normal"));
+
+        // 逾期随访数
+        long overdueFollowups = followPlanMapper.selectCount(
+                new LambdaQueryWrapper<FollowPlan>()
+                        .eq(FollowPlan::getStatus, 1)
+                        .lt(FollowPlan::getNextFollowDate, LocalDate.now()));
+        stats.put("overdueFollowups", overdueFollowups);
+
+        // 今日应随访任务
+        long todayFollowups = followPlanMapper.selectCount(
+                new LambdaQueryWrapper<FollowPlan>()
+                        .eq(FollowPlan::getStatus, 1)
+                        .eq(FollowPlan::getNextFollowDate, LocalDate.now()));
+        stats.put("todayFollowups", todayFollowups);
+
+        // 今日随访任务
+        stats.put("todayTasks", followupTaskService.countTodayTasks());
+
+        // 待执行随访任务
+        stats.put("pendingTasks", followupTaskService.countPendingTasks());
+
+        return stats;
     }
 }

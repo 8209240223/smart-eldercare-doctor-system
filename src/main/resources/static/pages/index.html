@@ -885,6 +885,10 @@
                         <el-icon><clock /></el-icon>
                         <span>服务时间线</span>
                     </el-menu-item>
+                    <el-menu-item index="keyPopulation">
+                        <el-icon><warning /></el-icon>
+                        <span>重点人群</span>
+                    </el-menu-item>
                     <el-menu-item index="profile">
                         <el-icon><setting /></el-icon>
                         <span>个人中心</span>
@@ -941,6 +945,51 @@
                                                 </div>
                                                 <el-icon :size="48" :color="stat.color" style="opacity: 0.2"><component :is="stat.icon" /></el-icon>
                                             </div>
+                                        </el-card>
+                                    </el-col>
+                                </el-row>
+                                <!-- 重点人群卡片 -->
+                                <el-row :gutter="20" style="margin-top: 10px;">
+                                    <el-col :span="24">
+                                        <el-card class="box-card" shadow="hover">
+                                            <template #header>
+                                                <div class="card-header">
+                                                    <span style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                                                        <el-icon><Warning /></el-icon> 重点人群监控
+                                                    </span>
+                                                    <el-button link type="primary" @click="switchTab('keyPopulation')">查看详情</el-button>
+                                                </div>
+                                            </template>
+                                            <el-row :gutter="10">
+                                                <el-col :span="6">
+                                                    <div style="text-align: center; padding: 10px; background: #fef0f0; border-radius: 4px;">
+                                                        <div style="font-size: 12px; color: #909399; margin-bottom: 5px;">高危人群</div>
+                                                        <div style="font-size: 24px; font-weight: bold; color: #E06A6A;">{{ riskStats.highRisk || 0 }}</div>
+                                                        <div style="font-size: 12px; color: #E06A6A; margin-top: 5px;">需紧急关注</div>
+                                                    </div>
+                                                </el-col>
+                                                <el-col :span="6">
+                                                    <div style="text-align: center; padding: 10px; background: #fdf6ec; border-radius: 4px;">
+                                                        <div style="font-size: 12px; color: #909399; margin-bottom: 5px;">重点关注</div>
+                                                        <div style="font-size: 24px; font-weight: bold; color: #E0A44E;">{{ riskStats.key || 0 }}</div>
+                                                        <div style="font-size: 12px; color: #E0A44E; margin-top: 5px;">需定期随访</div>
+                                                    </div>
+                                                </el-col>
+                                                <el-col :span="6">
+                                                    <div style="text-align: center; padding: 10px; background: #e8f4f8; border-radius: 4px;">
+                                                        <div style="font-size: 12px; color: #909399; margin-bottom: 5px;">关注人群</div>
+                                                        <div style="font-size: 24px; font-weight: bold; color: #3BB39B;">{{ riskStats.attention || 0 }}</div>
+                                                        <div style="font-size: 12px; color: #3BB39B; margin-top: 5px;">需适度关注</div>
+                                                    </div>
+                                                </el-col>
+                                                <el-col :span="6">
+                                                    <div style="text-align: center; padding: 10px; background: #f0f9ff; border-radius: 4px;">
+                                                        <div style="font-size: 12px; color: #909399; margin-bottom: 5px;">今日随访任务</div>
+                                                        <div style="font-size: 24px; font-weight: bold; color: #67C23A;">{{ taskStats.today || 0 }}</div>
+                                                        <div style="font-size: 12px; color: #67C23A; margin-top: 5px;">待完成</div>
+                                                    </div>
+                                                </el-col>
+                                            </el-row>
                                         </el-card>
                                     </el-col>
                                 </el-row>
@@ -1339,6 +1388,128 @@
                                 </el-card>
                             </div>
 
+                            <!-- 重点人群管理 -->
+                            <div v-if="activeTab === 'keyPopulation'">
+                                <el-row :gutter="20">
+                                    <el-col :span="6">
+                                        <el-card shadow="hover" class="box-card stat-card" style="borderTop: 4px solid #E06A6A">
+                                            <div class="stat-card">
+                                                <div class="label">高危人数</div>
+                                                <div class="value" style="color: #E06A6A">{{ riskStats.highRisk || 0 }}</div>
+                                            </div>
+                                        </el-card>
+                                    </el-col>
+                                    <el-col :span="6">
+                                        <el-card shadow="hover" class="box-card stat-card" style="borderTop: 4px solid #E0A44E">
+                                            <div class="stat-card">
+                                                <div class="label">重点人数</div>
+                                                <div class="value" style="color: #E0A44E">{{ riskStats.key || 0 }}</div>
+                                            </div>
+                                        </el-card>
+                                    </el-col>
+                                    <el-col :span="6">
+                                        <el-card shadow="hover" class="box-card stat-card" style="borderTop: 4px solid #3BB39B">
+                                            <div class="stat-card">
+                                                <div class="label">关注人数</div>
+                                                <div class="value" style="color: #3BB39B">{{ riskStats.attention || 0 }}</div>
+                                            </div>
+                                        </el-card>
+                                    </el-col>
+                                    <el-col :span="6">
+                                        <el-card shadow="hover" class="box-card stat-card" style="borderTop: 4px solid #7E9B96">
+                                            <div class="stat-card">
+                                                <div class="label">普通人数</div>
+                                                <div class="value" style="color: #7E9B96">{{ riskStats.normal || 0 }}</div>
+                                            </div>
+                                        </el-card>
+                                    </el-col>
+                                </el-row>
+                                <el-card class="box-card" style="margin-top: 20px">
+                                    <template #header>
+                                        <div class="card-header">
+                                            <span style="font-weight: bold">重点人群列表</span>
+                                            <el-button type="primary" size="small" @click="calculateAllRisk">重新计算风险</el-button>
+                                        </div>
+                                    </template>
+                                    <el-form :inline="true" :model="riskFilter">
+                                        <el-form-item label="风险等级">
+                                            <el-select v-model="riskFilter.riskLevel" placeholder="全部等级" clearable>
+                                                <el-option label="高危" value="4" />
+                                                <el-option label="重点" value="3" />
+                                                <el-option label="关注" value="2" />
+                                                <el-option label="普通" value="1" />
+                                            </el-select>
+                                        </el-form-item>
+                                        <el-form-item>
+                                            <el-button type="primary" @click="loadKeyPopulation(1)">查询</el-button>
+                                            <el-button type="success" @click="generateFollowupTasks">自动生成随访任务</el-button>
+                                        </el-form-item>
+                                    </el-form>
+                                    <el-table :data="keyPopulationPage.records" v-loading="loading" border stripe>
+                                        <el-table-column prop="name" label="姓名" width="100" />
+                                        <el-table-column label="性别" width="80">
+                                            <template #default="scope">{{ genderText(scope.row.gender) }}</template>
+                                        </el-table-column>
+                                        <el-table-column prop="birthDate" label="出生日期" width="120" />
+                                        <el-table-column label="风险等级" width="100">
+                                            <template #default="scope">
+                                                <el-tag :type="riskLevelTag(scope.row.riskLevel)" effect="dark">
+                                                    {{ scope.row.riskLevelText }}
+                                                </el-tag>
+                                            </template>
+                                        </el-table-column>
+                                        <el-table-column prop="riskScore" label="风险评分" width="100" />
+                                        <el-table-column prop="riskTags" label="风险标签" />
+                                        <el-table-column prop="phone" label="联系电话" width="130" />
+                                        <el-table-column prop="community" label="所属社区" />
+                                        <el-table-column label="操作" width="180" fixed="right">
+                                            <template #default="scope">
+                                                <el-button link type="primary" @click="viewRiskDetail(scope.row)">风险详情</el-button>
+                                                <el-button link type="success" @click="createFollowupTask(scope.row)">创建任务</el-button>
+                                            </template>
+                                        </el-table-column>
+                                    </el-table>
+                                    <div style="margin-top: 20px; display: flex; justify-content: flex-end">
+                                        <el-pagination
+                                            v-model:current-page="keyPopulationPage.pageNum"
+                                            :page-size="keyPopulationPage.pageSize"
+                                            :total="keyPopulationPage.total"
+                                            layout="total, prev, pager, next"
+                                            @current-change="loadKeyPopulation"
+                                        />
+                                    </div>
+                                </el-card>
+                                <el-card class="box-card" style="margin-top: 20px">
+                                    <template #header>
+                                        <div class="card-header">
+                                            <span style="font-weight: bold">今日随访任务</span>
+                                            <el-button type="text" @click="switchTab('followup')">查看随访计划</el-button>
+                                        </div>
+                                    </template>
+                                    <el-table :data="todayTasks" v-loading="loading" border stripe max-height="300">
+                                        <el-table-column prop="name" label="老人姓名" width="100" />
+                                        <el-table-column label="任务类型" width="120">
+                                            <template #default="scope">{{ taskTypeText(scope.row.taskType) }}</template>
+                                        </el-table-column>
+                                        <el-table-column label="优先级" width="100">
+                                            <template #default="scope">
+                                                <el-tag :type="priorityTag(scope.row.priority)" size="small">
+                                                    {{ priorityText(scope.row.priority) }}
+                                                </el-tag>
+                                            </template>
+                                        </el-table-column>
+                                        <el-table-column prop="dueDate" label="截止日期" width="120" />
+                                        <el-table-column prop="taskReason" label="任务原因" />
+                                        <el-table-column label="操作" width="150" fixed="right">
+                                            <template #default="scope">
+                                                <el-button link type="success" @click="finishFollowupTask(scope.row)">完成</el-button>
+                                                <el-button link type="danger" @click="cancelFollowupTask(scope.row)">取消</el-button>
+                                            </template>
+                                        </el-table-column>
+                                    </el-table>
+                                </el-card>
+                            </div>
+
                             <!-- 个人中心 -->
                             <div v-if="activeTab === 'profile'">
                                 <el-row :gutter="20">
@@ -1415,6 +1586,65 @@
                 <el-form-item label="家庭住址">
                     <el-input v-model="elderModal.form.address" type="textarea" />
                 </el-form-item>
+                <!-- 风险信息展示区域（仅编辑模式显示） -->
+                <div v-if="elderModal.isEdit && elderModal.riskProfile" style="margin-top: 20px; border-top: 1px dashed #ddd; padding-top: 15px;">
+                    <el-divider content-position="left">
+                        <el-icon><Warning /></el-icon> 风险评估信息
+                    </el-divider>
+                    <el-row :gutter="20">
+                        <el-col :span="12">
+                            <div style="padding: 15px; background: #f5f7fa; border-radius: 4px;">
+                                <div style="font-size: 14px; color: #606266; margin-bottom: 10px;">风险等级</div>
+                                <el-tag :type="riskLevelTag(elderModal.riskProfile.riskLevel)" effect="dark" size="large">
+                                    {{ riskLevelText(elderModal.riskProfile.riskLevel) }}
+                                </el-tag>
+                                <div style="margin-top: 10px;">
+                                    <el-progress 
+                                        :percentage="(elderModal.riskProfile.riskScore / 120) * 100"
+                                        :color="getRiskColor(elderModal.riskProfile.riskLevel)"
+                                        :stroke-width="18"
+                                        style="width: 100%">
+                                    </el-progress>
+                                    <div style="font-size: 12px; color: #909399; margin-top: 5px;">
+                                        总评分: {{ elderModal.riskProfile.riskScore }}分
+                                    </div>
+                                </div>
+                            </div>
+                        </el-col>
+                        <el-col :span="12">
+                            <div style="padding: 15px; background: #f5f7fa; border-radius: 4px;">
+                                <div style="font-size: 14px; color: #606266; margin-bottom: 10px;">风险标签</div>
+                                <div>
+                                    <el-tag 
+                                        v-for="tag in (elderModal.riskProfile.riskTags || '').split(',').filter(t => t)" 
+                                        :key="tag"
+                                        style="margin-right: 8px; margin-bottom: 8px;"
+                                        size="small"
+                                        effect="plain">
+                                        {{ tag }}
+                                    </el-tag>
+                                </div>
+                                <div style="font-size: 12px; color: #909399; margin-top: 10px;">
+                                    上次计算: {{ dateTimeText(elderModal.riskProfile.lastCalculateTime) }}
+                                </div>
+                            </div>
+                        </el-col>
+                    </el-row>
+                    <div style="margin-top: 15px;" v-if="elderModal.riskDetails">
+                        <el-collapse>
+                            <el-collapse-item title="查看评分详情" name="details">
+                                <el-table :data="elderModal.riskDetails.scoreDetails" size="small" border>
+                                    <el-table-column prop="ruleName" label="评分项" />
+                                    <el-table-column prop="score" label="分值" width="80">
+                                        <template #default="scope">
+                                            <span style="color: #E06A6A; font-weight: bold;">+{{ scope.row.score }}</span>
+                                        </template>
+                                    </el-table-column>
+                                </el-table>
+                            </el-collapse-item>
+                        </el-collapse>
+                    </div>
+                </div>
             </el-form>
             <template #footer>
                 <el-button @click="elderModal.show = false">取消</el-button>
