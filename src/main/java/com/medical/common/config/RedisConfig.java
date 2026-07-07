@@ -16,8 +16,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.listener.PatternTopic;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
+import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+
+import com.medical.common.constant.RedisKeyConstant;
+import com.medical.service.SseService;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -76,5 +83,29 @@ public class RedisConfig {
 
         template.afterPropertiesSet();
         return template;
+    }
+
+    /**
+     * Redis 消息监听容器（用于跨实例 SSE 推送广播）
+     */
+    @Bean
+    public RedisMessageListenerContainer redisMessageListenerContainer(
+            RedisConnectionFactory factory,
+            MessageListenerAdapter warningListenerAdapter) {
+        RedisMessageListenerContainer container = new RedisMessageListenerContainer();
+        container.setConnectionFactory(factory);
+        container.addMessageListener(warningListenerAdapter,
+                new PatternTopic(RedisKeyConstant.PREFIX + ":warning:realtime"));
+        return container;
+    }
+
+    /**
+     * 预警推送消息监听器适配器
+     */
+    @Bean
+    public MessageListenerAdapter warningListenerAdapter(SseService sseService) {
+        MessageListenerAdapter adapter = new MessageListenerAdapter(sseService, "onWarningMessage");
+        adapter.setSerializer(new StringRedisSerializer());
+        return adapter;
     }
 }

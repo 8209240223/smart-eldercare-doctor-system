@@ -136,6 +136,80 @@ public class VitalSignServiceImpl implements VitalSignService {
         }
     }
 
+    @Override
+    public void generateAbnormalMockData(Long elderId, Integer dataType) {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        LocalDateTime now = LocalDateTime.now();
+
+        if (dataType != null) {
+            // 生成指定类型的异常数据
+            generateAbnormalByType(elderId, dataType, random, now);
+        } else {
+            // 生成多种类型的异常数据
+            generateAbnormalByType(elderId, 1, random, now); // 收缩压异常
+            generateAbnormalByType(elderId, 3, random, now); // 心率异常
+            generateAbnormalByType(elderId, 4, random, now); // 血糖异常
+            generateAbnormalByType(elderId, 7, random, now); // 体温异常
+        }
+    }
+
+    private void generateAbnormalByType(Long elderId, int dataType, ThreadLocalRandom random, LocalDateTime now) {
+        VitalSignData data = new VitalSignData();
+        data.setElderId(elderId);
+        data.setMeasureTime(now);
+        data.setCreateTime(now);
+
+        switch (dataType) {
+            case 1: // 收缩压异常（>180mmHg）
+                data.setDataType(1);
+                data.setDataValue(BigDecimal.valueOf(random.nextDouble(185, 220)));
+                data.setUnit("mmHg");
+                data.setIsAbnormal(1);
+                break;
+            case 2: // 舒张压异常（>110mmHg）
+                data.setDataType(2);
+                data.setDataValue(BigDecimal.valueOf(random.nextDouble(115, 140)));
+                data.setUnit("mmHg");
+                data.setIsAbnormal(1);
+                break;
+            case 3: // 心率异常（>120bpm 或 <50bpm）
+                data.setDataType(3);
+                data.setDataValue(BigDecimal.valueOf(random.nextDouble(125, 160)));
+                data.setUnit("bpm");
+                data.setIsAbnormal(1);
+                break;
+            case 4: // 空腹血糖异常（>11.1mmol/L）
+                data.setDataType(4);
+                data.setDataValue(BigDecimal.valueOf(random.nextDouble(11.5, 16.0)));
+                data.setUnit("mmol/L");
+                data.setIsAbnormal(1);
+                break;
+            case 6: // 血氧过低（<90%）
+                data.setDataType(6);
+                data.setDataValue(BigDecimal.valueOf(random.nextDouble(80, 89)));
+                data.setUnit("%");
+                data.setIsAbnormal(1);
+                break;
+            case 7: // 体温异常（>39℃）
+                data.setDataType(7);
+                data.setDataValue(BigDecimal.valueOf(random.nextDouble(39.0, 41.0)));
+                data.setUnit("°C");
+                data.setIsAbnormal(1);
+                break;
+            default:
+                return;
+        }
+
+        vitalSignDataMapper.insert(data);
+
+        // 构建体征Map供规则引擎评估
+        Map<String, BigDecimal> vitalMap = new HashMap<>();
+        vitalMap.put(getMetricCode(dataType), data.getDataValue());
+        if (elderId != null) {
+            warningRuleService.evaluateVitalSigns(elderId, vitalMap);
+        }
+    }
+
     private void insertMockVital(Long elderId, int dataType, BigDecimal value, String unit, LocalDateTime measureTime, double abnormalThreshold) {
         VitalSignData data = new VitalSignData();
         data.setElderId(elderId);

@@ -68,4 +68,19 @@ public class VitalSignController {
         vitalSignService.generateMockData(elderId, days);
         return R.ok("已生成" + days + "天模拟数据");
     }
+
+    @PostMapping("/mock/{elderId}/abnormal")
+    @OperationLog(module = "体征监测", type = "模拟", desc = "生成模拟异常体征数据（测试预警推送）")
+    public R<?> generateAbnormalMockData(@PathVariable Long elderId,
+                                          @RequestParam(required = false) Integer dataType) {
+        vitalSignService.generateAbnormalMockData(elderId, dataType);
+        String typeDesc = dataType != null ? getDataTypeText(dataType) : "多种类型";
+        return R.ok("已生成" + typeDesc + "异常体征数据，预警系统已触发检测");
+    }
+
+    private String getDataTypeText(Integer dataType) {
+        if (dataType == null) return "";
+        String[] types = {"", "收缩压", "舒张压", "心率", "空腹血糖", "餐后血糖", "血氧", "体温"};
+        return dataType >= 1 && dataType < types.length ? types[dataType] : "未知";
+    }
 }
