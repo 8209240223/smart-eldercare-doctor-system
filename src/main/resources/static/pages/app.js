@@ -2293,7 +2293,7 @@ createApp({
                 pwd: { oldPassword: '', newPassword: '', confirmPassword: '' }
             },
             healthDetail: { loading: false, data: null },
-            charts: { gender: null, warning: null, follow: null, trend: null, adminGender: null, adminRole: null, adminBiz: null }
+            charts: { gender: null, warning: null, follow: null, trend: null, rtTrend: null, adminGender: null, adminRole: null, adminBiz: null }
         };
     },
     computed: {
@@ -3441,49 +3441,55 @@ createApp({
             }
         },
         renderRtTrendChart() {
-            const chart = this.ensureChart('rtTrend', 'rtTrendChart');
-            if (!chart) return false;
-            const trend = this.realtime.hourlyTrend || [];
-            chart.setOption({
-                backgroundColor: 'transparent',
-                textStyle: { color: '#B8C2CC', fontFamily: 'Rajdhani, "PingFang SC", sans-serif' },
-                grid: { left: 40, right: 16, top: 24, bottom: 28 },
-                tooltip: {
-                    trigger: 'axis',
-                    backgroundColor: 'rgba(20,38,35,0.92)',
-                    borderColor: 'rgba(59,179,155,0.35)', borderWidth: 1,
-                    textStyle: { color: '#E8F0EE' },
-                    extraCssText: 'backdrop-filter:blur(8px);box-shadow:0 8px 24px rgba(0,0,0,.5);',
-                    formatter: (p) => `${p[0].axisValue}<br/>预警：<strong>${p[0].value}</strong> 条`
-                },
-                xAxis: {
-                    type: 'category',
-                    data: trend.map(t => t.hour),
-                    axisLine: { lineStyle: { color: 'rgba(120,200,185,0.2)' } },
-                    axisLabel: { color: '#8A9C98', fontSize: 10 }
-                },
-                yAxis: {
-                    type: 'value', minInterval: 1,
-                    splitLine: { lineStyle: { color: 'rgba(120,200,185,0.08)' } },
-                    axisLabel: { color: '#8A9C98', fontSize: 10 }
-                },
-                series: [{
-                    type: 'line', smooth: true, symbol: 'circle', symbolSize: 6,
-                    data: trend.map(t => t.count),
-                    lineStyle: { width: 2.5, color: '#3BB39B' },
-                    itemStyle: { color: '#3BB39B', borderColor: '#0D1917', borderWidth: 2 },
-                    areaStyle: {
-                        color: {
-                            type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
-                            colorStops: [
-                                { offset: 0, color: 'rgba(59,179,155,0.32)' },
-                                { offset: 1, color: 'rgba(59,179,155,0.02)' }
-                            ]
-                        }
+            const el = document.getElementById('rtTrendChart');
+            if (!el) return false;
+            while (el.firstChild) el.removeChild(el.firstChild);
+            const trend = Array.isArray(this.realtime.hourlyTrend) ? this.realtime.hourlyTrend : [];
+            const xData = trend.map(t => String(t?.hour || ''));
+            const yData = trend.map(t => Number(t?.count || 0));
+            const width = Math.max(el.clientWidth || 720, 320);
+            const height = Math.max(el.clientHeight || 220, 180);
+            const pad = { left: 44, right: 18, top: 20, bottom: 34 };
+            const chartWidth = width - pad.left - pad.right;
+            const chartHeight = height - pad.top - pad.bottom;
+            const maxValue = Math.max(1, ...yData);
+            const points = yData.map((value, index) => {
+                const x = pad.left + (xData.length <= 1 ? chartWidth : (chartWidth * index) / (xData.length - 1));
+                const y = pad.top + chartHeight - (chartHeight * value) / maxValue;
+                return { x, y, value, label: xData[index] || '' };
+            });
+            const ns = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(ns, 'svg');
+            svg.setAttribute('width', '100%');
+            svg.setAttribute('height', '100%');
+            svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+            svg.setAttribute('role', 'img');
+            svg.setAttribute('aria-label', '近 24 小时预警趋势');
+            const make = (tag, attrs = {}, text = '') => {
+                const node = document.createElementNS(ns, tag);
+                Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value)));
+                if (text) node.textContent = text;
+                return node;
+            };
+            [0, 0.25, 0.5, 0.75, 1].forEach(ratio => {
+                const y = pad.top + chartHeight * ratio;
+                svg.appendChild(make('line', { x1: pad.left, y1: y, x2: width - pad.right, y2: y, stroke: 'rgba(120,200,185,0.10)', 'stroke-width': 1 }));
+            });
+            if (points.length) {
+                const path = points.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+                const area = `${path} L ${points[points.length - 1].x.toFixed(1)} ${height - pad.bottom} L ${points[0].x.toFixed(1)} ${height - pad.bottom} Z`;
+                svg.appendChild(make('path', { d: area, fill: 'rgba(59,179,155,0.13)' }));
+                svg.appendChild(make('path', { d: path, fill: 'none', stroke: '#3BB39B', 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+                points.forEach((p, index) => {
+                    svg.appendChild(make('circle', { cx: p.x, cy: p.y, r: 4, fill: '#3BB39B', stroke: '#0D1917', 'stroke-width': 2 }));
+                    if (index % Math.ceil(points.length / 8) === 0 || index === points.length - 1) {
+                        svg.appendChild(make('text', { x: p.x, y: height - 10, fill: '#8A9C98', 'font-size': 11, 'text-anchor': 'middle' }, p.label));
                     }
-                }]
-            }, true);
-            chart.resize();
+                });
+            }
+            svg.appendChild(make('text', { x: pad.left - 8, y: pad.top + 4, fill: '#8A9C98', 'font-size': 11, 'text-anchor': 'end' }, String(maxValue)));
+            svg.appendChild(make('text', { x: pad.left - 8, y: height - pad.bottom + 4, fill: '#8A9C98', 'font-size': 11, 'text-anchor': 'end' }, '0'));
+            el.appendChild(svg);
             return true;
         },
         connectSse() {
