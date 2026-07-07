@@ -106,6 +106,7 @@ const NURSE_TAB_META = [
     { key: 'elders', label: '老人档案', icon: 'E' },
     { key: 'warnings', label: '预警中心', icon: 'W' },
     { key: 'followup', label: '随访计划', icon: 'F' },
+    { key: 'assessment', label: 'AI评估', icon: 'A' },
     { key: 'vitals', label: '生命体征', icon: 'V' },
     { key: 'timeline', label: '服务时间线', icon: 'T' },
     { key: 'profile', label: '个人中心', icon: 'P' }
@@ -2430,6 +2431,7 @@ createApp({
                 if (tab === 'elders') this.loadElders(1);
                 if (tab === 'warnings') this.loadWarnings(1);
                 if (tab === 'followup') this.loadFollowups(1);
+                if (tab === 'assessment') this.loadAssessments(1);
                 if (tab === 'vitals') this.loadVitals();
                 if (tab === 'timeline') this.loadTimeline(1);
                 if (tab === 'profile') this.loadProfile();
