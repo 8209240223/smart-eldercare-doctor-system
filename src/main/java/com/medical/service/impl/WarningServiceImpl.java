@@ -117,6 +117,7 @@ public class WarningServiceImpl implements WarningService {
         // 构建推送数据
         Map<String, Object> pushData = new HashMap<>();
         pushData.put("id", warningId);
+        pushData.put("warningId", warningId);
         pushData.put("elderId", warning.getElderId());
         pushData.put("warningType", warning.getWarningType());
         pushData.put("warningLevel", warning.getWarningLevel());
