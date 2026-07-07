@@ -615,3 +615,66 @@ SET @sql := IF(@col_exists = 0,
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
+
+-- ============================================
+-- AI 健康评估模块表（v1.0 新增）
+-- ============================================
+
+-- 评估规则配置表
+CREATE TABLE IF NOT EXISTS assessment_rule (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    rule_code VARCHAR(50) NOT NULL COMMENT '规则编码',
+    rule_name VARCHAR(100) NOT NULL COMMENT '规则名称',
+    category VARCHAR(20) NOT NULL COMMENT '分类',
+    indicator VARCHAR(50) DEFAULT NULL COMMENT '指标字段名',
+    data_source VARCHAR(30) DEFAULT 'physical_exam' COMMENT '数据来源',
+    operator VARCHAR(10) NOT NULL COMMENT '比较符',
+    threshold DECIMAL(10,2) DEFAULT NULL COMMENT '阈值',
+    extra_condition VARCHAR(100) DEFAULT NULL COMMENT '附加条件',
+    severity TINYINT NOT NULL DEFAULT 1 COMMENT '1提示 2注意 3警告',
+    finding_text VARCHAR(500) DEFAULT NULL COMMENT '发现描述模板',
+    advice_text VARCHAR(1000) DEFAULT NULL COMMENT '建议措施',
+    enabled TINYINT DEFAULT 1 COMMENT '是否启用',
+    sort_order INT DEFAULT 0 COMMENT '排序',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_rule_code (rule_code),
+    KEY idx_category (category),
+    KEY idx_enabled (enabled)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='评估规则配置表';
+
+-- AI 健康评估报告表
+CREATE TABLE IF NOT EXISTS ai_health_report (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    elder_id BIGINT NOT NULL COMMENT '老人ID',
+    doctor_id BIGINT DEFAULT NULL COMMENT '生成/确认医生ID',
+    source TINYINT NOT NULL DEFAULT 1 COMMENT '来源:1规则引擎 2AI引擎',
+    risk_score INT DEFAULT 0 COMMENT '风险评分(0-100)',
+    risk_level VARCHAR(20) DEFAULT NULL COMMENT '风险等级',
+    report_json TEXT DEFAULT NULL COMMENT '结构化报告JSON',
+    status TINYINT DEFAULT 0 COMMENT '状态:0草稿 1已确认 2已驳回 3已归档',
+    model_name VARCHAR(50) DEFAULT NULL COMMENT '使用的模型名称',
+    prompt_version VARCHAR(20) DEFAULT NULL COMMENT '提示词模板版本号',
+    reject_reason VARCHAR(500) DEFAULT NULL COMMENT '驳回原因',
+    edited_report_json TEXT DEFAULT NULL COMMENT '编辑后的报告JSON',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '生成时间',
+    confirm_time DATETIME DEFAULT NULL COMMENT '确认时间',
+    PRIMARY KEY (id),
+    KEY idx_elder_id (elder_id),
+    KEY idx_doctor_id (doctor_id),
+    KEY idx_status (status),
+    KEY idx_source (source),
+    KEY idx_create_time (create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI健康评估报告表';
+
+-- AI 配置表
+CREATE TABLE IF NOT EXISTS ai_config (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    config_key VARCHAR(100) NOT NULL COMMENT '配置键',
+    config_value VARCHAR(2000) DEFAULT NULL COMMENT '配置值',
+    config_desc VARCHAR(255) DEFAULT NULL COMMENT '配置说明',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_config_key (config_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI配置表';

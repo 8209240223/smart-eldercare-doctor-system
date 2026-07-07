@@ -91,6 +91,21 @@ file:
   upload-path: ./upload
   allowed-types: jpg,jpeg,png,gif,pdf,xlsx,xls,doc,docx
 
+# AI 健康评估配置
+ai:
+  deepseek:
+    api-key: ${DEEPSEEK_API_KEY:}
+    base-url: https://api.deepseek.com
+    model: deepseek-chat
+  mock:
+    enabled: true        # 开发阶段启用 Mock，上线后改为 false
+  rate-limit:
+    max-per-day: 20      # 每个医生每日最大 AI 调用次数
+  timeout:
+    seconds: 30          # AI 调用超时时间
+  retry:
+    max-attempts: 2      # 调用失败重试次数
+
 # 日志配置
 logging:
   level:
