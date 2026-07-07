@@ -1,4 +1,4 @@
-﻿const { createApp } = Vue;
+const { createApp } = Vue;
 
 const RECORD_TYPE_MAP = {
     1: '基础护理',
@@ -73,6 +73,7 @@ const TAB_META = [
     { key: 'dashboard', label: '工作台', icon: 'D' },
     { key: 'elders', label: '老人档案', icon: 'E' },
     { key: 'warnings', label: '预警中心', icon: 'W' },
+    { key: 'keyPopulation', label: '重点人群', icon: 'K' },
     { key: 'followup', label: '随访计划', icon: 'F' },
     { key: 'intervention', label: '干预管理', icon: 'I' },
     { key: 'assessment', label: '评估记录', icon: 'A' },
@@ -89,6 +90,7 @@ const ADMIN_TAB_META = [
     { key: 'admin-ai-config', label: 'AI配置', icon: 'Z' },
     { key: 'elders', label: '老人档案', icon: 'E' },
     { key: 'warnings', label: '预警中心', icon: 'W' },
+    { key: 'keyPopulation', label: '重点人群', icon: 'K' },
     { key: 'followup', label: '随访计划', icon: 'F' },
     { key: 'intervention', label: '干预管理', icon: 'I' },
     { key: 'assessment', label: '评估记录', icon: 'S' },
@@ -498,6 +500,94 @@ createApp({
                     <button :disabled="elderPage.pageNum<=1" @click="loadElders(elderPage.pageNum-1)">上一页</button>
                     <button v-for="p in pageWindow(elderPage.pageNum, elderPage.pages)" :key="'e'+p" :class="{active: p===elderPage.pageNum}" @click="loadElders(p)">{{ p }}</button>
                     <button :disabled="elderPage.pageNum>=elderPage.pages" @click="loadElders(elderPage.pageNum+1)">下一页</button>
+                </div>
+            </section>
+            <section v-if="activeTab==='keyPopulation'" class="card section">
+                <div class="section-head">
+                    <div>
+                        <h3>重点人群风险分层</h3>
+                        <p>基于高龄、慢病、预警、护理异常和随访逾期等因素识别重点管理对象，并自动生成随访任务</p>
+                    </div>
+                    <div class="actions">
+                        <button class="soft-btn" @click="calculateAllRisk()">重新计算风险</button>
+                        <button class="primary-btn" @click="generateFollowupTasks()">生成随访任务</button>
+                    </div>
+                </div>
+                <div class="panel-grid" style="margin-bottom:14px;">
+                    <div class="card stat-card">
+                        <div class="stat-label">高危老人</div>
+                        <div class="stat-value" style="color:#ff6b6b;">{{ riskStats.highRisk || 0 }}</div>
+                        <div class="stat-sub">需优先跟进</div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-label">重点人群</div>
+                        <div class="stat-value" style="color:#e6a23c;">{{ riskStats.key || 0 }}</div>
+                        <div class="stat-sub">纳入重点随访</div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-label">关注人群</div>
+                        <div class="stat-value" style="color:#4fc3f7;">{{ riskStats.attention || 0 }}</div>
+                        <div class="stat-sub">持续观察</div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-label">普通老人</div>
+                        <div class="stat-value" style="color:#67c23a;">{{ riskStats.normal || 0 }}</div>
+                        <div class="stat-sub">常规管理</div>
+                    </div>
+                </div>
+                <div class="filters">
+                    <div class="field">
+                        <label>风险等级</label>
+                        <select v-model="riskFilter.riskLevel">
+                            <option :value="null">全部等级</option>
+                            <option :value="4">高危</option>
+                            <option :value="3">重点</option>
+                            <option :value="2">关注</option>
+                            <option :value="1">普通</option>
+                        </select>
+                    </div>
+                    <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadKeyPopulation(1)">查询</button></div>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead><tr><th>老人ID</th><th>姓名</th><th>风险等级</th><th>风险评分</th><th>风险标签</th><th>上次计算</th><th>操作</th></tr></thead>
+                        <tbody>
+                        <tr v-if="keyPopulationPage.records.length===0"><td colspan="7"><div class="empty-state">暂无重点人群数据，请先点击“重新计算风险”</div></td></tr>
+                        <tr v-for="row in keyPopulationPage.records" :key="'risk'+row.elderId">
+                            <td>{{ row.elderId }}</td>
+                            <td><strong>{{ row.elderName || row.name || '-' }}</strong></td>
+                            <td><span class="tag" :class="riskLevelTag(row.riskLevel)">{{ riskLevelText(row.riskLevel) }}</span></td>
+                            <td>{{ row.riskScore || 0 }}</td>
+                            <td>{{ row.riskTags || '-' }}</td>
+                            <td>{{ dateTimeText(row.lastCalculateTime) }}</td>
+                            <td><div class="actions">
+                                <button class="link" @click="viewRiskDetail(row)">查看画像</button>
+                                <button class="ok" @click="generateFollowupTasks()">生成任务</button>
+                            </div></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pager" v-if="keyPopulationPage.pages>1">
+                    <button :disabled="keyPopulationPage.pageNum<=1" @click="loadKeyPopulation(keyPopulationPage.pageNum-1)">上一页</button>
+                    <button v-for="p in pageWindow(keyPopulationPage.pageNum, keyPopulationPage.pages)" :key="'kp'+p" :class="{active: p===keyPopulationPage.pageNum}" @click="loadKeyPopulation(p)">{{ p }}</button>
+                    <button :disabled="keyPopulationPage.pageNum>=keyPopulationPage.pages" @click="loadKeyPopulation(keyPopulationPage.pageNum+1)">下一页</button>
+                </div>
+                <div class="card list-card" style="margin-top:14px;">
+                    <div class="list-head">
+                        <div><div class="list-title">今日随访任务</div><div class="hint">由风险分层规则自动生成的待办随访</div></div>
+                        <span class="tag tag-warning">待处理 {{ taskStats.pending || 0 }}</span>
+                    </div>
+                    <div v-if="todayTasks.length===0" class="empty-state">暂无今日随访任务</div>
+                    <div v-else class="timeline-list">
+                        <div class="timeline-card" v-for="task in todayTasks" :key="'task'+task.id">
+                            <div>
+                                <div class="title">老人 {{ task.elderId }} · {{ taskTypeText(task.taskType) }}</div>
+                                <div class="desc">{{ task.taskReason || '-' }}</div>
+                            </div>
+                            <span class="tag" :class="priorityTag(task.priority)">{{ priorityText(task.priority) }}</span>
+                        </div>
+                    </div>
                 </div>
             </section>
             <section v-if="activeTab==='warnings'" class="card section">
@@ -2167,6 +2257,12 @@ createApp({
             deviceForm: blankDevice(),
             timelineFilter: { elderId: '', startDate: '', endDate: '', eventType: '' },
             timelinePage: { records: [], pageNum: 1, pageSize: 20, pages: 0, total: 0 },
+            // 重点人群模块数据
+            keyPopulationPage: { pageNum: 1, pageSize: 10, total: 0, records: [] },
+            riskStats: { highRisk: 0, key: 0, attention: 0, normal: 0 },
+            riskFilter: { riskLevel: null },
+            todayTasks: [],
+            taskStats: { pending: 0, today: 0 },
             timelineSummary: { total: 0 },
             // 体检管理
             examFilter: { elderId: '', startDate: '', endDate: '' },
@@ -2378,6 +2474,15 @@ createApp({
         reportStatusMap() { return REPORT_STATUS_MAP; },
         effectScoreMap() { return EFFECT_SCORE_MAP; }
     },
+    watch: {
+        activeTab(newVal) {
+            if (newVal === 'keyPopulation') {
+                this.loadRiskStats();
+                this.loadKeyPopulation(1);
+                this.loadTodayTasks();
+            }
+        }
+    },
     mounted() {
         if (!this.token) {
             window.location.href = '/index.html';
@@ -2483,6 +2588,189 @@ createApp({
             if (tab === 'timeline') this.loadTimeline(1);
             if (tab === 'profile') this.loadProfile();
         },
+        // ========== 重点人群管理方法 ==========
+        async loadRiskStats() {
+            try {
+                const res = await axios.get('/api/risk/stats');
+                if (res.data.code === 200) {
+                    this.riskStats = res.data.data;
+                }
+            } catch (error) {
+                console.error('加载风险统计失败:', error);
+            }
+        },
+        async loadKeyPopulation(pageNum) {
+            if (pageNum) this.keyPopulationPage.pageNum = pageNum;
+            try {
+                const params = {
+                    pageNum: this.keyPopulationPage.pageNum,
+                    pageSize: this.keyPopulationPage.pageSize
+                };
+                if (this.riskFilter.riskLevel) {
+                    params.riskLevel = this.riskFilter.riskLevel;
+                }
+                const res = await axios.get('/api/risk/elders', { params });
+                if (res.data.code === 200) {
+                    this.keyPopulationPage = res.data.data;
+                    // 处理数据，添加风险等级文本
+                    this.keyPopulationPage.records = this.keyPopulationPage.records.map(item => {
+                        item.riskLevelText = this.riskLevelText(item.riskLevel);
+                        return item;
+                    });
+                }
+            } catch (error) {
+                console.error('加载重点人群失败:', error);
+                this.$message.error('加载重点人群失败');
+            }
+        },
+        async calculateAllRisk() {
+            try {
+                const res = await axios.post('/api/risk/elders/calculate');
+                if (res.data.code === 200) {
+                    this.$message.success(res.data.message);
+                    this.loadRiskStats();
+                    this.loadKeyPopulation(1);
+                }
+            } catch (error) {
+                console.error('风险计算失败:', error);
+                this.$message.error('风险计算失败');
+            }
+        },
+        async generateFollowupTasks() {
+            try {
+                const res = await axios.post('/api/followup/tasks/generate');
+                if (res.data.code === 200) {
+                    this.$message.success(res.data.message);
+                    this.loadTodayTasks();
+                }
+            } catch (error) {
+                console.error('生成任务失败:', error);
+                this.$message.error('生成任务失败');
+            }
+        },
+        async loadTodayTasks() {
+            try {
+                const res = await axios.get('/api/followup/tasks/today');
+                if (res.data.code === 200) {
+                    this.todayTasks = res.data.data;
+                }
+            } catch (error) {
+                console.error('加载今日任务失败:', error);
+            }
+        },
+        async viewRiskDetail(row) {
+            try {
+                const res = await axios.get(`/api/risk/elders/${row.elderId}`);
+                if (res.data.code === 200) {
+                    const detail = res.data.data;
+                    // 显示风险详情对话框
+                    this.$alert(
+                        `<div>
+                            <p><strong>风险等级:</strong> ${this.riskLevelText(detail.profile.riskLevel)}</p>
+                            <p><strong>风险评分:</strong> ${detail.profile.riskScore}分</p>
+                            <p><strong>风险标签:</strong> ${detail.profile.riskTags}</p>
+                            <p><strong>上次计算时间:</strong> ${this.dateTimeText(detail.profile.lastCalculateTime)}</p>
+                            <hr/>
+                            <p><strong>评分详情:</strong></p>
+                            <ul>
+                                ${detail.reasonDetails.scoreDetails.map(d => 
+                                    `<li>${d.ruleName}: +${d.score}分</li>`
+                                ).join('')}
+                            </ul>
+                        </div>`,
+                        '风险画像详情',
+                        {
+                            dangerouslyUseHTMLString: true,
+                            confirmButtonText: '关闭'
+                        }
+                    );
+                }
+            } catch (error) {
+                console.error('获取风险详情失败:', error);
+                this.$message.error('获取风险详情失败');
+            }
+        },
+        async createFollowupTask(row) {
+            try {
+                await this.$confirm('当前系统按风险规则批量生成随访任务，是否立即执行生成?', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'info'
+                });
+                await this.generateFollowupTasks();
+            } catch (error) {
+                if (error !== 'cancel') {
+                    console.error('创建任务失败:', error);
+                }
+            }
+        },
+        async finishFollowupTask(row) {
+            try {
+                await this.$prompt('请输入关联的随访记录ID', '完成任务', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    inputPattern: /^\d+$/,
+                    inputErrorMessage: '请输入有效的数字ID'
+                }).then(({ value }) => {
+                    return axios.put(`/api/followup/tasks/${row.id}/finish?followRecordId=${value}`);
+                });
+                
+                this.$message.success('任务已完成');
+                this.loadTodayTasks();
+            } catch (error) {
+                if (error !== 'cancel') {
+                    console.error('完成任务失败:', error);
+                    this.$message.error('完成任务失败');
+                }
+            }
+        },
+        async cancelFollowupTask(row) {
+            try {
+                await this.$prompt('请输入取消原因', '取消任务', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                }).then(({ value }) => {
+                    return axios.put(`/api/followup/tasks/${row.id}/cancel?reason=${encodeURIComponent(value)}`);
+                });
+                
+                this.$message.success('任务已取消');
+                this.loadTodayTasks();
+            } catch (error) {
+                if (error !== 'cancel') {
+                    console.error('取消任务失败:', error);
+                }
+            }
+        },
+        // 辅助方法
+        riskLevelText(level) {
+            const map = { 1: '普通', 2: '关注', 3: '重点', 4: '高危' };
+            return map[level] || '未知';
+        },
+        riskLevelTag(level) {
+            const map = { 1: 'info', 2: 'success', 3: 'warning', 4: 'danger' };
+            return map[level] || 'info';
+        },
+        taskTypeText(type) {
+            const map = { 1: '风险随访', 2: '逾期随访', 3: '预约随访' };
+            return map[type] || '未知';
+        },
+        priorityText(priority) {
+            const map = { 1: '低', 2: '中', 3: '高', 4: '紧急' };
+            return map[priority] || '未知';
+        },
+        priorityTag(priority) {
+            const map = { 1: 'tag-success', 2: 'tag-warning', 3: 'tag-danger', 4: 'tag-danger' };
+            return map[priority] || 'tag-default';
+        },
+        priorityTag(priority) {
+            const map = { 1: 'info', 2: 'success', 3: 'warning', 4: 'danger' };
+            return map[priority] || 'info';
+        },
+        getRiskColor(level) {
+            const map = { 1: '#7E9B96', 2: '#3BB39B', 3: '#E0A44E', 4: '#E06A6A' };
+            return map[level] || '#7E9B96';
+        },
+        // ========== 重点人群管理方法结束 ==========
         reloadCurrentTab() {
             this.switchTab(this.activeTab);
         },
@@ -2570,7 +2858,9 @@ createApp({
         async bootstrap() {
             await Promise.all([
                 this.loadDashboard(),
-                this.loadProfile()
+                this.loadProfile(),
+                this.loadRiskStats(),
+                this.loadTodayTasks()
             ]);
         },
         async bootstrapNurse() {
@@ -3034,6 +3324,29 @@ createApp({
             this.elderForm = item ? { ...blankElder(), ...item } : blankElder();
             this.modal = 'elder';
             this.modalData = { item };
+            // 如果是编辑模式，加载老人的风险信息
+            if (item && item.id) {
+                this.loadElderRiskProfile(item.id);
+            }
+        },
+        async loadElderRiskProfile(elderId) {
+            try {
+                const res = await this.api(`/api/risk/elders/${elderId}`);
+                if (res && res.code === 200) {
+                    const detail = res.data;
+                    this.modalData.riskProfile = detail.profile;
+                    // 解析评分详情
+                    if (detail.profile && detail.profile.reasonJson) {
+                        try {
+                            this.modalData.riskDetails = JSON.parse(detail.profile.reasonJson);
+                        } catch (e) {
+                            console.error('解析风险详情失败', e);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('加载风险信息失败', error);
+            }
         },
         async saveElder() {
             if (!this.elderForm.name || !this.elderForm.idCard || !this.elderForm.phone) {
