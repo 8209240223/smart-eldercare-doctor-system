@@ -4,10 +4,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.exception.BusinessException;
 import com.medical.entity.HealthWarning;
+import com.medical.entity.TimelineEvent;
 import com.medical.entity.WarningEventLog;
 import com.medical.mapper.HealthWarningMapper;
 import com.medical.mapper.WarningEventLogMapper;
 import com.medical.service.SseService;
+import com.medical.service.TimelineService;
 import com.medical.service.WarningService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +37,9 @@ public class WarningServiceImpl implements WarningService {
 
     @Autowired
     private SseService sseService;
+
+    @Autowired
+    private TimelineService timelineService;
 
     @Override
     public Page<HealthWarning> list(Integer pageNum, Integer pageSize, Integer status, Integer warningLevel, Long elderId) {
@@ -138,6 +143,7 @@ public class WarningServiceImpl implements WarningService {
         warningEventLogMapper.insert(eventLog);
 
         // 构建推送数据
+        addWarningTimeline(warning);
         Map<String, Object> pushData = new HashMap<>();
         pushData.put("id", warningId);
         pushData.put("warningId", warningId);
@@ -401,6 +407,19 @@ public class WarningServiceImpl implements WarningService {
         }
 
         return create(warning);
+    }
+
+    private void addWarningTimeline(HealthWarning warning) {
+        TimelineEvent event = new TimelineEvent();
+        event.setElderId(warning.getElderId());
+        event.setEventType(2);
+        event.setEventTitle(warning.getWarningTitle());
+        event.setEventContent(warning.getWarningContent());
+        event.setSourceType("warning");
+        event.setSourceId(warning.getId());
+        event.setDoctorId(warning.getDoctorId());
+        event.setEventTime(warning.getCreateTime() != null ? warning.getCreateTime() : LocalDateTime.now());
+        timelineService.addEvent(event);
     }
 
     private String getEventTypeText(Integer eventType) {
