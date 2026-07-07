@@ -2009,6 +2009,31 @@ createApp({
             </div>
         </div>
     </div>
+    <transition name="alert">
+        <div v-if="warningAlertVisible && realtimeWarning" class="warning-alert-overlay" @click.self="dismissWarningAlert">
+            <div class="warning-alert-card" :class="'level-' + (realtimeWarning.warningLevel || 3)">
+                <div class="alert-header">
+                    <span class="alert-icon">{{ realtimeWarning.warningLevel === 3 ? '🚨' : realtimeWarning.warningLevel === 2 ? '⚠️' : '⚡' }}</span>
+                    <span class="alert-title">{{ realtimeWarning.warningLevel === 3 ? '红色预警' : realtimeWarning.warningLevel === 2 ? '橙色预警' : '黄色预警' }}</span>
+                </div>
+                <div class="alert-body">
+                    <div class="alert-msg">{{ realtimeWarning.warningTitle || '收到新的健康预警' }}</div>
+                    <div class="alert-detail" v-if="realtimeWarning.warningContent">{{ realtimeWarning.warningContent }}</div>
+                    <div class="alert-meta">
+                        <span>老人ID: {{ realtimeWarning.elderId || '-' }}</span>
+                        <span v-if="realtimeWarning.warningValue">数值: {{ realtimeWarning.warningValue }}</span>
+                        <span v-if="realtimeWarning.createTime">{{ dateTimeText(realtimeWarning.createTime) }}</span>
+                    </div>
+                </div>
+                <div class="alert-actions">
+                    <button class="primary-btn" @click="handleRealtimeWarningAction">立即处理</button>
+                    <button class="ghost-btn" @click="dismissWarningAlert">稍后处理</button>
+                </div>
+                <div class="alert-timer"><div class="timer-bar"></div></div>
+            </div>
+        </div>
+    </transition>
+
     <div class="toast-wrap">
         <div v-for="toast in toasts" :key="toast.id" class="toast" :class="{error: toast.type==='error'}">
             <strong>{{ toast.title }}</strong>
@@ -2094,6 +2119,12 @@ createApp({
             sse: { connected: false, connecting: false, source: null, retry: 0 },
             realtime: { redPending: 0, orangePending: 0, yellowPending: 0, totalPending: 0, hourlyTrend: [], onlineDoctors: 0 },
             realtimeFeed: [],
+            realtimeWarning: null,
+            warningAlertVisible: false,
+            warningAlertTimer: null,
+            alertedWarningIds: {},
+            recentAlertFingerprints: {},
+            audioCtx: null,
             warningForm: blankWarning(),
             followFilter: { status: '', diseaseType: '', elderId: '' },
             followPage: { records: [], pageNum: 1, pageSize: 10, pages: 0, total: 0 },
@@ -3198,17 +3229,115 @@ createApp({
         onSseWarning(e) {
             let data;
             try { data = JSON.parse(e.data); } catch (_) { return; }
+            if (typeof data === 'string') {
+                try { data = JSON.parse(data); } catch (_) { return; }
+            }
+            if (!this.shouldAcceptRealtimeWarning(data)) return;
             const item = this.warningToRealtimeFeedItem(data);
             item._key = Date.now() + '_' + Math.random();
             item._time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
             this.realtimeFeed.unshift(item);
             if (this.realtimeFeed.length > 20) this.realtimeFeed.pop();
-            // 弹出提醒
+            this.showRealtimeWarningAlert(data);
             const lvText = this.warnLevelText(data.warningLevel);
             this.toast(`🚨 新预警 · ${lvText}`, `${data.warningTitle || ''}（老人 ${data.elderId}）`, data.warningLevel >= 3 ? 'error' : 'warning');
-            // 刷新实时统计与列表
             this.loadRealtimeStats();
             if (this.activeTab === 'warnings') this.loadWarnings(this.warningPage.pageNum);
+        },
+        shouldAcceptRealtimeWarning(data) {
+            if (!data) return false;
+            if (!data.id && !data.warningId && !data.warningTitle && !data.warningContent && !data.elderId) {
+                console.log('[SSE] 忽略空预警事件:', data);
+                return false;
+            }
+            const now = Date.now();
+            const warningId = data.id || data.warningId;
+            if (warningId != null) {
+                if (Object.prototype.hasOwnProperty.call(this.alertedWarningIds, warningId)) {
+                    console.log('[SSE] 忽略重复预警(id):', warningId);
+                    return false;
+                }
+                this.alertedWarningIds[warningId] = now;
+                const ids = Object.keys(this.alertedWarningIds);
+                if (ids.length > 500) {
+                    ids.sort((a, b) => this.alertedWarningIds[a] - this.alertedWarningIds[b]);
+                    for (let i = 0; i < 100; i += 1) delete this.alertedWarningIds[ids[i]];
+                }
+            }
+            Object.keys(this.recentAlertFingerprints).forEach((key) => {
+                if (this.recentAlertFingerprints[key] <= now) delete this.recentAlertFingerprints[key];
+            });
+            const fp = [
+                data.elderId || '',
+                data.warningType || '',
+                data.warningLevel || '',
+                data.warningTitle || '',
+                data.warningValue || ''
+            ].join('|');
+            if (this.recentAlertFingerprints[fp]) {
+                console.log('[SSE] 忽略重复预警(指纹):', fp);
+                return false;
+            }
+            this.recentAlertFingerprints[fp] = now + 5000;
+            return true;
+        },
+        showRealtimeWarningAlert(data) {
+            this.playWarningSound(Number(data.warningLevel || 3));
+            this.realtimeWarning = { ...data, id: data.id || data.warningId };
+            this.warningAlertVisible = true;
+            if (this.warningAlertTimer) clearTimeout(this.warningAlertTimer);
+            this.warningAlertTimer = setTimeout(() => {
+                this.warningAlertVisible = false;
+                this.realtimeWarning = null;
+                this.warningAlertTimer = null;
+            }, 10000);
+        },
+        playWarningSound(level) {
+            try {
+                if (!this.audioCtx) {
+                    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                const ctx = this.audioCtx;
+                const oscillator = ctx.createOscillator();
+                const gainNode = ctx.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(ctx.destination);
+                if (level === 3) {
+                    oscillator.frequency.value = 880;
+                    oscillator.type = 'square';
+                } else if (level === 2) {
+                    oscillator.frequency.value = 660;
+                    oscillator.type = 'triangle';
+                } else {
+                    oscillator.frequency.value = 440;
+                    oscillator.type = 'sine';
+                }
+                gainNode.gain.value = 0.1;
+                oscillator.start();
+                gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+                oscillator.stop(ctx.currentTime + 0.5);
+            } catch (err) {
+                console.warn('[SSE] 音频播放失败:', err);
+            }
+        },
+        dismissWarningAlert() {
+            if (this.warningAlertTimer) {
+                clearTimeout(this.warningAlertTimer);
+                this.warningAlertTimer = null;
+            }
+            this.warningAlertVisible = false;
+            this.realtimeWarning = null;
+        },
+        handleRealtimeWarningAction() {
+            const item = this.realtimeWarning;
+            if (!item) return;
+            this.dismissWarningAlert();
+            this.switchTab('warnings');
+            if (item.id) {
+                this.openWarningHandle(item, 'handle');
+            } else {
+                this.loadWarnings(1);
+            }
         },
         disconnectSse() {
             if (this.sse.source) {
@@ -3217,6 +3346,10 @@ createApp({
             this.sse.source = null;
             this.sse.connected = false;
             this.sse.connecting = false;
+            if (this.warningAlertTimer) {
+                clearTimeout(this.warningAlertTimer);
+                this.warningAlertTimer = null;
+            }
         },
         openWarningModal() {
             this.warningForm = blankWarning();
