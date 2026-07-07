@@ -502,6 +502,94 @@ createApp({
                     <button :disabled="elderPage.pageNum>=elderPage.pages" @click="loadElders(elderPage.pageNum+1)">下一页</button>
                 </div>
             </section>
+            <section v-if="activeTab==='keyPopulation'" class="card section">
+                <div class="section-head">
+                    <div>
+                        <h3>重点人群风险分层</h3>
+                        <p>基于高龄、慢病、预警、护理异常和随访逾期等因素识别重点管理对象，并自动生成随访任务</p>
+                    </div>
+                    <div class="actions">
+                        <button class="soft-btn" @click="calculateAllRisk()">重新计算风险</button>
+                        <button class="primary-btn" @click="generateFollowupTasks()">生成随访任务</button>
+                    </div>
+                </div>
+                <div class="panel-grid" style="margin-bottom:14px;">
+                    <div class="card stat-card">
+                        <div class="stat-label">高危老人</div>
+                        <div class="stat-value" style="color:#ff6b6b;">{{ riskStats.highRisk || 0 }}</div>
+                        <div class="stat-sub">需优先跟进</div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-label">重点人群</div>
+                        <div class="stat-value" style="color:#e6a23c;">{{ riskStats.key || 0 }}</div>
+                        <div class="stat-sub">纳入重点随访</div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-label">关注人群</div>
+                        <div class="stat-value" style="color:#4fc3f7;">{{ riskStats.attention || 0 }}</div>
+                        <div class="stat-sub">持续观察</div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-label">普通老人</div>
+                        <div class="stat-value" style="color:#67c23a;">{{ riskStats.normal || 0 }}</div>
+                        <div class="stat-sub">常规管理</div>
+                    </div>
+                </div>
+                <div class="filters">
+                    <div class="field">
+                        <label>风险等级</label>
+                        <select v-model="riskFilter.riskLevel">
+                            <option :value="null">全部等级</option>
+                            <option :value="4">高危</option>
+                            <option :value="3">重点</option>
+                            <option :value="2">关注</option>
+                            <option :value="1">普通</option>
+                        </select>
+                    </div>
+                    <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadKeyPopulation(1)">查询</button></div>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead><tr><th>老人ID</th><th>姓名</th><th>风险等级</th><th>风险评分</th><th>风险标签</th><th>上次计算</th><th>操作</th></tr></thead>
+                        <tbody>
+                        <tr v-if="keyPopulationPage.records.length===0"><td colspan="7"><div class="empty-state">暂无重点人群数据，请先点击“重新计算风险”</div></td></tr>
+                        <tr v-for="row in keyPopulationPage.records" :key="'risk'+row.elderId">
+                            <td>{{ row.elderId }}</td>
+                            <td><strong>{{ row.elderName || row.name || '-' }}</strong></td>
+                            <td><span class="tag" :class="riskLevelTag(row.riskLevel)">{{ riskLevelText(row.riskLevel) }}</span></td>
+                            <td>{{ row.riskScore || 0 }}</td>
+                            <td>{{ row.riskTags || '-' }}</td>
+                            <td>{{ dateTimeText(row.lastCalculateTime) }}</td>
+                            <td><div class="actions">
+                                <button class="link" @click="viewRiskDetail(row)">查看画像</button>
+                                <button class="ok" @click="generateFollowupTasks()">生成任务</button>
+                            </div></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pager" v-if="keyPopulationPage.pages>1">
+                    <button :disabled="keyPopulationPage.pageNum<=1" @click="loadKeyPopulation(keyPopulationPage.pageNum-1)">上一页</button>
+                    <button v-for="p in pageWindow(keyPopulationPage.pageNum, keyPopulationPage.pages)" :key="'kp'+p" :class="{active: p===keyPopulationPage.pageNum}" @click="loadKeyPopulation(p)">{{ p }}</button>
+                    <button :disabled="keyPopulationPage.pageNum>=keyPopulationPage.pages" @click="loadKeyPopulation(keyPopulationPage.pageNum+1)">下一页</button>
+                </div>
+                <div class="card list-card" style="margin-top:14px;">
+                    <div class="list-head">
+                        <div><div class="list-title">今日随访任务</div><div class="hint">由风险分层规则自动生成的待办随访</div></div>
+                        <span class="tag tag-warning">待处理 {{ taskStats.pending || 0 }}</span>
+                    </div>
+                    <div v-if="todayTasks.length===0" class="empty-state">暂无今日随访任务</div>
+                    <div v-else class="timeline-list">
+                        <div class="timeline-card" v-for="task in todayTasks" :key="'task'+task.id">
+                            <div>
+                                <div class="title">老人 {{ task.elderId }} · {{ taskTypeText(task.taskType) }}</div>
+                                <div class="desc">{{ task.taskReason || '-' }}</div>
+                            </div>
+                            <span class="tag" :class="priorityTag(task.priority)">{{ priorityText(task.priority) }}</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
             <section v-if="activeTab==='warnings'" class="card section">
                 <div class="section-head">
                     <div>
@@ -2604,15 +2692,12 @@ createApp({
         },
         async createFollowupTask(row) {
             try {
-                await this.$confirm('确认为此老人创建随访任务?', '提示', {
+                await this.$confirm('当前系统按风险规则批量生成随访任务，是否立即执行生成?', '提示', {
                     confirmButtonText: '确定',
                     cancelButtonText: '取消',
                     type: 'info'
                 });
-                
-                // 这里可以调用后端API创建单个任务（需要扩展后端接口）
-                this.$message.success('任务创建成功');
-                this.loadTodayTasks();
+                await this.generateFollowupTasks();
             } catch (error) {
                 if (error !== 'cancel') {
                     console.error('创建任务失败:', error);
@@ -2672,6 +2757,10 @@ createApp({
         priorityText(priority) {
             const map = { 1: '低', 2: '中', 3: '高', 4: '紧急' };
             return map[priority] || '未知';
+        },
+        priorityTag(priority) {
+            const map = { 1: 'tag-success', 2: 'tag-warning', 3: 'tag-danger', 4: 'tag-danger' };
+            return map[priority] || 'tag-default';
         },
         priorityTag(priority) {
             const map = { 1: 'info', 2: 'success', 3: 'warning', 4: 'danger' };
