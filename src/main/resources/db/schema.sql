@@ -321,7 +321,18 @@ CREATE TABLE IF NOT EXISTS referral_order (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='转诊单表';
 
 -- 给旧库转诊单表补充取消原因字段
-ALTER TABLE referral_order ADD COLUMN cancel_reason VARCHAR(500) DEFAULT NULL COMMENT '取消原因（B3 新增）' AFTER reject_reason;
+SET @col_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'referral_order'
+      AND COLUMN_NAME = 'cancel_reason'
+);
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE referral_order ADD COLUMN cancel_reason VARCHAR(500) DEFAULT NULL COMMENT ''取消原因（B3 新增）'' AFTER reject_reason',
+    'SELECT ''cancel_reason exists''');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- 可穿戴设备绑定表
 CREATE TABLE IF NOT EXISTS wearable_device (
@@ -553,7 +564,54 @@ CREATE TABLE IF NOT EXISTS physical_exam (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='体检记录表';
 
 -- 给护理记录表增加医生审核相关字段
-ALTER TABLE nursing_record ADD COLUMN doctor_review TINYINT DEFAULT 0 COMMENT '医生审核:0未审核 1已查看 2已处理' AFTER report_status;
-ALTER TABLE nursing_record ADD COLUMN review_doctor_id BIGINT DEFAULT NULL COMMENT '审核医生ID' AFTER doctor_review;
-ALTER TABLE nursing_record ADD COLUMN review_comment VARCHAR(500) DEFAULT NULL COMMENT '医生审核意见' AFTER review_doctor_id;
-ALTER TABLE nursing_record ADD COLUMN review_time DATETIME DEFAULT NULL COMMENT '审核时间' AFTER review_comment;
+SET @col_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'nursing_record'
+      AND COLUMN_NAME = 'doctor_review'
+);
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE nursing_record ADD COLUMN doctor_review TINYINT DEFAULT 0 COMMENT ''医生审核:0未审核 1已查看 2已处理'' AFTER report_status',
+    'SELECT ''doctor_review exists''');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @col_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'nursing_record'
+      AND COLUMN_NAME = 'review_doctor_id'
+);
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE nursing_record ADD COLUMN review_doctor_id BIGINT DEFAULT NULL COMMENT ''审核医生ID'' AFTER doctor_review',
+    'SELECT ''review_doctor_id exists''');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @col_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'nursing_record'
+      AND COLUMN_NAME = 'review_comment'
+);
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE nursing_record ADD COLUMN review_comment VARCHAR(500) DEFAULT NULL COMMENT ''医生审核意见'' AFTER review_doctor_id',
+    'SELECT ''review_comment exists''');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @col_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'nursing_record'
+      AND COLUMN_NAME = 'review_time'
+);
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE nursing_record ADD COLUMN review_time DATETIME DEFAULT NULL COMMENT ''审核时间'' AFTER review_comment',
+    'SELECT ''review_time exists''');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
