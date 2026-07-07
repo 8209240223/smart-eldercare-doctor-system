@@ -884,7 +884,7 @@ createApp({
                 <div class="section-head">
                     <div>
                         <h3>🤖 AI 健康评估 — 管理员配置</h3>
-                        <p>配置 DeepSeek API Key 及模型参数，支持 Mock 模式用于开发测试</p>
+                        <p>配置 AI API Key 及模型参数，支持 Mock 模式用于开发测试</p>
                     </div>
                     <div class="actions">
                         <button class="soft-btn" @click="loadAiConfig()">🔄 刷新配置</button>
@@ -896,13 +896,13 @@ createApp({
                     <div class="form-row" style="margin-bottom:12px; grid-template-columns:1fr;">
                         <div class="field">
                             <label>API Key</label>
-                            <input v-model="aiConfig.form.apiKey" type="text" placeholder="sk-xxxxxxxxxxxxxxxx" style="font-family:monospace;">
-                            <span class="hint">通过环境变量 DEEPSEEK_API_KEY 注入，或在此处直接填写</span>
+                            <input v-model="aiConfig.form.apiKey" type="password" placeholder="sk-xxxxxxxxxxxxxxxx" style="font-family:monospace;">
+                            <span class="hint">可通过环境变量注入，或在此处直接填写</span>
                         </div>
                     </div>
                     <div class="form-row">
-                        <div class="field"><label>API 地址</label><input v-model="aiConfig.form.baseUrl" placeholder="https://api.deepseek.com"></div>
-                        <div class="field"><label>模型</label><input v-model="aiConfig.form.model" placeholder="deepseek-chat"></div>
+                        <div class="field"><label>API 地址</label><input v-model="aiConfig.form.baseUrl" placeholder="https://open.bigmodel.cn/api/paas/v4/chat/completions"></div>
+                        <div class="field"><label>模型</label><input v-model="aiConfig.form.model" placeholder="glm-4.7-flash"></div>
                     </div>
                     <div class="form-row" style="margin-top:12px;">
                         <div class="field"><label>每日限制（次/医生）</label><input v-model.number="aiConfig.form.maxPerDay" type="number"></div>
@@ -2233,7 +2233,7 @@ createApp({
             generateReportInput: { elderId: '' },
             aiAssessmentInput: { elderId: '' },
             aiReport: { loading: false, error: '', data: null, reportId: null, status: 0 },
-            aiConfig: { loading: false, saved: false, form: { apiKey: '', baseUrl: 'https://api.deepseek.com', model: 'deepseek-chat', maxPerDay: 20, timeoutSeconds: 30, maxRetries: 2, mockEnabled: true } },
+            aiConfig: { loading: false, saved: false, form: { apiKey: '', baseUrl: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4.7-flash', maxPerDay: 20, timeoutSeconds: 60, maxRetries: 2, mockEnabled: true } },
             aiReportListFilter: { elderId: '' },
             aiReportList: { loading: false, records: [] },
             aiReportsForElder: [],
@@ -4081,10 +4081,10 @@ createApp({
                     const map = {};
                     (res.data || []).forEach(c => { map[c.configKey] = c.configValue; });
                     this.aiConfig.form.apiKey = map['ai.api_key'] || '';
-                    this.aiConfig.form.baseUrl = map['ai.base_url'] || 'https://api.deepseek.com';
-                    this.aiConfig.form.model = map['ai.model'] || 'deepseek-chat';
+                    this.aiConfig.form.baseUrl = map['ai.base_url'] || 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+                    this.aiConfig.form.model = map['ai.model'] || 'glm-4.7-flash';
                     this.aiConfig.form.maxPerDay = parseInt(map['ai.max_per_day'] || '20');
-                    this.aiConfig.form.timeoutSeconds = parseInt(map['ai.timeout_seconds'] || '30');
+                    this.aiConfig.form.timeoutSeconds = parseInt(map['ai.timeout_seconds'] || '60');
                     this.aiConfig.form.maxRetries = parseInt(map['ai.max_retries'] || '2');
                     this.aiConfig.form.mockEnabled = (map['ai.mock_enabled'] || 'true') === 'true';
                 }
@@ -4096,12 +4096,12 @@ createApp({
         async saveAiConfig() {
             const f = this.aiConfig.form;
             const body = {
-                'ai.api_key': { value: f.apiKey || '', desc: 'DeepSeek API Key' },
-                'ai.base_url': { value: f.baseUrl || 'https://api.deepseek.com', desc: 'API 基础地址' },
-                'ai.model': { value: f.model || 'deepseek-chat', desc: '模型名称' },
+                'ai.api_key': { value: f.apiKey || '', desc: 'AI API Key' },
+                'ai.base_url': { value: f.baseUrl || 'https://open.bigmodel.cn/api/paas/v4/chat/completions', desc: 'API 基础地址' },
+                'ai.model': { value: f.model || 'glm-4.7-flash', desc: '模型名称' },
                 'ai.mock_enabled': { value: f.mockEnabled ? 'true' : 'false', desc: 'Mock模式' },
                 'ai.max_per_day': { value: String(f.maxPerDay || 20), desc: '每日上限' },
-                'ai.timeout_seconds': { value: String(f.timeoutSeconds || 30), desc: '超时秒数' },
+                'ai.timeout_seconds': { value: String(f.timeoutSeconds || 60), desc: '超时秒数' },
                 'ai.max_retries': { value: String(f.maxRetries || 2), desc: '重试次数' }
             };
             const res = await this.api('/api/ai/config', { method: 'PUT', body: JSON.stringify(body) });
