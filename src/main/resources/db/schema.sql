@@ -678,3 +678,35 @@ CREATE TABLE IF NOT EXISTS ai_config (
     PRIMARY KEY (id),
     UNIQUE KEY uk_config_key (config_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI配置表';
+
+-- ============================================
+-- 实时健康预警中心（v1.0 新增）
+-- ============================================
+
+-- 预警事件日志表（记录预警推送/读取/处理全链路）
+CREATE TABLE IF NOT EXISTS warning_event_log (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    warning_id BIGINT NOT NULL COMMENT '关联预警ID',
+    event_type TINYINT NOT NULL COMMENT '事件类型:1生成 2推送 3已读 4处理 5忽略 6超时',
+    operator_id BIGINT DEFAULT NULL COMMENT '操作人ID',
+    operator_name VARCHAR(50) DEFAULT NULL COMMENT '操作人姓名',
+    event_detail VARCHAR(500) DEFAULT NULL COMMENT '事件详情',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发生时间',
+    PRIMARY KEY (id),
+    KEY idx_warning_id (warning_id),
+    KEY idx_event_type (event_type),
+    KEY idx_create_time (create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='预警事件日志表';
+
+-- 预警推送渠道配置表
+CREATE TABLE IF NOT EXISTS warning_push_channel (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    doctor_id BIGINT NOT NULL COMMENT '医生ID',
+    channel_type TINYINT NOT NULL COMMENT '渠道类型:1页面推送 2声音提醒 3弹窗提醒',
+    enabled TINYINT DEFAULT 1 COMMENT '是否启用:0禁用 1启用',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_doctor_channel (doctor_id, channel_type),
+    KEY idx_doctor_id (doctor_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='预警推送渠道配置表';

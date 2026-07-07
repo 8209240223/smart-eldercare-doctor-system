@@ -36,6 +36,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/auth/register",
                         "/api/auth/captcha",
                         "/api/auth/resetPassword",
+                        "/api/warnings/stream",
                         "/",
                         "/index.html",
                         "/static/**",

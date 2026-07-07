@@ -5,9 +5,9 @@ import com.medical.entity.HealthWarning;
 import com.medical.entity.TimelineEvent;
 import com.medical.entity.WarningRule;
 import com.medical.mapper.WarningRuleMapper;
-import com.medical.mapper.HealthWarningMapper;
 import com.medical.service.TimelineService;
 import com.medical.service.WarningRuleService;
+import com.medical.service.WarningService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -23,7 +23,7 @@ public class WarningRuleServiceImpl implements WarningRuleService {
     private WarningRuleMapper warningRuleMapper;
 
     @Autowired
-    private HealthWarningMapper healthWarningMapper;
+    private WarningService warningService;
 
     @Autowired
     private TimelineService timelineService;
@@ -121,7 +121,7 @@ public class WarningRuleServiceImpl implements WarningRuleService {
     }
 
     private void createWarningFromRule(Long elderId, WarningRule rule, BigDecimal actualValue) {
-        // 创建健康预警
+        // 创建健康预警（通过WarningService自动触发SSE推送）
         HealthWarning warning = new HealthWarning();
         warning.setElderId(elderId);
         warning.setWarningType(rule.getRuleType());
@@ -131,10 +131,10 @@ public class WarningRuleServiceImpl implements WarningRuleService {
         warning.setWarningContent("规则[" + rule.getRuleName() + "]触发: " + rule.getMetricCode() + "=" + actualValue + ", 条件: " + rule.getConditionExpr());
         warning.setWarningValue(actualValue.toString());
         warning.setThresholdValue(rule.getConditionExpr());
-        warning.setStatus(0);
         warning.setCreateTime(LocalDateTime.now());
         warning.setUpdateTime(LocalDateTime.now());
-        healthWarningMapper.insert(warning);
+
+        Long warningId = warningService.create(warning);
 
         // 写入时间轴
         TimelineEvent event = new TimelineEvent();
@@ -143,7 +143,7 @@ public class WarningRuleServiceImpl implements WarningRuleService {
         event.setEventTitle("智能预警: " + title);
         event.setEventContent(warning.getWarningContent());
         event.setSourceType("warning");
-        event.setSourceId(warning.getId());
+        event.setSourceId(warningId);
         event.setEventTime(LocalDateTime.now());
         timelineService.addEvent(event);
     }

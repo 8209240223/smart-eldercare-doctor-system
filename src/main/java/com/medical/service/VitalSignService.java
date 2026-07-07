@@ -24,4 +24,11 @@ public interface VitalSignService {
     Map<String, Object> getLatestVitals(Long elderId);
 
     void generateMockData(Long elderId, Integer days);
+
+    /**
+     * 生成模拟异常体征数据（用于测试预警系统）
+     * @param elderId 老人ID
+     * @param dataType 数据类型（可选，不传则生成多种异常数据）
+     */
+    void generateAbnormalMockData(Long elderId, Integer dataType);
 }

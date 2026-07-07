@@ -603,6 +603,71 @@
 
         .chart-box { width: 100%; height: 260px; background: transparent; }
 
+        /* ===== 实时预警监测面板 ===== */
+        .rt-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+            margin-right: 12px; letter-spacing: .3px;
+        }
+        .rt-badge .rt-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .rt-on  { background: var(--success-bg); color: var(--success); border: 1px solid rgba(76,179,149,0.35); }
+        .rt-on  .rt-dot { background: var(--success); box-shadow: 0 0 0 0 rgba(76,179,149,0.6); animation: pulseGlow 1.8s infinite; }
+        .rt-off { background: var(--info-bg); color: var(--text-secondary); border: 1px solid var(--border-base); }
+        .rt-off .rt-dot { background: var(--text-disabled); }
+
+        .rt-panel { margin-bottom: 20px; }
+        .rt-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
+        .rt-stat {
+            position: relative; padding: 16px 18px; border-radius: var(--radius-lg);
+            background: var(--bg-elevated); border: 1px solid var(--border-base);
+            overflow: hidden; transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+        }
+        .rt-stat::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+        .rt-stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+        .rt-stat-num { font-family: var(--font-number); font-size: 30px; font-weight: 700; line-height: 1; }
+        .rt-stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 8px; letter-spacing: .5px; }
+        .rt-stat-red::before    { background: var(--danger); }
+        .rt-stat-red    .rt-stat-num { color: var(--danger); }
+        .rt-stat-orange::before { background: var(--accent-warm); }
+        .rt-stat-orange .rt-stat-num { color: var(--accent-warm); }
+        .rt-stat-yellow::before { background: var(--warning); }
+        .rt-stat-yellow .rt-stat-num { color: var(--warning); }
+        .rt-stat-total::before  { background: var(--primary); }
+        .rt-stat-total  .rt-stat-num { color: var(--primary); }
+
+        .rt-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+        .rt-chart-card, .rt-feed-card {
+            background: var(--bg-elevated); border: 1px solid var(--border-base);
+            border-radius: var(--radius-lg); padding: 16px 18px;
+        }
+        .rt-card-title {
+            font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .rt-feed-count {
+            background: var(--primary-light-9); color: var(--primary); border: 1px solid var(--border-glow);
+            font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 10px; font-family: var(--font-number);
+        }
+        .rt-feed { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .rt-feed-item {
+            display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+            background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius);
+            animation: rtSlideIn var(--dur-base) var(--ease-out);
+        }
+        .rt-feed-item.rt-lv-3 { border-left: 3px solid var(--danger); }
+        .rt-feed-item.rt-lv-2 { border-left: 3px solid var(--accent-warm); }
+        .rt-feed-item.rt-lv-1 { border-left: 3px solid var(--warning); }
+        .rt-feed-lv { flex-shrink: 0; }
+        .rt-feed-body { flex: 1; min-width: 0; }
+        .rt-feed-title { font-size: 13px; color: var(--text-primary); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rt-feed-meta { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+        .rt-feed-empty { padding: 32px 16px; text-align: center; color: var(--text-placeholder); font-size: 13px; }
+        @keyframes rtSlideIn { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+        @media (max-width: 900px) {
+            .rt-stats { grid-template-columns: repeat(2, 1fr); }
+            .rt-grid { grid-template-columns: 1fr; }
+        }
+
         /* ===== 评估报告样式 ===== */
         .report-container { font-size: 13px; color: var(--text-regular); }
         .report-header {

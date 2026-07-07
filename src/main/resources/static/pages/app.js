@@ -505,7 +505,55 @@ createApp({
                         <h3>预警中心</h3>
                         <p>实时监测老人健康异常信号，支持按等级、类型和状态进行多维度筛选和处理</p>
                     </div>
-                    <div class="actions"><button class="primary-btn" @click="openWarningModal()">+ 新建预警</button></div>
+                    <div class="actions">
+                        <span class="rt-badge" :class="sse.connected ? 'rt-on' : 'rt-off'">
+                            <span class="rt-dot"></span>{{ sse.connected ? '实时监测中' : (sse.connecting ? '连接中…' : '未连接') }}
+                        </span>
+                        <button class="primary-btn" @click="openWarningModal()">+ 新建预警</button>
+                    </div>
+                </div>
+                <div class="rt-panel">
+                    <div class="rt-stats">
+                        <div class="rt-stat rt-stat-red">
+                            <div class="rt-stat-num">{{ realtime.redPending || 0 }}</div>
+                            <div class="rt-stat-label">高危待处理</div>
+                        </div>
+                        <div class="rt-stat rt-stat-orange">
+                            <div class="rt-stat-num">{{ realtime.orangePending || 0 }}</div>
+                            <div class="rt-stat-label">中危待处理</div>
+                        </div>
+                        <div class="rt-stat rt-stat-yellow">
+                            <div class="rt-stat-num">{{ realtime.yellowPending || 0 }}</div>
+                            <div class="rt-stat-label">低危待处理</div>
+                        </div>
+                        <div class="rt-stat rt-stat-total">
+                            <div class="rt-stat-num">{{ realtime.totalPending || 0 }}</div>
+                            <div class="rt-stat-label">待处理合计</div>
+                        </div>
+                    </div>
+                    <div class="rt-grid">
+                        <div class="rt-chart-card">
+                            <div class="rt-card-title">近 24 小时预警趋势</div>
+                            <div id="rtTrendChart" class="chart-box" style="height:220px;"></div>
+                        </div>
+                        <div class="rt-feed-card">
+                            <div class="rt-card-title">
+                                实时预警流
+                                <span class="rt-feed-count" v-if="realtimeFeed.length">{{ realtimeFeed.length }}</span>
+                            </div>
+                            <div class="rt-feed" v-if="realtimeFeed.length">
+                                <div class="rt-feed-item" v-for="ev in realtimeFeed" :key="ev._key" :class="'rt-lv-'+ev.warningLevel">
+                                    <span class="rt-feed-lv" :class="warnLevelClass(ev.warningLevel)">{{ warnLevelText(ev.warningLevel) }}</span>
+                                    <div class="rt-feed-body">
+                                        <div class="rt-feed-title">{{ ev.warningTitle }}</div>
+                                        <div class="rt-feed-meta">老人 {{ ev.elderId }} · {{ warnTypeText(ev.warningType) }} · {{ ev._time }}</div>
+                                    </div>
+                                    <button class="link" @click="loadWarnings(1)">查看</button>
+                                </div>
+                            </div>
+                            <div class="rt-feed-empty" v-else>暂无实时推送，新预警将自动出现在此</div>
+                        </div>
+                    </div>
                 </div>
                 <div class="filters">
                     <div class="field"><label>状态</label><select v-model="warningFilter.status"><option value="">全部状态</option><option value="0">待处理</option><option value="1">处理中</option><option value="2">已处理</option><option value="3">已关闭</option></select></div>
@@ -2042,6 +2090,9 @@ createApp({
             elderForm: blankElder(),
             warningFilter: { status: '', warningLevel: '', elderId: '' },
             warningPage: { records: [], pageNum: 1, pageSize: 10, pages: 0, total: 0 },
+            sse: { connected: false, connecting: false, source: null, retry: 0 },
+            realtime: { redPending: 0, orangePending: 0, yellowPending: 0, totalPending: 0, hourlyTrend: [], onlineDoctors: 0 },
+            realtimeFeed: [],
             warningForm: blankWarning(),
             followFilter: { status: '', diseaseType: '', elderId: '' },
             followPage: { records: [], pageNum: 1, pageSize: 10, pages: 0, total: 0 },
@@ -2308,9 +2359,11 @@ createApp({
             this.bootstrap();
         }
         window.addEventListener('resize', this.resizeCharts);
+        this.connectSse();
     },
     beforeUnmount() {
         window.removeEventListener('resize', this.resizeCharts);
+        this.disconnectSse();
         Object.keys(this.charts).forEach(k => {
             if (this.charts[k] && !this.charts[k].isDisposed()) {
                 this.charts[k].dispose();
@@ -2354,6 +2407,7 @@ createApp({
         },
         switchTab(tab) {
             this.activeTab = tab;
+            if (tab === 'warnings') this.loadRealtimeStats();
             if (this.isAdmin) {
                 if (tab === 'admin-dashboard') this.loadAdminDashboard();
                 else if (tab === 'admin-ai-config') this.loadAiConfig();
@@ -3018,6 +3072,122 @@ createApp({
                     total: pg.total || 0
                 };
             }
+        },
+        async loadRealtimeStats() {
+            const res = await this.api('/api/warnings/stats/realtime');
+            if (res?.code === 200 && res.data) {
+                this.realtime = {
+                    redPending: res.data.redPending || 0,
+                    orangePending: res.data.orangePending || 0,
+                    yellowPending: res.data.yellowPending || 0,
+                    totalPending: res.data.totalPending || 0,
+                    hourlyTrend: res.data.hourlyTrend || [],
+                    onlineDoctors: res.data.onlineDoctors || 0
+                };
+                this.$nextTick(() => this.renderRtTrendChart());
+            }
+        },
+        renderRtTrendChart() {
+            const chart = this.ensureChart('rtTrend', 'rtTrendChart');
+            if (!chart) return false;
+            const trend = this.realtime.hourlyTrend || [];
+            chart.setOption({
+                backgroundColor: 'transparent',
+                textStyle: { color: '#B8C2CC', fontFamily: 'Rajdhani, "PingFang SC", sans-serif' },
+                grid: { left: 40, right: 16, top: 24, bottom: 28 },
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: 'rgba(20,38,35,0.92)',
+                    borderColor: 'rgba(59,179,155,0.35)', borderWidth: 1,
+                    textStyle: { color: '#E8F0EE' },
+                    extraCssText: 'backdrop-filter:blur(8px);box-shadow:0 8px 24px rgba(0,0,0,.5);',
+                    formatter: (p) => `${p[0].axisValue}<br/>预警：<strong>${p[0].value}</strong> 条`
+                },
+                xAxis: {
+                    type: 'category',
+                    data: trend.map(t => t.hour),
+                    axisLine: { lineStyle: { color: 'rgba(120,200,185,0.2)' } },
+                    axisLabel: { color: '#8A9C98', fontSize: 10 }
+                },
+                yAxis: {
+                    type: 'value', minInterval: 1,
+                    splitLine: { lineStyle: { color: 'rgba(120,200,185,0.08)' } },
+                    axisLabel: { color: '#8A9C98', fontSize: 10 }
+                },
+                series: [{
+                    type: 'line', smooth: true, symbol: 'circle', symbolSize: 6,
+                    data: trend.map(t => t.count),
+                    lineStyle: { width: 2.5, color: '#3BB39B' },
+                    itemStyle: { color: '#3BB39B', borderColor: '#0D1917', borderWidth: 2 },
+                    areaStyle: {
+                        color: {
+                            type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                            colorStops: [
+                                { offset: 0, color: 'rgba(59,179,155,0.32)' },
+                                { offset: 1, color: 'rgba(59,179,155,0.02)' }
+                            ]
+                        }
+                    }
+                }]
+            }, true);
+            chart.resize();
+            return true;
+        },
+        connectSse() {
+            if (!this.token || this.sse.source) return;
+            if (typeof EventSource === 'undefined') {
+                console.warn('浏览器不支持 EventSource, 实时推送不可用');
+                return;
+            }
+            this.sse.connecting = true;
+            const source = new EventSource(`/api/warnings/stream?token=${encodeURIComponent(this.token)}`);
+            this.sse.source = source;
+            source.addEventListener('connected', () => {
+                this.sse.connected = true;
+                this.sse.connecting = false;
+                this.sse.retry = 0;
+            });
+            source.addEventListener('warning', (e) => this.onSseWarning(e));
+            source.addEventListener('error', () => {
+                // 服务端鉴权失败事件或连接中断
+                this.sse.connected = false;
+            });
+            source.onerror = () => {
+                this.sse.connected = false;
+                this.sse.connecting = false;
+                // EventSource 会自动重连; 若被服务端关闭则手动退避重连
+                if (source.readyState === EventSource.CLOSED) {
+                    this.disconnectSse();
+                    this.sse.retry = Math.min(this.sse.retry + 1, 6);
+                    const delay = Math.min(1000 * Math.pow(2, this.sse.retry), 30000);
+                    setTimeout(() => { if (this.token) this.connectSse(); }, delay);
+                }
+            };
+        },
+        onSseWarning(e) {
+            let data;
+            try { data = JSON.parse(e.data); } catch (_) { return; }
+            const item = {
+                ...data,
+                _key: Date.now() + '_' + Math.random(),
+                _time: new Date().toLocaleTimeString('zh-CN', { hour12: false })
+            };
+            this.realtimeFeed.unshift(item);
+            if (this.realtimeFeed.length > 20) this.realtimeFeed.pop();
+            // 弹出提醒
+            const lvText = this.warnLevelText(data.warningLevel);
+            this.toast(`🚨 新预警 · ${lvText}`, `${data.warningTitle || ''}（老人 ${data.elderId}）`, data.warningLevel >= 3 ? 'error' : 'warning');
+            // 刷新实时统计与列表
+            this.loadRealtimeStats();
+            if (this.activeTab === 'warnings') this.loadWarnings(this.warningPage.pageNum);
+        },
+        disconnectSse() {
+            if (this.sse.source) {
+                try { this.sse.source.close(); } catch (_) {}
+            }
+            this.sse.source = null;
+            this.sse.connected = false;
+            this.sse.connecting = false;
         },
         openWarningModal() {
             this.warningForm = blankWarning();
