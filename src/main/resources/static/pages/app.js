@@ -794,7 +794,7 @@ createApp({
                 <div class="section-head">
                     <div>
                         <h3>🤖 AI 健康评估 — 管理员配置</h3>
-                        <p>配置 DeepSeek API Key 及模型参数，支持 Mock 模式用于开发测试</p>
+                        <p>配置 AI API Key 及模型参数，支持 Mock 模式用于开发测试</p>
                     </div>
                     <div class="actions">
                         <button class="soft-btn" @click="loadAiConfig()">🔄 刷新配置</button>
@@ -3783,7 +3783,7 @@ createApp({
         async saveAiConfig() {
             const f = this.aiConfig.form;
             const body = {
-                'ai.api_key': { value: f.apiKey || '', desc: 'DeepSeek API Key' },
+                'ai.api_key': { value: f.apiKey || '', desc: 'AI API Key' },
                 'ai.base_url': { value: f.baseUrl || 'https://open.bigmodel.cn/api/paas/v4/chat/completions', desc: 'API 基础地址' },
                 'ai.model': { value: f.model || 'glm-4.7-flash', desc: '模型名称' },
                 'ai.mock_enabled': { value: f.mockEnabled ? 'true' : 'false', desc: 'Mock模式' },
