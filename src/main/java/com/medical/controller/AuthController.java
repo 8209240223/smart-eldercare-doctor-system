@@ -1,6 +1,9 @@
 package com.medical.controller;
 
 import com.medical.common.result.R;
+import com.medical.common.annotation.OperationLog;
+import com.medical.entity.SysMessage;
+import com.medical.mapper.SysMessageMapper;
 import com.medical.service.AuthService;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +24,9 @@ public class AuthController {
 
     @Autowired
     private CaptchaController captchaController;
+
+    @Autowired
+    private SysMessageMapper sysMessageMapper;
 
     @PostMapping("/login")
     public R<?> login(@RequestBody LoginDTO loginDTO, HttpServletRequest request) {
@@ -52,9 +58,11 @@ public class AuthController {
     }
 
     @PutMapping("/password")
+    @OperationLog(module = "账号安全", type = "修改密码", desc = "个人中心修改登录密码")
     public R<?> changePassword(@RequestBody PasswordDTO dto, HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("currentUserId");
         authService.changePassword(userId, dto.getOldPassword(), dto.getNewPassword());
+        createSystemMessage(userId, "密码修改成功", "你的登录密码已修改，请妥善保管账号信息。", "profile_password");
         return R.ok("密码修改成功，请重新登录");
     }
 
@@ -92,6 +100,7 @@ public class AuthController {
      * 密码找回(模拟实现 - 通过手机号验证)
      */
     @PostMapping("/resetPassword")
+    @OperationLog(module = "账号安全", type = "重置密码", desc = "登录页找回密码")
     public R<?> resetPassword(@RequestBody ResetPasswordDTO dto) {
         if (!StringUtils.hasText(dto.getUsername()) || !StringUtils.hasText(dto.getNewPassword())) {
             return R.fail(400, "参数不完整");
@@ -134,5 +143,17 @@ public class AuthController {
         private Integer userType;
         private String captchaKey;
         private String captchaCode;
+    }
+
+    private void createSystemMessage(Long userId, String title, String content, String sourceType) {
+        if (userId == null) return;
+        SysMessage msg = new SysMessage();
+        msg.setUserId(userId);
+        msg.setTitle(title);
+        msg.setContent(content);
+        msg.setMsgType(3);
+        msg.setIsRead(0);
+        msg.setSourceType(sourceType);
+        sysMessageMapper.insert(msg);
     }
 }

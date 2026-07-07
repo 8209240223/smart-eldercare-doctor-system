@@ -26,10 +26,17 @@ public interface ElderRiskProfileMapper extends BaseMapper<ElderRiskProfile> {
             "ORDER BY erp.risk_score DESC")
     List<Map<String, Object>> selectByRiskLevel(@Param("riskLevel") Integer riskLevel);
 
+    @Select("SELECT erp.*, ei.name, ei.gender, ei.birth_date, ei.phone, ei.community, ei.doctor_id " +
+            "FROM elder_risk_profile erp " +
+            "LEFT JOIN elder_info ei ON erp.elder_id = ei.id " +
+            "WHERE ei.deleted = 0 " +
+            "ORDER BY erp.risk_score DESC, erp.risk_level DESC")
+    List<Map<String, Object>> selectAllWithElder();
+
     /**
      * 根据医生ID查询重点人群(返回List)
      */
-    @Select("SELECT erp.*, ei.name, ei.gender, ei.birth_date, ei.phone, ei.community " +
+    @Select("SELECT erp.*, ei.name, ei.gender, ei.birth_date, ei.phone, ei.community, ei.doctor_id " +
             "FROM elder_risk_profile erp " +
             "LEFT JOIN elder_info ei ON erp.elder_id = ei.id " +
             "WHERE erp.risk_level >= #{minLevel} AND ei.doctor_id = #{doctorId} AND ei.deleted = 0 " +

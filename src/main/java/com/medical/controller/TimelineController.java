@@ -27,7 +27,10 @@ public class TimelineController {
     }
 
     @GetMapping("/{elderId}/summary")
-    public R<?> getSummary(@PathVariable Long elderId) {
-        return R.ok(timelineService.getSummary(elderId));
+    public R<?> getSummary(@PathVariable Long elderId,
+                           @RequestParam(required = false) String startDate,
+                           @RequestParam(required = false) String endDate,
+                           @RequestParam(required = false) Integer eventType) {
+        return R.ok(timelineService.getSummary(elderId, startDate, endDate, eventType));
     }
 }

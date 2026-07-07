@@ -128,7 +128,10 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
     public Page<Map<String, Object>> getTaskList(Integer pageNum, Integer pageSize, Long doctorId, Integer status) {
         Page<Map<String, Object>> page = new Page<>(pageNum, pageSize);
         
-        List<Map<String, Object>> allRecords = followupTaskMapper.selectByDoctorId(doctorId, status != null ? status : 0);
+        Integer targetStatus = status != null ? status : 0;
+        List<Map<String, Object>> allRecords = doctorId == null
+                ? followupTaskMapper.selectByStatus(targetStatus)
+                : followupTaskMapper.selectByDoctorId(doctorId, targetStatus);
         
         // 手动分页处理
         int total = allRecords.size();

@@ -36,6 +36,7 @@ public class FollowUpController {
     }
 
     @PutMapping("/plans/{id}")
+    @OperationLog(module = "随访管理", type = "修改", desc = "修改随访计划")
     public R<?> updatePlan(@PathVariable Long id, @Valid @RequestBody FollowPlan plan) {
         followUpService.updatePlan(id, plan);
         return R.ok("修改成功");
@@ -45,6 +46,13 @@ public class FollowUpController {
     public R<?> changePlanStatus(@PathVariable Long id, @RequestParam Integer status) {
         followUpService.changePlanStatus(id, status);
         return R.ok("操作成功");
+    }
+
+    @DeleteMapping("/plans/{id}")
+    @OperationLog(module = "随访管理", type = "删除", desc = "删除随访计划")
+    public R<?> deletePlan(@PathVariable Long id) {
+        followUpService.deletePlan(id);
+        return R.ok("删除成功");
     }
 
     @GetMapping("/records")

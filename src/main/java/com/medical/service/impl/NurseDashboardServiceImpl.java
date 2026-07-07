@@ -37,22 +37,19 @@ public class NurseDashboardServiceImpl implements NurseDashboardService {
 
         // 今日护理记录数
         LambdaQueryWrapper<NursingRecord> todayRecordQ = new LambdaQueryWrapper<NursingRecord>()
-                .eq(NursingRecord::getNurseId, nurseId)
                 .eq(NursingRecord::getDeleted, 0)
-                .ge(NursingRecord::getCreateTime, LocalDateTime.of(LocalDate.now(), LocalTime.MIN))
-                .le(NursingRecord::getCreateTime, LocalDateTime.of(LocalDate.now(), LocalTime.MAX));
+                .ge(NursingRecord::getRecordDate, LocalDateTime.of(LocalDate.now(), LocalTime.MIN))
+                .le(NursingRecord::getRecordDate, LocalDateTime.of(LocalDate.now(), LocalTime.MAX));
         stats.put("todayRecords", nursingRecordMapper.selectCount(todayRecordQ));
 
         // 进行中护理计划数
         LambdaQueryWrapper<NursingPlan> activePlanQ = new LambdaQueryWrapper<NursingPlan>()
-                .eq(NursingPlan::getNurseId, nurseId)
                 .eq(NursingPlan::getStatus, 1)
                 .eq(NursingPlan::getDeleted, 0);
         stats.put("activePlans", nursingPlanMapper.selectCount(activePlanQ));
 
         // 待处理的异常上报数
         LambdaQueryWrapper<NursingRecord> pendingReportQ = new LambdaQueryWrapper<NursingRecord>()
-                .eq(NursingRecord::getNurseId, nurseId)
                 .eq(NursingRecord::getReportStatus, 1)
                 .eq(NursingRecord::getDeleted, 0);
         stats.put("pendingReports", nursingRecordMapper.selectCount(pendingReportQ));
@@ -82,17 +79,15 @@ public class NurseDashboardServiceImpl implements NurseDashboardService {
 
         // 今日护理记录
         LambdaQueryWrapper<NursingRecord> todayRecordsQ = new LambdaQueryWrapper<NursingRecord>()
-                .eq(NursingRecord::getNurseId, nurseId)
                 .eq(NursingRecord::getDeleted, 0)
-                .ge(NursingRecord::getCreateTime, LocalDateTime.of(LocalDate.now(), LocalTime.MIN))
-                .le(NursingRecord::getCreateTime, LocalDateTime.of(LocalDate.now(), LocalTime.MAX))
-                .orderByDesc(NursingRecord::getCreateTime)
+                .ge(NursingRecord::getRecordDate, LocalDateTime.of(LocalDate.now(), LocalTime.MIN))
+                .le(NursingRecord::getRecordDate, LocalDateTime.of(LocalDate.now(), LocalTime.MAX))
+                .orderByDesc(NursingRecord::getRecordDate)
                 .last("LIMIT 5");
         result.put("todayRecords", nursingRecordMapper.selectList(todayRecordsQ));
 
         // 进行中的护理计划
         LambdaQueryWrapper<NursingPlan> activePlanQ = new LambdaQueryWrapper<NursingPlan>()
-                .eq(NursingPlan::getNurseId, nurseId)
                 .eq(NursingPlan::getStatus, 1)
                 .eq(NursingPlan::getDeleted, 0)
                 .orderByDesc(NursingPlan::getUpdateTime)

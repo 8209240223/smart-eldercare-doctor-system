@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -269,6 +270,7 @@ public class RiskProfileServiceImpl implements RiskProfileService {
         Page<Map<String, Object>> page = new Page<>(pageNum, pageSize);
 
         List<Map<String, Object>> allRecords;
+        ensureRiskProfilesReady();
 
         if (doctorId != null) {
             // 查询医生管理的重点人群
@@ -278,36 +280,13 @@ public class RiskProfileServiceImpl implements RiskProfileService {
             allRecords = elderRiskProfileMapper.selectByRiskLevel(riskLevel);
         } else {
             // 查询所有老人风险档案
-            QueryWrapper<ElderRiskProfile> wrapper = new QueryWrapper<>();
-            wrapper.orderByDesc("risk_score");
-            Page<ElderRiskProfile> profilePage = new Page<>(pageNum, pageSize);
-            profilePage = elderRiskProfileMapper.selectPage(profilePage, wrapper);
-
-            // 转换为包含老人信息的Map
-            List<Map<String, Object>> records = new ArrayList<>();
-            for (ElderRiskProfile profile : profilePage.getRecords()) {
-                ElderInfo elder = elderInfoMapper.selectById(profile.getElderId());
-                if (elder != null && elder.getDeleted() == 0) {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("id", profile.getId());
-                    map.put("elderId", profile.getElderId());
-                    map.put("riskScore", profile.getRiskScore());
-                    map.put("riskLevel", profile.getRiskLevel());
-                    map.put("riskLevelText", getRiskLevelText(profile.getRiskLevel()));
-                    map.put("riskTags", profile.getRiskTags());
-                    map.put("name", elder.getName());
-                    map.put("gender", elder.getGender());
-                    map.put("birthDate", elder.getBirthDate());
-                    map.put("phone", elder.getPhone());
-                    map.put("community", elder.getCommunity());
-                    map.put("doctorId", elder.getDoctorId());
-                    map.put("lastCalculateTime", profile.getLastCalculateTime());
-                    records.add(map);
-                }
-            }
-            page.setRecords(records);
-            return page;
+            allRecords = elderRiskProfileMapper.selectAllWithElder();
         }
+
+        allRecords = allRecords.stream()
+                .map(this::normalizeRiskRecord)
+                .filter(record -> !StringUtils.hasText(community) || community.equals(record.get("community")))
+                .collect(Collectors.toList());
 
         // 手动分页处理
         int total = allRecords.size();
@@ -317,18 +296,18 @@ public class RiskProfileServiceImpl implements RiskProfileService {
         List<Map<String, Object>> pageRecords = new ArrayList<>();
         if (start < total) {
             pageRecords = allRecords.subList(start, end);
-            // 为每条记录添加riskLevelText
-            for (Map<String, Object> record : pageRecords) {
-                Integer level = (Integer) record.get("risk_level");
-                if (level != null) {
-                    record.put("riskLevelText", getRiskLevelText(level));
-                }
-            }
         }
 
         page.setRecords(pageRecords);
         page.setTotal(total);
         return page;
+    }
+
+    private void ensureRiskProfilesReady() {
+        Long profileCount = elderRiskProfileMapper.selectCount(null);
+        if (profileCount == null || profileCount == 0) {
+            calculateAllRisk();
+        }
     }
 
     @Override
@@ -414,6 +393,44 @@ public class RiskProfileServiceImpl implements RiskProfileService {
             case 3: return "重点";
             case 4: return "高危";
             default: return "未知";
+        }
+    }
+
+    private Map<String, Object> normalizeRiskRecord(Map<String, Object> record) {
+        Map<String, Object> map = new HashMap<>();
+        Integer level = toInteger(first(record, "riskLevel", "risk_level"));
+        map.put("id", first(record, "id"));
+        map.put("elderId", first(record, "elderId", "elder_id"));
+        map.put("riskScore", first(record, "riskScore", "risk_score"));
+        map.put("riskLevel", level);
+        map.put("riskLevelText", level == null ? "未知" : getRiskLevelText(level));
+        map.put("riskTags", first(record, "riskTags", "risk_tags"));
+        map.put("name", first(record, "name"));
+        map.put("gender", first(record, "gender"));
+        map.put("birthDate", first(record, "birthDate", "birth_date"));
+        map.put("phone", first(record, "phone"));
+        map.put("community", first(record, "community"));
+        map.put("doctorId", first(record, "doctorId", "doctor_id"));
+        map.put("lastCalculateTime", first(record, "lastCalculateTime", "last_calculate_time"));
+        return map;
+    }
+
+    private Object first(Map<String, Object> record, String... keys) {
+        for (String key : keys) {
+            if (record.containsKey(key) && record.get(key) != null) {
+                return record.get(key);
+            }
+        }
+        return null;
+    }
+
+    private Integer toInteger(Object value) {
+        if (value == null) return null;
+        if (value instanceof Number) return ((Number) value).intValue();
+        try {
+            return Integer.parseInt(String.valueOf(value));
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 }

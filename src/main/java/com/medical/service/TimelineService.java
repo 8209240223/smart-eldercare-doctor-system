@@ -12,7 +12,7 @@ public interface TimelineService {
 
     Page<TimelineEvent> getTimeline(Long elderId, String startDate, String endDate, Integer eventType, Integer pageNum, Integer pageSize);
 
-    Map<String, Object> getSummary(Long elderId);
+    Map<String, Object> getSummary(Long elderId, String startDate, String endDate, Integer eventType);
 
     void addEvent(TimelineEvent event);
 }

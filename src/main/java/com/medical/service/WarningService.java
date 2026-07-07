@@ -19,6 +19,8 @@ public interface WarningService {
 
     void ignore(Long id, String handleResult);
 
+    void markProcessing(Long id, Long doctorId);
+
     /**
      * 创建预警（含实时推送）
      * @param warning 预警信息

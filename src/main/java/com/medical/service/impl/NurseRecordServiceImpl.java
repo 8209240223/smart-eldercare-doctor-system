@@ -6,8 +6,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.exception.BusinessException;
 import com.medical.entity.NursingRecord;
+import com.medical.entity.TimelineEvent;
 import com.medical.mapper.NursingRecordMapper;
 import com.medical.service.NurseRecordService;
+import com.medical.service.TimelineService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -23,6 +25,9 @@ public class NurseRecordServiceImpl implements NurseRecordService {
 
     @Autowired
     private NursingRecordMapper nursingRecordMapper;
+
+    @Autowired
+    private TimelineService timelineService;
 
     @Override
     public Page<NursingRecord> list(Integer pageNum, Integer pageSize, Long elderId, Long nurseId,
@@ -80,6 +85,7 @@ public class NurseRecordServiceImpl implements NurseRecordService {
             record.setRecordDate(LocalDateTime.now());
         }
         nursingRecordMapper.insert(record);
+        addNursingRecordTimeline(record);
         return record.getId();
     }
 
@@ -98,6 +104,7 @@ public class NurseRecordServiceImpl implements NurseRecordService {
             existing.setAbnormalDesc(record.getAbnormalDesc());
         }
         nursingRecordMapper.updateById(existing);
+        addNursingRecordTimeline(existing);
     }
 
     @Override
@@ -168,8 +175,14 @@ public class NurseRecordServiceImpl implements NurseRecordService {
         if (record.getElderId() == null) {
             throw new BusinessException(400, "老人ID不能为空");
         }
+        if (record.getElderId() <= 0) {
+            throw new BusinessException(400, "老人ID必须为正整数");
+        }
         if (record.getNurseId() == null) {
             throw new BusinessException(400, "护士ID不能为空");
+        }
+        if (record.getNurseId() <= 0) {
+            throw new BusinessException(400, "护士ID必须为正整数");
         }
         if (record.getRecordType() == null) {
             throw new BusinessException(400, "记录类型不能为空");
@@ -177,5 +190,21 @@ public class NurseRecordServiceImpl implements NurseRecordService {
         if (!StringUtils.hasText(record.getRecordTitle())) {
             throw new BusinessException(400, "记录标题不能为空");
         }
+    }
+
+    private void addNursingRecordTimeline(NursingRecord record) {
+        TimelineEvent event = new TimelineEvent();
+        event.setElderId(record.getElderId());
+        event.setDoctorId(record.getReviewDoctorId());
+        event.setEventType(5);
+        event.setEventTitle("护理记录：" + record.getRecordTitle());
+        event.setEventContent((record.getRecordContent() == null ? "" : record.getRecordContent())
+                + (record.getIsAbnormal() != null && record.getIsAbnormal() == 1
+                ? "；异常：" + (record.getAbnormalDesc() == null ? "-" : record.getAbnormalDesc())
+                : ""));
+        event.setSourceType("nursing_record");
+        event.setSourceId(record.getId());
+        event.setEventTime(record.getRecordDate());
+        timelineService.addEvent(event);
     }
 }

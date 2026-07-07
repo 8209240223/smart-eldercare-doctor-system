@@ -102,6 +102,29 @@ public class WarningServiceImpl implements WarningService {
 
     @Override
     @Transactional
+    public void markProcessing(Long id, Long doctorId) {
+        HealthWarning entity = healthWarningMapper.selectById(id);
+        if (entity == null) {
+            throw new BusinessException(404, "预警不存在");
+        }
+        if (entity.getStatus() != null && entity.getStatus() != 0 && entity.getStatus() != 1) {
+            throw new BusinessException(400, "只有待处理或处理中的预警可以标记为处理中");
+        }
+        entity.setStatus(1);
+        entity.setDoctorId(doctorId);
+        healthWarningMapper.updateById(entity);
+
+        WarningEventLog eventLog = new WarningEventLog();
+        eventLog.setWarningId(id);
+        eventLog.setEventType(3);
+        eventLog.setOperatorId(doctorId);
+        eventLog.setOperatorName(doctorId != null ? "医生-" + doctorId : "系统");
+        eventLog.setEventDetail("预警标记为处理中");
+        warningEventLogMapper.insert(eventLog);
+    }
+
+    @Override
+    @Transactional
     public Long create(HealthWarning warning) {
         warning.setStatus(0);
         healthWarningMapper.insert(warning);
@@ -167,6 +190,8 @@ public class WarningServiceImpl implements WarningService {
         Map<String, Object> stats = new HashMap<>();
         long pending = healthWarningMapper.selectCount(
                 new LambdaQueryWrapper<HealthWarning>().eq(HealthWarning::getStatus, 0));
+        long processing = healthWarningMapper.selectCount(
+                new LambdaQueryWrapper<HealthWarning>().eq(HealthWarning::getStatus, 1));
         long handled = healthWarningMapper.selectCount(
                 new LambdaQueryWrapper<HealthWarning>().eq(HealthWarning::getStatus, 2));
         long ignored = healthWarningMapper.selectCount(
@@ -184,9 +209,10 @@ public class WarningServiceImpl implements WarningService {
                 new LambdaQueryWrapper<HealthWarning>().ge(HealthWarning::getCreateTime, todayStart));
 
         stats.put("pending", pending);
+        stats.put("processing", processing);
         stats.put("handled", handled);
         stats.put("ignored", ignored);
-        stats.put("total", pending + handled + ignored);
+        stats.put("total", pending + processing + handled + ignored);
         stats.put("red", red);
         stats.put("orange", orange);
         stats.put("yellow", yellow);

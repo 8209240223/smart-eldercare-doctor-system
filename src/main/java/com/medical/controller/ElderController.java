@@ -28,8 +28,9 @@ public class ElderController {
                      @RequestParam(defaultValue = "10") Integer pageSize,
                      @RequestParam(required = false) String name,
                      @RequestParam(required = false) String community,
-                     @RequestParam(required = false) Long doctorId) {
-        return R.ok(elderService.listElders(pageNum, pageSize, name, community, doctorId));
+                     @RequestParam(required = false) Long doctorId,
+                     @RequestParam(required = false) Integer diseaseType) {
+        return R.ok(elderService.listElders(pageNum, pageSize, name, community, doctorId, diseaseType));
     }
 
     @GetMapping("/{id}")
@@ -78,7 +79,7 @@ public class ElderController {
     public void export(HttpServletResponse response) throws Exception {
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setHeader("Content-Disposition", "attachment;filename=elders.xlsx");
-        List<ElderInfo> list = elderService.listElders(1, 1000, null, null, null).getRecords();
+        List<ElderInfo> list = elderService.listElders(1, 1000, null, null, null, null).getRecords();
         com.alibaba.excel.EasyExcel.write(response.getOutputStream(), ElderInfo.class).sheet("老人信息").doWrite(list);
     }
 }

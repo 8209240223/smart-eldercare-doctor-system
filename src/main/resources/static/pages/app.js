@@ -201,6 +201,7 @@ const blankPlan = () => ({
     endDate: '',
     nextFollowDate: '',
     totalCount: 12,
+    status: 1,
     remark: ''
 });
 
@@ -474,24 +475,26 @@ createApp({
                 <div class="filters">
                     <div class="field"><label>姓名</label><input v-model="elderFilter.name" placeholder="输入姓名搜索"></div>
                     <div class="field"><label>所属社区</label><input v-model="elderFilter.community" placeholder="输入社区名称"></div>
-                    <div class="field"><label>责任医生ID</label><input v-model="elderFilter.doctorId" type="number" placeholder="医生ID"></div>
+                    <div class="field"><label>责任医生ID</label><input v-model="elderFilter.doctorId" type="number" min="1" placeholder="医生ID"></div>
+                    <div class="field"><label>疾病类型</label><select v-model="elderFilter.diseaseType"><option value="">全部疾病</option><option v-for="(txt,key) in diseaseMap" :key="key" :value="key">{{ txt }}</option></select></div>
                     <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadElders(1)">查询</button></div>
                 </div>
                 <div class="table-wrap">
                     <table class="data-table">
-                        <thead><tr><th>姓名</th><th>性别</th><th>出生日期</th><th>联系电话</th><th>所属社区</th><th>状态</th><th>操作</th></tr></thead>
+                        <thead><tr><th>老人ID</th><th>姓名</th><th>性别</th><th>出生日期</th><th>联系电话</th><th>所属社区</th><th>责任医生ID</th><th>操作</th></tr></thead>
                         <tbody>
-                        <tr v-if="elderPage.records.length===0"><td colspan="7"><div class="empty-state">暂无老人档案数据</div></td></tr>
+                        <tr v-if="elderPage.records.length===0"><td colspan="8"><div class="empty-state">暂无老人档案数据</div></td></tr>
                         <tr v-for="row in elderPage.records" :key="row.id">
+                            <td>{{ row.id }}</td>
                             <td><strong>{{ row.name }}</strong></td>
                             <td>{{ genderText(row.gender) }}</td>
                             <td>{{ row.birthDate || '-' }}</td>
                             <td>{{ row.phone || '-' }}</td>
                             <td>{{ row.community || '-' }}</td>
-                            <td><span class="tag" :class="row.accountStatus===1?'tag-success':'tag-default'">{{ row.accountStatus===1?'已启用':'未启用' }}</span></td>
+                            <td>{{ row.doctorId || '-' }}</td>
                             <td><div class="actions">
                                 <button class="link" @click="openHealthDetail(row.id)">查看健康详情</button>
-                                <button class="ok" @click="generateReport(row.id)">📋 报告</button>
+                                <button class="ok" @click="openUnifiedHealthReport(row.id)">📋 报告</button>
                                 <button class="ok" @click="openElderModal(row)">编辑</button>
                                 <button class="danger" @click="deleteElder(row.id)">删除</button>
                             </div></td>
@@ -555,7 +558,7 @@ createApp({
                     <table class="data-table">
                         <thead><tr><th>老人ID</th><th>姓名</th><th>风险等级</th><th>风险评分</th><th>风险标签</th><th>上次计算</th><th>操作</th></tr></thead>
                         <tbody>
-                        <tr v-if="keyPopulationPage.records.length===0"><td colspan="7"><div class="empty-state">暂无重点人群数据，请先点击“重新计算风险”</div></td></tr>
+                        <tr v-if="keyPopulationPage.records.length===0"><td colspan="7"><div class="empty-state">暂无重点人群数据，系统会从老人、预警、随访、护理和体征数据自动计算风险分层</div></td></tr>
                         <tr v-for="row in keyPopulationPage.records" :key="'risk'+row.elderId">
                             <td>{{ row.elderId }}</td>
                             <td><strong>{{ row.elderName || row.name || '-' }}</strong></td>
@@ -652,7 +655,7 @@ createApp({
                 <div class="filters">
                     <div class="field"><label>状态</label><select v-model="warningFilter.status"><option value="">全部状态</option><option value="0">待处理</option><option value="1">处理中</option><option value="2">已处理</option><option value="3">已关闭</option></select></div>
                     <div class="field"><label>预警等级</label><select v-model="warningFilter.warningLevel"><option value="">全部等级</option><option value="1">低等级</option><option value="2">中等级</option><option value="3">高等级</option></select></div>
-                    <div class="field"><label>老人ID</label><input v-model="warningFilter.elderId" type="number" placeholder="老人ID"></div>
+                    <div class="field"><label>老人ID</label><input v-model="warningFilter.elderId" type="number" min="1" placeholder="老人ID"></div>
                     <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadWarnings(1)">查询</button></div>
                 </div>
                 <div class="table-wrap">
@@ -669,7 +672,8 @@ createApp({
                             <td><span class="tag" :class="warningStatusClass(row.status)">{{ warningStatusText(row.status) }}</span></td>
                             <td>{{ dateTimeText(row.createTime) }}</td>
                             <td><div class="actions">
-                                <button class="link" v-if="row.status===0" @click="openWarningHandle(row, 'handle')">处理</button>
+                                <button class="link" v-if="row.status===0" @click="markWarningProcessing(row)">处理中</button>
+                                <button class="link" v-if="row.status===0 || row.status===1" @click="openWarningHandle(row, 'handle')">处理</button>
                                 <button class="warn" v-if="row.status===0" @click="openWarningHandle(row, 'ignore')">忽略</button>
                                 <button class="ok" v-else @click="openWarningDetail(row.id)">查看详情</button>
                             </div></td>
@@ -694,7 +698,7 @@ createApp({
                 <div class="filters">
                     <div class="field"><label>状态</label><select v-model="followFilter.status"><option value="">全部状态</option><option value="0">待执行</option><option value="1">进行中</option><option value="2">已完成</option><option value="3">已关闭</option></select></div>
                     <div class="field"><label>疾病类型</label><select v-model="followFilter.diseaseType"><option value="">全部类型</option><option v-for="(text,key) in diseaseMap" :key="key" :value="key">{{ text }}</option></select></div>
-                    <div class="field"><label>老人ID</label><input v-model="followFilter.elderId" type="number" placeholder="老人ID"></div>
+                    <div class="field"><label>老人ID</label><input v-model="followFilter.elderId" type="number" min="1" placeholder="老人ID"></div>
                     <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadFollowups(1)">查询</button></div>
                 </div>
                 <div class="table-wrap">
@@ -709,8 +713,8 @@ createApp({
                             <td>{{ freqText(row.frequencyType) }}</td>
                             <td>{{ row.nextFollowDate || '-' }}</td>
                             <td>{{ row.completedCount || 0 }}/{{ row.totalCount || 0 }}</td>
-                            <td><span class="tag" :class="row.status===1?'tag-success':row.status===0?'tag-warning':'tag-default'">{{ planStatusText(row.status) }}</span></td>
-                            <td><div class="actions"><button class="link" @click="openFollowRecords(row)">查看记录</button><button class="link" @click="openRecordModal(row)">记录随访结果</button></div></td>
+                            <td><select class="inline-select" :value="row.status" @change="changeFollowPlanStatus(row.id, $event.target.value)"><option value="0">待执行</option><option value="1">进行中</option><option value="2">已完成</option><option value="3">已终止</option></select></td>
+                            <td><div class="actions"><button class="link" @click="openFollowRecords(row)">查看记录</button><button class="link" @click="openRecordModal(row)">记录随访结果</button><button class="link" @click="openPlanModal(row)">编辑</button><button class="danger" @click="deletePlan(row.id)">删除</button></div></td>
                         </tr>
                         </tbody>
                     </table>
@@ -731,8 +735,8 @@ createApp({
                 </div>
                 <div class="filters">
                     <div class="field"><label>干预类型</label><select v-model="interventionFilter.type"><option value="">全部类型</option><option value="1">健康宣教</option><option value="2">用药指导</option><option value="3">康复训练</option><option value="4">心理干预</option></select></div>
-                    <div class="field"><label>老人ID</label><input v-model="interventionFilter.elderId" type="number" placeholder="老人ID"></div>
-                    <div class="field"><label>关联随访记录ID</label><input v-model="interventionFilter.followRecordId" type="number" placeholder="记录ID"></div>
+                    <div class="field"><label>老人ID</label><input v-model="interventionFilter.elderId" type="number" min="1" placeholder="老人ID"></div>
+                    <div class="field"><label>关联随访记录ID</label><input v-model="interventionFilter.followRecordId" type="number" min="1" placeholder="记录ID"></div>
                     <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadInterventions(1)">查询</button></div>
                 </div>
                 <div class="table-wrap">
@@ -837,7 +841,7 @@ createApp({
                         <h3>评估记录</h3>
                         <p>记录和管理老人的各类健康评估，包括ADL、慢病和心理评估，支持多维度评分和建议</p>
                     </div>
-                    <div class="actions"><button class="primary-btn" @click="openAssessmentModal()">+ 新增评估记录</button><button class="soft-btn" @click="openAssessmentReport()">📋 生成评估报告</button><button class="soft-btn" @click="openAiAssessment()">🤖 AI 健康评估</button><button class="soft-btn" @click="openAiReportList()">📂 查看AI评估记录</button></div>
+                    <div class="actions"><button class="primary-btn" @click="openAssessmentModal()">+ 新增评估记录</button><button class="soft-btn" @click="openUnifiedHealthReport()">📋 综合健康报告</button><button class="soft-btn" @click="openAiReportList()">📂 查看AI评估记录</button></div>
                 </div>
                 <div class="panel-grid" style="margin-bottom:14px;">
                     <div class="card stat-card"><div class="stat-label">总评估数</div><div class="stat-value">{{ assessmentStats.total || 0 }}</div></div>
@@ -846,7 +850,7 @@ createApp({
                     <div class="card stat-card"><div class="stat-label">AI评估</div><div class="stat-value">{{ aiAssessmentStats.count || 0 }}</div></div>
                 </div>
                 <div class="filters">
-                    <div class="field"><label>老人ID</label><input v-model="assessmentFilter.elderId" type="number" placeholder="输入老人档案ID" @change="loadAiReportsForElder"></div>
+                    <div class="field"><label>老人ID</label><input v-model="assessmentFilter.elderId" type="number" min="1" placeholder="输入老人档案ID" @change="loadAiReportsForElder"></div>
                     <div class="field"><label>评估类型</label><select v-model="assessmentFilter.assessType"><option value="">全部类型</option><option v-for="(txt,key) in assessmentTypeMap" :key="key" :value="key">{{ txt }}</option></select></div>
                     <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadAssessments(1);loadAiReportsForElder()">查询</button></div>
                 </div>
@@ -910,11 +914,11 @@ createApp({
                         <div class="field"><label>模型</label><input v-model="aiConfig.form.model" placeholder="glm-4.7-flash"></div>
                     </div>
                     <div class="form-row" style="margin-top:12px;">
-                        <div class="field"><label>每日限制（次/医生）</label><input v-model.number="aiConfig.form.maxPerDay" type="number"></div>
-                        <div class="field"><label>超时（秒）</label><input v-model.number="aiConfig.form.timeoutSeconds" type="number"></div>
+                        <div class="field"><label>每日限制（次/医生）</label><input v-model.number="aiConfig.form.maxPerDay" type="number" min="1"></div>
+                        <div class="field"><label>超时（秒）</label><input v-model.number="aiConfig.form.timeoutSeconds" type="number" min="1"></div>
                     </div>
                     <div class="form-row" style="margin-top:12px;">
-                        <div class="field"><label>重试次数</label><input v-model.number="aiConfig.form.maxRetries" type="number"></div>
+                        <div class="field"><label>重试次数</label><input v-model.number="aiConfig.form.maxRetries" type="number" min="1"></div>
                         <div class="field" style="align-self:end;">
                             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
                                 <input type="checkbox" v-model="aiConfig.form.mockEnabled" style="width:auto;">
@@ -940,7 +944,7 @@ createApp({
                     <div class="card stat-card"><div class="stat-label">上转 / 下转</div><div class="stat-value">{{ referralStats.upCount || 0 }} / {{ referralStats.downCount || 0 }}</div></div>
                 </div>
                 <div class="filters">
-                    <div class="field"><label>责任医生ID</label><input v-model="referralFilter.doctorId" type="number" placeholder="输入责任医生ID"></div>
+                    <div class="field"><label>责任医生ID</label><input v-model="referralFilter.doctorId" type="number" min="1" placeholder="输入责任医生ID"></div>
                     <div class="field"><label>状态</label><select v-model="referralFilter.status"><option value="">全部状态</option><option v-for="(txt,key) in referralStatusMap" :key="key" :value="key">{{ txt }}</option></select></div>
                     <div class="field"><label>转诊类型</label><select v-model="referralFilter.referralType"><option value="">全部类型</option><option v-for="(txt,key) in referralTypeMap" :key="key" :value="key">{{ txt }}</option></select></div>
                     <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadReferrals(1)">查询</button></div>
@@ -980,7 +984,7 @@ createApp({
                     <div class="actions"><button class="primary-btn" @click="openDeviceModal()">+ 新增绑定设备</button></div>
                 </div>
                 <div class="filters">
-                    <div class="field"><label>老人ID</label><input v-model="vitalsState.elderId" type="number" placeholder="输入老人档案ID"></div>
+                    <div class="field"><label>老人ID</label><input v-model="vitalsState.elderId" type="number" min="1" placeholder="输入老人档案ID"></div>
                     <div class="field"><label>监测指标</label><select v-model.number="vitalsState.metric"><option v-for="(txt,key) in vitalTypeMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
                     <div class="field"><label>开始日期</label><input v-model="vitalsState.startDate" type="date"></div>
                     <div class="field"><label>结束日期</label><input v-model="vitalsState.endDate" type="date"></div>
@@ -1037,16 +1041,17 @@ createApp({
                     <div class="actions"><button class="primary-btn" @click="loadTimeline(1)">查询</button></div>
                 </div>
                 <div class="filters">
-                    <div class="field"><label>老人ID</label><input v-model="timelineFilter.elderId" type="number" placeholder="输入老人档案ID"></div>
+                    <div class="field"><label>老人ID</label><input v-model="timelineFilter.elderId" type="number" min="1" placeholder="输入老人档案ID"></div>
                     <div class="field"><label>事件类型</label><select v-model="timelineFilter.eventType"><option value="">全部类型</option><option v-for="(txt,key) in timelineTypeMap" :key="key" :value="key">{{ txt }}</option></select></div>
                     <div class="field"><label>开始日期</label><input v-model="timelineFilter.startDate" type="date"></div>
                     <div class="field"><label>结束日期</label><input v-model="timelineFilter.endDate" type="date"></div>
                 </div>
                 <div class="panel-grid" style="margin:14px 0;">
                     <div class="card stat-card"><div class="stat-label">总事件数</div><div class="stat-value">{{ timelineSummary.total || 0 }}</div></div>
-                    <div class="card stat-card"><div class="stat-label">随访</div><div class="stat-value">{{ timelineSummary.type5 || 0 }}</div></div>
-                    <div class="card stat-card"><div class="stat-label">评估</div><div class="stat-value">{{ timelineSummary.type6 || 0 }}</div></div>
-                    <div class="card stat-card"><div class="stat-label">干预</div><div class="stat-value">{{ timelineSummary.type7 || 0 }}</div></div>
+                    <div class="card stat-card" v-for="item in timelineSummaryCards" :key="'tls'+item.key">
+                        <div class="stat-label">{{ item.label }}</div>
+                        <div class="stat-value">{{ item.count || 0 }}</div>
+                    </div>
                 </div>
                 <div class="table-wrap">
                     <table class="data-table">
@@ -1266,7 +1271,7 @@ createApp({
                     <div class="card stat-card"><div class="stat-label">已上报</div><div class="stat-value">{{ nurseRecordStats.reported || 0 }}</div></div>
                 </div>
                 <div class="filters">
-                    <div class="field"><label>老人ID</label><input v-model="nurseRecordFilter.elderId" type="number" placeholder="老人ID"></div>
+                    <div class="field"><label>老人ID</label><input v-model="nurseRecordFilter.elderId" type="number" min="1" placeholder="老人ID"></div>
                     <div class="field"><label>记录类型</label><select v-model="nurseRecordFilter.recordType"><option value="">全部类型</option><option v-for="(txt,key) in recordTypeMap" :key="key" :value="key">{{ txt }}</option></select></div>
                     <div class="field"><label>上报状态</label><select v-model="nurseRecordFilter.reportStatus"><option value="">全部</option><option value="0">未上报</option><option value="1">已上报</option><option value="2">已处理</option></select></div>
                     <div class="field"><label>开始日期</label><input v-model="nurseRecordFilter.startDate" type="date"></div>
@@ -1318,7 +1323,7 @@ createApp({
                     <div class="card stat-card"><div class="stat-label">已完成</div><div class="stat-value">{{ nursePlanStats.completed || 0 }}</div></div>
                 </div>
                 <div class="filters">
-                    <div class="field"><label>老人ID</label><input v-model="nursePlanFilter.elderId" type="number" placeholder="老人ID"></div>
+                    <div class="field"><label>老人ID</label><input v-model="nursePlanFilter.elderId" type="number" min="1" placeholder="老人ID"></div>
                     <div class="field"><label>计划类型</label><select v-model="nursePlanFilter.planType"><option value="">全部类型</option><option v-for="(txt,key) in planTypeMap" :key="key" :value="key">{{ txt }}</option></select></div>
                     <div class="field"><label>状态</label><select v-model="nursePlanFilter.status"><option value="">全部状态</option><option value="0">待执行</option><option value="1">进行中</option><option value="2">已完成</option><option value="3">已终止</option></select></div>
                     <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadNursePlans(1)">查询</button></div>
@@ -1366,7 +1371,7 @@ createApp({
                     <div class="card stat-card"><div class="stat-label">异常项</div><div class="stat-value">{{ examStats.abnormal || 0 }}</div></div>
                 </div>
                 <div class="filters">
-                    <div class="field"><label>老人ID</label><input v-model="examFilter.elderId" type="number" placeholder="老人档案ID"></div>
+                    <div class="field"><label>老人ID</label><input v-model="examFilter.elderId" type="number" min="1" placeholder="老人档案ID"></div>
                     <div class="field"><label>开始日期</label><input v-model="examFilter.startDate" type="date"></div>
                     <div class="field"><label>结束日期</label><input v-model="examFilter.endDate" type="date"></div>
                     <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadExams(1)">查询</button></div>
@@ -1495,7 +1500,7 @@ createApp({
                 </template>
                 <template v-else-if="modal==='warning'">
                     <div class="form-row">
-                        <div class="field"><label>老人ID</label><input type="number" v-model.number="warningForm.elderId"></div>
+                        <div class="field"><label>老人ID</label><input type="number" min="1" v-model.number="warningForm.elderId"></div>
                         <div class="field"><label>预警等级</label><select v-model.number="warningForm.warningLevel"><option :value="1">低等级</option><option :value="2">中等级</option><option :value="3">高等级</option></select></div>
                         <div class="field"><label>预警类型</label><select v-model.number="warningForm.warningType"><option v-for="(txt,key) in warnTypeMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
                         <div class="field"><label>预警标题</label><input v-model="warningForm.warningTitle"></div>
@@ -1512,11 +1517,12 @@ createApp({
                 <template v-else-if="modal==='plan'">
                     <div class="form-row">
                         <div class="field"><label>计划名称</label><input v-model="planForm.planName"></div>
-                        <div class="field"><label>老人ID</label><input type="number" v-model.number="planForm.elderId"></div>
+                        <div class="field"><label>老人ID</label><input type="number" min="1" v-model.number="planForm.elderId"></div>
                         <div class="field"><label>疾病类型</label><select v-model.number="planForm.diseaseType"><option v-for="(txt,key) in diseaseMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
                         <div class="field"><label>随访频次</label><select v-model.number="planForm.frequencyType"><option v-for="(txt,key) in freqMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
                         <div class="field"><label>开始日期</label><input type="date" v-model="planForm.startDate"></div>
-                        <div class="field"><label>总次数</label><input type="number" v-model.number="planForm.totalCount"></div>
+                        <div class="field"><label>总次数</label><input type="number" min="1" v-model.number="planForm.totalCount"></div>
+                        <div class="field"><label>随访状态</label><select v-model.number="planForm.status"><option :value="0">待执行</option><option :value="1">进行中</option><option :value="2">已完成</option><option :value="3">已终止</option></select></div>
                     </div>
                     <div class="form-row" style="margin-top:12px; grid-template-columns:1fr;"><div class="field"><label>备注</label><textarea v-model="planForm.remark"></textarea></div></div>
                 </template>
@@ -1526,11 +1532,11 @@ createApp({
                         <div class="field"><label>老人ID</label><input v-model="followRecordForm.elderId" disabled></div>
                         <div class="field"><label>随访方式</label><select v-model.number="followRecordForm.followType"><option v-for="(txt,key) in followTypeMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
                         <div class="field"><label>随访日期</label><input type="datetime-local" v-model="followRecordForm.followDate"></div>
-                        <div class="field"><label>收缩压</label><input type="number" v-model.number="followRecordForm.systolicPressure"></div>
-                        <div class="field"><label>舒张压</label><input type="number" v-model.number="followRecordForm.diastolicPressure"></div>
-                        <div class="field"><label>心率</label><input type="number" v-model.number="followRecordForm.heartRate"></div>
-                        <div class="field"><label>空腹血糖</label><input type="number" step="0.1" v-model.number="followRecordForm.bloodSugarFasting"></div>
-                        <div class="field"><label>体重</label><input type="number" step="0.1" v-model.number="followRecordForm.weight"></div>
+                        <div class="field"><label>收缩压</label><input type="number" min="60" max="240" v-model.number="followRecordForm.systolicPressure"></div>
+                        <div class="field"><label>舒张压</label><input type="number" min="40" max="140" v-model.number="followRecordForm.diastolicPressure"></div>
+                        <div class="field"><label>心率</label><input type="number" min="30" max="180" v-model.number="followRecordForm.heartRate"></div>
+                        <div class="field"><label>空腹血糖</label><input type="number" min="2" max="30" step="0.1" v-model.number="followRecordForm.bloodSugarFasting"></div>
+                        <div class="field"><label>体重</label><input type="number" min="20" max="200" step="0.1" v-model.number="followRecordForm.weight"></div>
                         <div class="field"><label>下次随访日期</label><input type="date" v-model="followRecordForm.nextFollowDate"></div>
                     </div>
                     <div class="form-row" style="margin-top:12px; grid-template-columns:1fr;"><div class="field"><label>随访结果</label><textarea v-model="followRecordForm.followResult"></textarea></div></div>
@@ -1576,8 +1582,8 @@ createApp({
                 </template>
                 <template v-else-if="modal==='intervention'">
                     <div class="form-row">
-                        <div class="field"><label>老人ID</label><input type="number" v-model.number="interventionForm.elderId"></div>
-                        <div class="field"><label>关联随访记录ID</label><input type="number" v-model.number="interventionForm.followRecordId"></div>
+                        <div class="field"><label>老人ID</label><input type="number" min="1" v-model.number="interventionForm.elderId"></div>
+                        <div class="field"><label>关联随访记录ID</label><input type="number" min="1" v-model.number="interventionForm.followRecordId"></div>
                         <div class="field"><label>干预类型</label><select v-model.number="interventionForm.interventionType"><option v-for="(txt,key) in interventionMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
                         <div class="field"><label>干预标题</label><input v-model="interventionForm.interventionTitle"></div>
                     </div>
@@ -1595,11 +1601,11 @@ createApp({
                 </template>
                 <template v-else-if="modal==='assessment'">
                     <div class="form-row">
-                        <div class="field"><label>老人ID</label><input v-model="assessmentForm.elderId" type="number"></div>
-                        <div class="field"><label>责任医生ID</label><input v-model="assessmentForm.doctorId" type="number"></div>
+                        <div class="field"><label>老人ID</label><input v-model="assessmentForm.elderId" type="number" min="1"></div>
+                        <div class="field"><label>责任医生ID</label><input v-model="assessmentForm.doctorId" type="number" min="1"></div>
                         <div class="field"><label>评估类型</label><select v-model.number="assessmentForm.assessType"><option v-for="(txt,key) in assessmentTypeMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
                         <div class="field"><label>评估日期</label><input type="date" v-model="assessmentForm.assessDate"></div>
-                        <div class="field"><label>评分</label><input type="number" step="0.1" v-model="assessmentForm.score"></div>
+                        <div class="field"><label>评分</label><input type="number" min="0" max="100" step="0.1" v-model="assessmentForm.score"></div>
                         <div class="field"><label>等级</label><input v-model="assessmentForm.level" placeholder="如：轻度、中度、重度"></div>
                     </div>
                     <div class="form-row" style="margin-top:12px; grid-template-columns:1fr;">
@@ -1621,11 +1627,12 @@ createApp({
                 </template>
                 <template v-else-if="modal==='report-input'">
                     <div style="padding:10px 0;">
-                        <p style="margin-bottom:16px;color:#606266;">请输入老人档案 ID，系统将自动生成包含基本信息、健康档案、评估记录、生命体征和历史预警的完整健康评估报告。</p>
-                        <div class="field"><label>老人档案ID</label><input v-model="generateReportInput.elderId" type="number" placeholder="请输入老人ID（如 1, 2, 3...）" @keyup.enter="submitGenerateReport"></div>
+                        <p style="margin-bottom:16px;color:#606266;">请输入老人档案 ID，选择生成基础健康评估报告或 AI 健康评估报告。基础报告会同步展示该老人的最近 AI 评估摘要。</p>
+                        <div class="field"><label>老人档案ID</label><input v-model="generateReportInput.elderId" type="number" min="1" placeholder="请输入老人ID（如 1, 2, 3...）" @keyup.enter="submitGenerateReport"></div>
                         <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
                             <button class="ghost-btn" @click="closeModal">取消</button>
-                            <button class="primary-btn" @click="submitGenerateReport">生成报告</button>
+                            <button class="soft-btn" @click="submitAiAssessmentFromUnified">🤖 生成AI评估报告</button>
+                            <button class="primary-btn" @click="submitGenerateReport">生成基础报告</button>
                         </div>
                     </div>
                 </template>
@@ -1633,7 +1640,7 @@ createApp({
                     <div style="padding:10px 0;">
                         <p style="margin-bottom:8px;font-weight:600;">🤖 AI 健康评估</p>
                         <p class="hint" style="margin-bottom:16px;">系统将自动读取老人全部健康数据，通过专业规则模板生成评估报告（秒级响应）。报告包含风险评分、慢病管理建议、随访干预建议和注意事项。</p>
-                        <div class="field"><label>老人档案ID</label><input v-model="aiAssessmentInput.elderId" type="number" placeholder="请输入老人ID（如 1, 2, 3...）" @keyup.enter="submitAiAssessment"></div>
+                        <div class="field"><label>老人档案ID</label><input v-model="aiAssessmentInput.elderId" type="number" min="1" placeholder="请输入老人ID（如 1, 2, 3...）" @keyup.enter="submitAiAssessment"></div>
                         <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
                             <button class="ghost-btn" @click="closeModal">取消</button>
                             <button class="primary-btn" @click="submitAiAssessment">🤖 生成AI评估报告</button>
@@ -1643,7 +1650,7 @@ createApp({
                 <template v-else-if="modal==='ai-report-list'">
                     <div style="padding:10px 0;">
                         <p class="hint" style="margin-bottom:16px;">输入老人ID，查看该老人的所有AI健康评估报告记录。</p>
-                        <div class="field"><label>老人档案ID</label><input v-model="aiReportListFilter.elderId" type="number" placeholder="请输入老人ID" @keyup.enter="loadAiReportList"></div>
+                        <div class="field"><label>老人档案ID</label><input v-model="aiReportListFilter.elderId" type="number" min="1" placeholder="请输入老人ID" @keyup.enter="loadAiReportList"></div>
                         <div style="margin-top:12px;display:flex;gap:10px;"><button class="primary-btn" @click="loadAiReportList">查询</button></div>
                         <div v-if="aiReportList.loading" class="empty-state" style="margin-top:12px;">加载中...</div>
                         <div v-else-if="aiReportList.records.length===0" class="empty-state" style="margin-top:12px;">暂无AI评估记录</div>
@@ -1746,7 +1753,7 @@ createApp({
                         </div>
                         <!-- 基本信息 -->
                         <div class="report-section">
-                            <h4 class="report-section-title">一、老人基本信息</h4>
+                            <h4 class="report-section-title">{{ reportSectionIndex.basicInfo }}、老人基本信息</h4>
                             <div class="report-grid">
                                 <div class="report-field"><label>姓名</label><span>{{ reportData.data.basicInfo?.name || '-' }}</span></div>
                                 <div class="report-field"><label>性别</label><span>{{ reportData.data.basicInfo?.gender || '-' }}</span></div>
@@ -1762,7 +1769,7 @@ createApp({
                         </div>
                         <!-- 健康档案 -->
                         <div class="report-section" v-if="reportData.data.healthRecord">
-                            <h4 class="report-section-title">二、健康档案</h4>
+                            <h4 class="report-section-title">{{ reportSectionIndex.healthRecord }}、健康档案</h4>
                             <div class="report-grid">
                                 <div class="report-field"><label>血型</label><span>{{ reportData.data.healthRecord?.bloodType || '-' }}</span></div>
                                 <div class="report-field"><label>身高</label><span>{{ reportData.data.healthRecord?.height ?? '-' }} cm</span></div>
@@ -1775,7 +1782,7 @@ createApp({
                         </div>
                         <!-- 详细病史 -->
                         <div class="report-section" v-if="reportData.data.medicalHistories?.length">
-                            <h4 class="report-section-title">三、病史明细</h4>
+                            <h4 class="report-section-title">{{ reportSectionIndex.medicalHistories }}、病史明细</h4>
                             <table class="data-table">
                                 <thead><tr><th>疾病名称</th><th>确诊日期</th><th>治疗方式</th><th>备注</th></tr></thead>
                                 <tbody>
@@ -1790,7 +1797,7 @@ createApp({
                         </div>
                         <!-- 评估记录汇总 -->
                         <div class="report-section" v-if="reportData.data.assessments?.length">
-                            <h4 class="report-section-title">四、评估记录汇总（共 {{ reportData.data.assessmentCount }} 条）</h4>
+                            <h4 class="report-section-title">{{ reportSectionIndex.assessments }}、评估记录汇总（共 {{ reportData.data.assessmentCount }} 条）</h4>
                             <div class="report-score-summary">
                                 <div class="report-score-card" v-if="reportData.data.overallScore">
                                     <div class="score-label">综合评估得分</div>
@@ -1812,9 +1819,34 @@ createApp({
                                 </tbody>
                             </table>
                         </div>
+                        <!-- AI健康评估摘要 -->
+                        <div class="report-section" v-if="reportData.data.aiReports?.length">
+                            <h4 class="report-section-title">{{ reportSectionIndex.aiReports }}、AI健康评估摘要（共 {{ reportData.data.aiReportCount }} 条）</h4>
+                            <div class="report-score-summary" v-if="reportData.data.latestAiReport">
+                                <div class="report-score-card">
+                                    <div class="score-label">最近AI风险评分</div>
+                                    <div class="score-value">{{ reportData.data.latestAiReport.riskScore ?? '-' }}</div>
+                                    <div class="score-level">{{ aiRiskLevelTextOf(reportData.data.latestAiReport.riskLevel) }}</div>
+                                </div>
+                            </div>
+                            <table class="data-table">
+                                <thead><tr><th>ID</th><th>来源</th><th>风险分</th><th>风险等级</th><th>状态</th><th>生成时间</th><th>操作</th></tr></thead>
+                                <tbody>
+                                    <tr v-for="item in reportData.data.aiReports" :key="'report-ai'+item.id">
+                                        <td>{{ item.id }}</td>
+                                        <td>{{ item.source===1?'规则引擎':'AI引擎' }}</td>
+                                        <td>{{ item.riskScore ?? '-' }}</td>
+                                        <td><span class="tag" :class="item.riskLevel==='CRITICAL'||item.riskLevel==='HIGH'?'tag-danger':item.riskLevel==='MEDIUM'?'tag-warning':'tag-success'">{{ aiRiskLevelTextOf(item.riskLevel) }}</span></td>
+                                        <td>{{ ['草稿','已确认','已驳回','已归档'][item.status]||'-' }}</td>
+                                        <td>{{ dateTimeText(item.createTime) }}</td>
+                                        <td><button class="link" @click="viewAiReport(item.id)">查看AI报告</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                         <!-- 最新体征 -->
                         <div class="report-section" v-if="reportData.data.recentVitals?.length">
-                            <h4 class="report-section-title">五、最新生命体征</h4>
+                            <h4 class="report-section-title">{{ reportSectionIndex.recentVitals }}、最新生命体征</h4>
                             <div class="report-grid">
                                 <div class="report-field report-vital" v-for="(v, i) in reportData.data.recentVitals" :key="i">
                                     <label>{{ v.name }}</label>
@@ -1824,7 +1856,7 @@ createApp({
                         </div>
                         <!-- 最近预警 -->
                         <div class="report-section" v-if="reportData.data.recentWarnings?.length">
-                            <h4 class="report-section-title">六、近期预警记录</h4>
+                            <h4 class="report-section-title">{{ reportSectionIndex.recentWarnings }}、近期预警记录</h4>
                             <div v-for="w in reportData.data.recentWarnings" :key="w.id" class="report-warning-item">
                                 <span class="tag" :class="warnLevelClass(w.warningLevel)">{{ warnLevelText(w.warningLevel) }}</span>
                                 <span class="title">{{ w.warningTitle }}</span>
@@ -1834,7 +1866,7 @@ createApp({
                         </div>
                         <!-- 报告结论 -->
                         <div class="report-section report-conclusion">
-                            <h4 class="report-section-title">七、综合评估结论</h4>
+                            <h4 class="report-section-title">{{ reportSectionIndex.conclusion }}、综合评估结论</h4>
                             <div v-if="reportData.data.overallLevel" class="conclusion-level">
                                 当前综合健康等级：<strong>{{ reportData.data.overallLevel }}</strong>
                             </div>
@@ -1847,17 +1879,18 @@ createApp({
                 <div v-if="modal==='assessment'" class="actions" style="justify-content:flex-end; margin-top:12px;"><button class="primary-btn" @click="saveAssessment">保存评估记录</button></div>
                 <template v-else-if="modal==='referral'">
                     <div class="form-row">
-                        <div class="field"><label>老人ID</label><input v-model="referralForm.elderId" type="number"></div>
+                        <div class="field"><label>老人ID</label><input v-model="referralForm.elderId" type="number" min="1"></div>
                         <div class="field"><label>转诊类型</label><select v-model.number="referralForm.referralType"><option v-for="(txt,key) in referralTypeMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
                         <div class="field"><label>紧急程度</label><select v-model.number="referralForm.urgencyLevel"><option v-for="(txt,key) in urgencyMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
                         <div class="field"><label>是否预留床位</label><select v-model.number="referralForm.bedReserved"><option :value="0">否</option><option :value="1">是</option></select></div>
                         <div class="field"><label>转出机构名称</label><input v-model="referralForm.fromOrg"></div>
+                        <div class="field"><label>转出医生ID</label><input v-model="referralForm.fromDoctorId" type="number" min="1"></div>
                         <div class="field"><label>转出医生姓名</label><input v-model="referralForm.fromDoctorName"></div>
                         <div class="field"><label>转入机构名称</label><input v-model="referralForm.toOrg"></div>
                         <div class="field"><label>转入科室名称</label><input v-model="referralForm.toDept"></div>
                     </div>
                     <div class="form-row" style="margin-top:12px;">
-                        <div class="field"><label>转入医生ID</label><input v-model="referralForm.toDoctorId" type="number"></div>
+                        <div class="field"><label>转入医生ID</label><input v-model="referralForm.toDoctorId" type="number" min="1"></div>
                         <div class="field"><label>转入医生姓名</label><input v-model="referralForm.toDoctorName"></div>
                         <div class="field"><label>诊断</label><input v-model="referralForm.diagnosis"></div>
                         <div class="field"><label>转诊原因</label><input v-model="referralForm.referralReason"></div>
@@ -1889,7 +1922,7 @@ createApp({
                 <div v-if="modal==='referral-complete' || modal==='referral-reject'" class="actions" style="justify-content:flex-end; margin-top:12px;"><button class="primary-btn" @click="submitReferralAction">提交处理结果</button></div>
                 <template v-else-if="modal==='device'">
                     <div class="form-row">
-                        <div class="field"><label>老人ID</label><input v-model="deviceForm.elderId" type="number"></div>
+                        <div class="field"><label>老人ID</label><input v-model="deviceForm.elderId" type="number" min="1"></div>
                         <div class="field"><label>设备类型</label><select v-model.number="deviceForm.deviceType"><option v-for="(txt,key) in deviceTypeMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
                         <div class="field"><label>设备名称</label><input v-model="deviceForm.deviceName"></div>
                         <div class="field"><label>设备序列号</label><input v-model="deviceForm.deviceSn"></div>
@@ -1928,9 +1961,17 @@ createApp({
                 <template v-else-if="modal==='interventionDetail'">
                     <div class="grid-1"><div class="card list-card">
                         <div class="list-title">{{ modalData.item?.interventionTitle || '干预详情' }}</div>
+                        <div class="timeline-card"><div class="desc">干预记录ID</div><div>{{ modalData.item?.id || '-' }}</div></div>
+                        <div class="timeline-card"><div class="desc">老人ID</div><div>{{ modalData.item?.elderId || '-' }}</div></div>
+                        <div class="timeline-card"><div class="desc">医生ID</div><div>{{ modalData.item?.doctorId || '-' }}</div></div>
+                        <div class="timeline-card"><div class="desc">关联随访记录ID</div><div>{{ modalData.item?.followRecordId || '-' }}</div></div>
                         <div class="timeline-card"><div class="desc">干预类型</div><div>{{ interventionText(modalData.item?.interventionType) }}</div></div>
                         <div class="timeline-card"><div class="desc">干预日期</div><div>{{ dateTimeText(modalData.item?.interventionDate) }}</div></div>
                         <div class="timeline-card"><div class="desc">干预内容</div><div>{{ modalData.item?.interventionContent || '-' }}</div></div>
+                        <div class="timeline-card"><div class="desc">用药调整</div><div>{{ modalData.item?.medicationAdjust || '-' }}</div></div>
+                        <div class="timeline-card"><div class="desc">生活方式指导</div><div>{{ modalData.item?.lifestyleGuidance || '-' }}</div></div>
+                        <div class="timeline-card"><div class="desc">健康宣教</div><div>{{ modalData.item?.healthEducation || '-' }}</div></div>
+                        <div class="timeline-card"><div class="desc">状态</div><div>{{ modalData.item?.status ?? '-' }}</div></div>
                         <div class="timeline-card"><div class="desc">效果评价</div><div>{{ modalData.item?.effectEvaluation ? effectText(modalData.item?.effectEvaluation) : '未评价' }}</div></div>
                         <div class="timeline-card"><div class="desc">效果描述</div><div>{{ modalData.item?.effectDesc || '-' }}</div></div>
                         <div class="timeline-card"><div class="desc">下次计划</div><div>{{ modalData.item?.nextPlan || '-' }}</div></div>
@@ -1951,7 +1992,7 @@ createApp({
                 <!-- ====== 护理记录表单 ====== -->
                 <template v-else-if="modal==='nurse-record'">
                     <div class="form-row">
-                        <div class="field"><label>老人ID</label><input v-model="nurseRecordForm.elderId" type="number" placeholder="老人档案ID"></div>
+                        <div class="field"><label>老人ID</label><input v-model="nurseRecordForm.elderId" type="number" min="1" placeholder="老人档案ID"></div>
                         <div class="field"><label>记录类型</label><select v-model.number="nurseRecordForm.recordType"><option v-for="(txt,key) in recordTypeMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
                         <div class="field"><label>护理日期</label><input type="datetime-local" v-model="nurseRecordForm.recordDate"></div>
                         <div class="field"><label>是否异常</label><select v-model.number="nurseRecordForm.isAbnormal"><option :value="0">正常</option><option :value="1">异常</option></select></div>
@@ -1992,12 +2033,12 @@ createApp({
                 <!-- ====== 护理计划表单 ====== -->
                 <template v-else-if="modal==='nurse-plan'">
                     <div class="form-row">
-                        <div class="field"><label>老人ID</label><input v-model="nursePlanForm.elderId" type="number" placeholder="老人档案ID"></div>
+                        <div class="field"><label>老人ID</label><input v-model="nursePlanForm.elderId" type="number" min="1" placeholder="老人档案ID"></div>
                         <div class="field"><label>计划名称</label><input v-model="nursePlanForm.planName" placeholder="如：基础护理计划"></div>
                         <div class="field"><label>计划类型</label><select v-model.number="nursePlanForm.planType"><option v-for="(txt,key) in planTypeMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
                         <div class="field"><label>开始日期</label><input type="date" v-model="nursePlanForm.startDate"></div>
                         <div class="field"><label>结束日期</label><input type="date" v-model="nursePlanForm.endDate"></div>
-                        <div class="field"><label>总次数</label><input type="number" v-model.number="nursePlanForm.totalCount" placeholder="计划总执行次数"></div>
+                        <div class="field"><label>总次数</label><input type="number" min="1" v-model.number="nursePlanForm.totalCount" placeholder="计划总执行次数"></div>
                         <div class="field"><label>护理频次</label><input v-model="nursePlanForm.frequency" placeholder="如：每日1次"></div>
                     </div>
                     <div class="form-row" style="margin-top:12px; grid-template-columns:1fr;">
@@ -2027,17 +2068,17 @@ createApp({
                 <!-- ====== 体检表单 ====== -->
                 <template v-else-if="modal==='exam'">
                     <div class="form-row">
-                        <div class="field"><label>老人ID</label><input v-model="examForm.elderId" type="number"></div>
+                        <div class="field"><label>老人ID</label><input v-model="examForm.elderId" type="number" min="1"></div>
                         <div class="field"><label>体检日期</label><input type="date" v-model="examForm.examDate"></div>
-                        <div class="field"><label>身高(cm)</label><input v-model="examForm.height" type="number" step="0.1"></div>
-                        <div class="field"><label>体重(kg)</label><input v-model="examForm.weight" type="number" step="0.1"></div>
-                        <div class="field"><label>收缩压</label><input v-model="examForm.systolicPressure" type="number"></div>
-                        <div class="field"><label>舒张压</label><input v-model="examForm.diastolicPressure" type="number"></div>
-                        <div class="field"><label>心率</label><input v-model="examForm.heartRate" type="number"></div>
-                        <div class="field"><label>空腹血糖</label><input v-model="examForm.bloodSugarFasting" type="number" step="0.01"></div>
-                        <div class="field"><label>体温(℃)</label><input v-model="examForm.temperature" type="number" step="0.1"></div>
-                        <div class="field"><label>血氧(%)</label><input v-model="examForm.bloodOxygen" type="number" step="0.1"></div>
-                        <div class="field"><label>腰围(cm)</label><input v-model="examForm.waistline" type="number" step="0.1"></div>
+                        <div class="field"><label>身高(cm)</label><input v-model="examForm.height" type="number" min="1" step="0.1"></div>
+                        <div class="field"><label>体重(kg)</label><input v-model="examForm.weight" type="number" min="1" step="0.1"></div>
+                        <div class="field"><label>收缩压</label><input v-model="examForm.systolicPressure" type="number" min="1"></div>
+                        <div class="field"><label>舒张压</label><input v-model="examForm.diastolicPressure" type="number" min="1"></div>
+                        <div class="field"><label>心率</label><input v-model="examForm.heartRate" type="number" min="1"></div>
+                        <div class="field"><label>空腹血糖</label><input v-model="examForm.bloodSugarFasting" type="number" min="1" step="0.01"></div>
+                        <div class="field"><label>体温(℃)</label><input v-model="examForm.temperature" type="number" min="1" step="0.1"></div>
+                        <div class="field"><label>血氧(%)</label><input v-model="examForm.bloodOxygen" type="number" min="1" step="0.1"></div>
+                        <div class="field"><label>腰围(cm)</label><input v-model="examForm.waistline" type="number" min="1" step="0.1"></div>
                     </div>
                     <div class="form-row" style="margin-top:12px; grid-template-columns:1fr;">
                         <div class="field"><label>体检总结</label><textarea v-model="examForm.examSummary"></textarea></div>
@@ -2054,8 +2095,10 @@ createApp({
                         <div class="timeline-card"><div class="desc">血压</div><div>{{ modalData.item?.systolicPressure ?? '-' }}/{{ modalData.item?.diastolicPressure ?? '-' }} mmHg</div></div>
                         <div class="timeline-card"><div class="desc">心率</div><div>{{ modalData.item?.heartRate ?? '-' }} 次/分</div></div>
                         <div class="timeline-card"><div class="desc">空腹血糖</div><div>{{ modalData.item?.bloodSugarFasting ?? '-' }} mmol/L</div></div>
+                        <div class="timeline-card"><div class="desc">随机血糖</div><div>{{ modalData.item?.bloodSugarRandom ?? '-' }} mmol/L</div></div>
                         <div class="timeline-card"><div class="desc">体温</div><div>{{ modalData.item?.temperature ?? '-' }} ℃</div></div>
                         <div class="timeline-card"><div class="desc">血氧</div><div>{{ modalData.item?.bloodOxygen ?? '-' }} %</div></div>
+                        <div class="timeline-card"><div class="desc">腰围</div><div>{{ modalData.item?.waistline ?? '-' }} cm</div></div>
                         <div class="timeline-card"><div class="desc">异常标记</div><div><span class="tag" :class="modalData.item?.abnormalFlag===1?'tag-danger':'tag-success'">{{ modalData.item?.abnormalFlag===1?'异常':'正常' }}</span></div></div>
                         <div class="timeline-card" v-if="modalData.item?.examSummary"><div class="desc">体检总结</div><div>{{ modalData.item.examSummary }}</div></div>
                         <div class="timeline-card" v-if="modalData.item?.doctorAdvice"><div class="desc">医生建议</div><div>{{ modalData.item.doctorAdvice }}</div></div>
@@ -2206,7 +2249,7 @@ createApp({
                 latestWarnings: [],
                 latestFollowups: []
             },
-            elderFilter: { name: '', community: '', doctorId: '' },
+            elderFilter: { name: '', community: '', doctorId: '', diseaseType: '' },
             elderPage: { records: [], pageNum: 1, pageSize: 10, pages: 0, total: 0 },
             elderForm: blankElder(),
             warningFilter: { status: '', warningLevel: '', elderId: '' },
@@ -2357,6 +2400,29 @@ createApp({
             const text = this.reportConclusionText;
             return text ? text.split('\n').filter(Boolean) : [];
         },
+        reportSectionIndex() {
+            const data = this.reportData.data || {};
+            const sections = [
+                ['basicInfo', true],
+                ['healthRecord', !!data.healthRecord],
+                ['medicalHistories', !!(data.medicalHistories && data.medicalHistories.length)],
+                ['assessments', !!(data.assessments && data.assessments.length)],
+                ['aiReports', !!(data.aiReports && data.aiReports.length)],
+                ['recentVitals', !!(data.recentVitals && data.recentVitals.length)],
+                ['recentWarnings', !!(data.recentWarnings && data.recentWarnings.length)],
+                ['conclusion', true]
+            ];
+            const numerals = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+            const result = {};
+            let index = 0;
+            sections.forEach(([key, visible]) => {
+                if (visible) {
+                    result[key] = numerals[index] || String(index + 1);
+                    index += 1;
+                }
+            });
+            return result;
+        },
         reportConclusionText() {
             const data = this.reportData.data;
             if (!data) return '';
@@ -2475,6 +2541,14 @@ createApp({
         deviceTypeMap() { return DEVICE_TYPE_MAP; },
         vitalTypeMap() { return VITAL_TYPE_MAP; },
         timelineTypeMap() { return TIMELINE_TYPE_MAP; },
+        timelineSummaryCards() {
+            const counts = this.timelineSummary.typeCounts || {};
+            return Object.entries(TIMELINE_TYPE_MAP).map(([key, label]) => ({
+                key,
+                label,
+                count: counts[key] ?? this.timelineSummary['type' + key] ?? 0
+            }));
+        },
         // 护士模块常量映射
         recordTypeMap() { return RECORD_TYPE_MAP; },
         planTypeMap() { return PLAN_TYPE_MAP; },
@@ -2599,9 +2673,9 @@ createApp({
         // ========== 重点人群管理方法 ==========
         async loadRiskStats() {
             try {
-                const res = await axios.get('/api/risk/stats');
-                if (res.data.code === 200) {
-                    this.riskStats = res.data.data;
+                const res = await this.api('/api/risk/stats');
+                if (res?.code === 200) {
+                    this.riskStats = res.data || this.riskStats;
                 }
             } catch (error) {
                 console.error('加载风险统计失败:', error);
@@ -2617,50 +2691,53 @@ createApp({
                 if (this.riskFilter.riskLevel) {
                     params.riskLevel = this.riskFilter.riskLevel;
                 }
-                const res = await axios.get('/api/risk/elders', { params });
-                if (res.data.code === 200) {
-                    this.keyPopulationPage = res.data.data;
+                const query = new URLSearchParams(params);
+                const res = await this.api(`/api/risk/elders?${query.toString()}`);
+                if (res?.code === 200) {
+                    this.keyPopulationPage = res.data || this.keyPopulationPage;
                     // 处理数据，添加风险等级文本
-                    this.keyPopulationPage.records = this.keyPopulationPage.records.map(item => {
+                    this.keyPopulationPage.records = (this.keyPopulationPage.records || []).map(item => {
                         item.riskLevelText = this.riskLevelText(item.riskLevel);
                         return item;
                     });
                 }
             } catch (error) {
                 console.error('加载重点人群失败:', error);
-                this.$message.error('加载重点人群失败');
+                this.toast('提示', '加载重点人群失败', 'error');
             }
         },
         async calculateAllRisk() {
             try {
-                const res = await axios.post('/api/risk/elders/calculate');
-                if (res.data.code === 200) {
-                    this.$message.success(res.data.message);
+                const res = await this.api('/api/risk/elders/calculate', { method: 'POST' });
+                if (res?.code === 200) {
+                    this.toast('成功', res.msg || res.message || '风险计算完成');
                     this.loadRiskStats();
                     this.loadKeyPopulation(1);
                 }
             } catch (error) {
                 console.error('风险计算失败:', error);
-                this.$message.error('风险计算失败');
+                this.toast('提示', '风险计算失败', 'error');
             }
         },
         async generateFollowupTasks() {
             try {
-                const res = await axios.post('/api/followup/tasks/generate');
-                if (res.data.code === 200) {
-                    this.$message.success(res.data.message);
+                const res = await this.api('/api/followup/tasks/generate', { method: 'POST' });
+                if (res?.code === 200) {
+                    this.toast('成功', res.msg || res.message || '任务生成完成');
                     this.loadTodayTasks();
+                    this.loadRiskStats();
+                    this.loadKeyPopulation(1);
                 }
             } catch (error) {
                 console.error('生成任务失败:', error);
-                this.$message.error('生成任务失败');
+                this.toast('提示', '生成任务失败', 'error');
             }
         },
         async loadTodayTasks() {
             try {
-                const res = await axios.get('/api/followup/tasks/today');
-                if (res.data.code === 200) {
-                    this.todayTasks = res.data.data;
+                const res = await this.api('/api/followup/tasks/today');
+                if (res?.code === 200) {
+                    this.todayTasks = res.data || [];
                 }
             } catch (error) {
                 console.error('加载今日任务失败:', error);
@@ -2668,85 +2745,66 @@ createApp({
         },
         async viewRiskDetail(row) {
             try {
-                const res = await axios.get(`/api/risk/elders/${row.elderId}`);
-                if (res.data.code === 200) {
-                    const detail = res.data.data;
-                    // 显示风险详情对话框
-                    this.$alert(
-                        `<div>
-                            <p><strong>风险等级:</strong> ${this.riskLevelText(detail.profile.riskLevel)}</p>
-                            <p><strong>风险评分:</strong> ${detail.profile.riskScore}分</p>
-                            <p><strong>风险标签:</strong> ${detail.profile.riskTags}</p>
-                            <p><strong>上次计算时间:</strong> ${this.dateTimeText(detail.profile.lastCalculateTime)}</p>
-                            <hr/>
-                            <p><strong>评分详情:</strong></p>
-                            <ul>
-                                ${detail.reasonDetails.scoreDetails.map(d => 
-                                    `<li>${d.ruleName}: +${d.score}分</li>`
-                                ).join('')}
-                            </ul>
-                        </div>`,
-                        '风险画像详情',
-                        {
-                            dangerouslyUseHTMLString: true,
-                            confirmButtonText: '关闭'
-                        }
-                    );
+                const res = await this.api(`/api/risk/elders/${encodeURIComponent(row.elderId)}`);
+                if (res?.code === 200) {
+                    const detail = res.data || {};
+                    const profile = detail.profile || {};
+                    const scoreDetails = detail.reasonDetails?.scoreDetails || [];
+                    alert([
+                        `风险等级：${this.riskLevelText(profile.riskLevel)}`,
+                        `风险评分：${profile.riskScore ?? '-'}分`,
+                        `风险标签：${profile.riskTags || '-'}`,
+                        `上次计算时间：${this.dateTimeText(profile.lastCalculateTime)}`,
+                        '',
+                        '评分详情：',
+                        ...(scoreDetails.length ? scoreDetails.map(d => `${d.ruleName}: +${d.score}分`) : ['暂无评分明细'])
+                    ].join('\n'));
                 }
             } catch (error) {
                 console.error('获取风险详情失败:', error);
-                this.$message.error('获取风险详情失败');
+                this.toast('提示', '获取风险详情失败', 'error');
             }
         },
         async createFollowupTask(row) {
             try {
-                await this.$confirm('当前系统按风险规则批量生成随访任务，是否立即执行生成?', '提示', {
-                    confirmButtonText: '确定',
-                    cancelButtonText: '取消',
-                    type: 'info'
-                });
+                if (!confirm('当前系统按风险规则批量生成随访任务，是否立即执行生成?')) return;
                 await this.generateFollowupTasks();
             } catch (error) {
-                if (error !== 'cancel') {
-                    console.error('创建任务失败:', error);
-                }
+                console.error('创建任务失败:', error);
             }
         },
         async finishFollowupTask(row) {
             try {
-                await this.$prompt('请输入关联的随访记录ID', '完成任务', {
-                    confirmButtonText: '确定',
-                    cancelButtonText: '取消',
-                    inputPattern: /^\d+$/,
-                    inputErrorMessage: '请输入有效的数字ID'
-                }).then(({ value }) => {
-                    return axios.put(`/api/followup/tasks/${row.id}/finish?followRecordId=${value}`);
-                });
-                
-                this.$message.success('任务已完成');
-                this.loadTodayTasks();
-            } catch (error) {
-                if (error !== 'cancel') {
-                    console.error('完成任务失败:', error);
-                    this.$message.error('完成任务失败');
+                const value = prompt('请输入关联的随访记录ID');
+                if (value === null) return;
+                const followRecordId = this.normalizePositiveId(value, '随访记录ID');
+                if (!followRecordId) return;
+                const res = await this.api(`/api/followup/tasks/${row.id}/finish?followRecordId=${encodeURIComponent(followRecordId)}`, { method: 'PUT' });
+                if (res?.code === 200) {
+                    this.toast('成功', '任务已完成');
+                    this.loadTodayTasks();
+                } else {
+                    this.toast('提示', res?.msg || res?.message || '完成任务失败', 'error');
                 }
+            } catch (error) {
+                console.error('完成任务失败:', error);
+                this.toast('提示', '完成任务失败', 'error');
             }
         },
         async cancelFollowupTask(row) {
             try {
-                await this.$prompt('请输入取消原因', '取消任务', {
-                    confirmButtonText: '确定',
-                    cancelButtonText: '取消',
-                }).then(({ value }) => {
-                    return axios.put(`/api/followup/tasks/${row.id}/cancel?reason=${encodeURIComponent(value)}`);
-                });
-                
-                this.$message.success('任务已取消');
-                this.loadTodayTasks();
-            } catch (error) {
-                if (error !== 'cancel') {
-                    console.error('取消任务失败:', error);
+                const value = prompt('请输入取消原因');
+                if (value === null) return;
+                const res = await this.api(`/api/followup/tasks/${row.id}/cancel?reason=${encodeURIComponent(value || '手动取消')}`, { method: 'PUT' });
+                if (res?.code === 200) {
+                    this.toast('成功', '任务已取消');
+                    this.loadTodayTasks();
+                } else {
+                    this.toast('提示', res?.msg || res?.message || '取消任务失败', 'error');
                 }
+            } catch (error) {
+                console.error('取消任务失败:', error);
+                this.toast('提示', '取消任务失败', 'error');
             }
         },
         // 辅助方法
@@ -2757,6 +2815,67 @@ createApp({
         riskLevelTag(level) {
             const map = { 1: 'info', 2: 'success', 3: 'warning', 4: 'danger' };
             return map[level] || 'info';
+        },
+        normalizePositiveId(value, label = 'ID') {
+            const raw = String(value ?? '').trim();
+            if (!raw) return '';
+            const num = Number(raw);
+            if (!Number.isInteger(num) || num <= 0) {
+                this.toast('提示', `${label}必须为正整数`, 'error');
+                return null;
+            }
+            return String(num);
+        },
+        validateOptionalPositiveId(value, label = 'ID') {
+            const raw = String(value ?? '').trim();
+            if (!raw) return '';
+            return this.normalizePositiveId(raw, label);
+        },
+        validateScoreRange(value) {
+            if (value === null || value === undefined || String(value).trim() === '') return true;
+            const score = Number(value);
+            if (Number.isNaN(score) || score < 0 || score > 100) {
+                this.toast('提示', '评分必须在0到100之间', 'error');
+                return false;
+            }
+            return true;
+        },
+        validatePhone(value, label = '手机号', required = false) {
+            const raw = String(value ?? '').trim();
+            if (!raw) {
+                if (required) this.toast('提示', `${label}不能为空`, 'error');
+                return !required;
+            }
+            if (!/^1\d{10}$/.test(raw)) {
+                this.toast('提示', `${label}格式不正确`, 'error');
+                return false;
+            }
+            return true;
+        },
+        validateIdCard(value) {
+            const raw = String(value ?? '').trim().toUpperCase();
+            if (!/^\d{17}[\dX]$/.test(raw)) {
+                this.toast('提示', '身份证号必须为18位，前17位为数字，最后一位为数字或X', 'error');
+                return false;
+            }
+            const birth = raw.slice(6, 14);
+            const y = Number(birth.slice(0, 4));
+            const m = Number(birth.slice(4, 6));
+            const d = Number(birth.slice(6, 8));
+            const dt = new Date(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T00:00:00`);
+            if (Number.isNaN(dt.getTime()) || dt.getFullYear() !== y || dt.getMonth() + 1 !== m || dt.getDate() !== d || dt > new Date()) {
+                this.toast('提示', '身份证出生日期不存在或晚于今天', 'error');
+                return false;
+            }
+            return true;
+        },
+        validateDateOrder(start, end, message = '结束日期不能早于开始日期') {
+            if (!start || !end) return true;
+            if (String(end) < String(start)) {
+                this.toast('提示', message, 'error');
+                return false;
+            }
+            return true;
         },
         taskTypeText(type) {
             const map = { 1: '风险随访', 2: '逾期随访', 3: '预约随访' };
@@ -3314,7 +3433,8 @@ createApp({
                 pageSize: this.elderPage.pageSize,
                 name: this.elderFilter.name || '',
                 community: this.elderFilter.community || '',
-                doctorId: this.elderFilter.doctorId || ''
+                doctorId: this.elderFilter.doctorId || '',
+                diseaseType: this.elderFilter.diseaseType || ''
             });
             const res = await this.api(`/api/elders?${query.toString()}`);
             if (res?.code === 200) {
@@ -3361,7 +3481,20 @@ createApp({
                 this.toast('提示', '请填写完整信息', 'error');
                 return;
             }
-            const body = { ...this.elderForm, doctorId: this.elderForm.doctorId || (this.userInfo.userId || this.userInfo.id || 1) };
+            if (!this.validateIdCard(this.elderForm.idCard)) return;
+            if (!this.validatePhone(this.elderForm.phone, '联系电话', true)) return;
+            if (!this.validatePhone(this.elderForm.emergencyPhone, '紧急联系电话', false)) return;
+            const doctorId = this.elderForm.doctorId
+                ? this.normalizePositiveId(this.elderForm.doctorId, '责任医生ID')
+                : (this.userInfo.userId || this.userInfo.id || 1);
+            if (!doctorId) return;
+            const body = {
+                ...this.elderForm,
+                idCard: String(this.elderForm.idCard).trim().toUpperCase(),
+                phone: String(this.elderForm.phone).trim(),
+                emergencyPhone: String(this.elderForm.emergencyPhone || '').trim(),
+                doctorId: Number(doctorId)
+            };
             const isEdit = !!body.id;
             const res = await this.api(isEdit ? `/api/elders/${body.id}` : '/api/elders', {
                 method: isEdit ? 'PUT' : 'POST',
@@ -3408,12 +3541,15 @@ createApp({
             }
         },
         async loadWarnings(page = 1) {
+            const elderId = this.validateOptionalPositiveId(this.warningFilter.elderId, '老人ID');
+            if (elderId === null) return;
+            this.warningFilter.elderId = elderId;
             const query = new URLSearchParams({
                 pageNum: page,
                 pageSize: this.warningPage.pageSize,
                 status: this.warningFilter.status || '',
                 warningLevel: this.warningFilter.warningLevel || '',
-                elderId: this.warningFilter.elderId || ''
+                elderId: elderId || ''
             });
             const res = await this.api(`/api/warnings?${query.toString()}`);
             if (res?.code === 200) {
@@ -3425,8 +3561,8 @@ createApp({
                     pages: pg.pages || 0,
                     total: pg.total || 0
                 };
-                this.syncRealtimeFeedFromWarnings(this.warningPage.records);
             }
+            this.loadRealtimeWarningFeed();
         },
         async loadRealtimeStats() {
             const res = await this.api('/api/warnings/stats/realtime');
@@ -3439,7 +3575,14 @@ createApp({
                     hourlyTrend: res.data.hourlyTrend || [],
                     onlineDoctors: res.data.onlineDoctors || 0
                 };
+                this.syncRealtimeFeedFromWarnings(res.data.recentWarnings || []);
                 this.$nextTick(() => this.renderRtTrendChartWithRetry());
+            }
+        },
+        async loadRealtimeWarningFeed() {
+            const res = await this.api('/api/warnings?pageNum=1&pageSize=8');
+            if (res?.code === 200) {
+                this.syncRealtimeFeedFromWarnings((res.data || {}).records || []);
             }
         },
         renderRtTrendChartWithRetry(retry = 0) {
@@ -3736,12 +3879,15 @@ createApp({
             }
         },
         async loadFollowups(page = 1) {
+            const elderId = this.validateOptionalPositiveId(this.followFilter.elderId, '老人ID');
+            if (elderId === null) return;
+            this.followFilter.elderId = elderId;
             const query = new URLSearchParams({
                 pageNum: page,
                 pageSize: this.followPage.pageSize,
                 status: this.followFilter.status || '',
                 diseaseType: this.followFilter.diseaseType || '',
-                elderId: this.followFilter.elderId || ''
+                elderId: elderId || ''
             });
             const res = await this.api(`/api/followup/plans?${query.toString()}`);
             if (res?.code === 200) {
@@ -3766,7 +3912,16 @@ createApp({
                 this.toast('提示', '请填写完整信息', 'error');
                 return;
             }
+            const elderId = this.normalizePositiveId(this.planForm.elderId, '老人ID');
+            if (!elderId) return;
+            const totalCount = this.normalizePositiveId(this.planForm.totalCount, '计划总次数');
+            if (!totalCount) return;
+            if (!this.validateDateOrder(this.planForm.startDate, this.planForm.endDate)) return;
+            if (!this.validateDateOrder(this.planForm.startDate, this.planForm.nextFollowDate, '下次随访日期不能早于开始日期')) return;
+            this.planForm.elderId = Number(elderId);
+            this.planForm.totalCount = Number(totalCount);
             const body = { ...this.planForm, doctorId: this.planForm.doctorId || (this.userInfo.userId || this.userInfo.id || 1) };
+            body.status = Number(body.status ?? 1);
             const isEdit = !!body.id;
             const res = await this.api(isEdit ? `/api/followup/plans/${body.id}` : '/api/followup/plans', {
                 method: isEdit ? 'PUT' : 'POST',
@@ -3779,6 +3934,43 @@ createApp({
                 this.loadDashboard();
             } else {
                 this.toast('提示', res?.msg || res?.message || '操作失败', 'error');
+            }
+        },
+        async markWarningProcessing(item) {
+            if (!item?.id) return;
+            const res = await this.api(`/api/warnings/${item.id}/processing`, {
+                method: 'PUT',
+                body: JSON.stringify({ doctorId: this.userInfo.userId || this.userInfo.id || 1 })
+            });
+            if (res?.code === 200) {
+                this.toast('成功', '预警已标记为处理中');
+                this.loadWarnings(this.warningPage.pageNum);
+                this.loadRealtimeStats();
+                this.loadDashboard();
+            } else {
+                this.toast('提示', res?.msg || res?.message || '操作失败', 'error');
+            }
+        },
+        async deletePlan(id) {
+            if (!confirm('确认删除此随访计划吗？')) return;
+            const res = await this.api(`/api/followup/plans/${id}`, { method: 'DELETE' });
+            if (res?.code === 200) {
+                this.toast('成功', '随访计划删除成功');
+                this.loadFollowups(this.followPage.pageNum);
+                this.loadDashboard();
+            } else {
+                this.toast('提示', res?.msg || res?.message || '删除失败', 'error');
+            }
+        },
+        async changeFollowPlanStatus(id, status) {
+            const res = await this.api(`/api/followup/plans/${id}/status?status=${encodeURIComponent(status)}`, { method: 'PUT' });
+            if (res?.code === 200) {
+                this.toast('成功', '随访状态已更新');
+                this.loadFollowups(this.followPage.pageNum);
+                this.loadDashboard();
+            } else {
+                this.toast('提示', res?.msg || res?.message || '状态更新失败', 'error');
+                this.loadFollowups(this.followPage.pageNum);
             }
         },
         openRecordModal(plan) {
@@ -3796,6 +3988,20 @@ createApp({
             if (!this.followRecordForm.followResult) {
                 this.toast('提示', '请填写随访结果', 'error');
                 return;
+            }
+            const ranges = [
+                ['systolicPressure', '收缩压', 60, 240],
+                ['diastolicPressure', '舒张压', 40, 140],
+                ['heartRate', '心率', 30, 180],
+                ['bloodSugarFasting', '空腹血糖', 2, 30],
+                ['weight', '体重', 20, 200]
+            ];
+            for (const [key, label, min, max] of ranges) {
+                const value = this.followRecordForm[key];
+                if (value !== '' && value !== null && value !== undefined && (Number(value) < min || Number(value) > max)) {
+                    this.toast('提示', `${label}必须在${min}到${max}之间`, 'error');
+                    return;
+                }
             }
             const body = {
                 ...this.followRecordForm,
@@ -3898,14 +4104,17 @@ createApp({
             }
         },
         async loadAssessments(page = 1) {
+            const elderId = this.validateOptionalPositiveId(this.assessmentFilter.elderId, '老人ID');
+            if (elderId === null) return;
+            this.assessmentFilter.elderId = elderId;
             const params = new URLSearchParams();
             params.set('pageNum', page);
             params.set('pageSize', this.assessmentPage.pageSize);
-            if (this.assessmentFilter.elderId) params.set('elderId', this.assessmentFilter.elderId);
+            if (elderId) params.set('elderId', elderId);
             if (this.assessmentFilter.assessType) params.set('assessType', this.assessmentFilter.assessType);
             const [listRes, statsRes] = await Promise.all([
                 this.api(`/api/assessments?${params.toString()}`),
-                this.api(`/api/assessments/stats${this.assessmentFilter.elderId ? `?elderId=${encodeURIComponent(this.assessmentFilter.elderId)}` : ''}`)
+                this.api(`/api/assessments/stats${elderId ? `?elderId=${encodeURIComponent(elderId)}` : ''}`)
             ]);
             if (listRes?.code === 200) {
                 const pg = listRes.data || {};
@@ -3926,18 +4135,29 @@ createApp({
             this.modal = 'assessment';
             this.modalData = { item };
         },
-        openAssessmentReport() {
-            this.generateReportInput = { elderId: '' };
+        openAssessmentReport(elderId = '') {
+            this.openUnifiedHealthReport(elderId);
+        },
+        openUnifiedHealthReport(elderId = '') {
+            this.generateReportInput = { elderId: elderId ? String(elderId) : '' };
             this.modal = 'report-input';
             this.modalData = {};
         },
         submitGenerateReport() {
-            const elderId = String(this.generateReportInput.elderId).trim();
+            const elderId = this.normalizePositiveId(this.generateReportInput.elderId, '老人档案ID');
             if (!elderId) {
-                this.toast('提示', '请输入老人档案ID', 'error');
+                if (elderId === '') this.toast('提示', '请输入老人档案ID', 'error');
                 return;
             }
             this.generateReport(elderId);
+        },
+        submitAiAssessmentFromUnified() {
+            const elderId = this.normalizePositiveId(this.generateReportInput.elderId, '老人档案ID');
+            if (!elderId) {
+                if (elderId === '') this.toast('提示', '请输入老人档案ID', 'error');
+                return;
+            }
+            this.runAiAssessment(elderId);
         },
         async generateReport(elderId) {
             this.reportData = { loading: true, error: '', data: null };
@@ -3957,9 +4177,9 @@ createApp({
             this.modalData = {};
         },
         submitAiAssessment() {
-            const elderId = String(this.aiAssessmentInput.elderId).trim();
+            const elderId = this.normalizePositiveId(this.aiAssessmentInput.elderId, '老人档案ID');
             if (!elderId) {
-                this.toast('提示', '请输入老人档案ID', 'error');
+                if (elderId === '') this.toast('提示', '请输入老人档案ID', 'error');
                 return;
             }
             this.runAiAssessment(elderId);
@@ -4052,8 +4272,8 @@ createApp({
             this.modalData = {};
         },
         async loadAiReportList() {
-            const eid = String(this.aiReportListFilter.elderId).trim();
-            if (!eid) { this.toast('提示', '请输入老人ID', 'error'); return; }
+            const eid = this.normalizePositiveId(this.aiReportListFilter.elderId, '老人ID');
+            if (!eid) { if (eid === '') this.toast('提示', '请输入老人ID', 'error'); return; }
             this.aiReportList.loading = true;
             const res = await this.api(`/api/ai/health-report/list?elderId=${encodeURIComponent(eid)}&pageSize=50`);
             if (res?.code === 200 && res.data) {
@@ -4077,7 +4297,8 @@ createApp({
             }
         },
         async loadAiReportsForElder() {
-            const eid = String(this.assessmentFilter.elderId).trim();
+            const eid = this.validateOptionalPositiveId(this.assessmentFilter.elderId, '老人ID');
+            if (eid === null) return;
             if (!eid) { this.aiReportsForElder = []; this.aiAssessmentStats.count = 0; return; }
             const res = await this.api(`/api/ai/health-report/list?elderId=${encodeURIComponent(eid)}&pageSize=20`);
             if (res?.code === 200 && res.data) {
@@ -4142,9 +4363,15 @@ createApp({
                 this.toast('提示', '请填写完整信息', 'error');
                 return;
             }
+            const elderId = this.normalizePositiveId(this.assessmentForm.elderId, '老人ID');
+            if (!elderId) return;
+            const doctorId = this.validateOptionalPositiveId(this.assessmentForm.doctorId, '责任医生ID');
+            if (doctorId === null) return;
+            if (!this.validateScoreRange(this.assessmentForm.score)) return;
             const payload = {
                 ...this.assessmentForm,
-                doctorId: this.assessmentForm.doctorId || (this.userInfo.userId || this.userInfo.id || 1)
+                elderId: Number(elderId),
+                doctorId: doctorId ? Number(doctorId) : (this.userInfo.userId || this.userInfo.id || 1)
             };
             const isEdit = !!payload.id;
             const res = await this.api(isEdit ? `/api/assessments/${payload.id}` : '/api/assessments', {
@@ -4213,9 +4440,19 @@ createApp({
                 this.toast('提示', '请填写完整信息', 'error');
                 return;
             }
+            const elderId = this.normalizePositiveId(this.referralForm.elderId, '老人ID');
+            if (!elderId) return;
+            const fromDoctorId = this.referralForm.fromDoctorId
+                ? this.normalizePositiveId(this.referralForm.fromDoctorId, '转出医生ID')
+                : (this.userInfo.userId || this.userInfo.id || 1);
+            if (!fromDoctorId) return;
+            const toDoctorId = this.referralForm.toDoctorId ? this.normalizePositiveId(this.referralForm.toDoctorId, '转入医生ID') : '';
+            if (toDoctorId === null) return;
             const payload = {
                 ...this.referralForm,
-                fromDoctorId: this.referralForm.fromDoctorId || (this.userInfo.userId || this.userInfo.id || 1),
+                elderId: Number(elderId),
+                fromDoctorId: Number(fromDoctorId),
+                toDoctorId: toDoctorId ? Number(toDoctorId) : null,
                 fromDoctorName: this.referralForm.fromDoctorName || this.userInfo.realName || this.userInfo.username || '责任医生'
             };
             const res = await this.api('/api/referrals', {
@@ -4294,7 +4531,9 @@ createApp({
             }
         },
         async loadVitals() {
-            const elderId = this.vitalsState.elderId;
+            const elderId = this.validateOptionalPositiveId(this.vitalsState.elderId, '老人ID');
+            if (elderId === null) return;
+            this.vitalsState.elderId = elderId;
             if (!elderId) {
                 this.vitalsState.devices = [];
                 this.vitalsState.latest = [];
@@ -4432,6 +4671,9 @@ createApp({
                 this.toast('提示', '请先输入老人ID', 'error');
                 return;
             }
+            const elderId = this.normalizePositiveId(this.vitalsState.elderId, '老人ID');
+            if (!elderId) return;
+            this.vitalsState.elderId = elderId;
             const res = await this.api(`/api/vitals/mock/${encodeURIComponent(this.vitalsState.elderId)}?days=${encodeURIComponent(this.vitalsState.mockDays || 30)}`, { method: 'POST' });
             if (res?.code === 200) {
                 this.toast('成功', '模拟数据生成成功');
@@ -4441,7 +4683,10 @@ createApp({
             }
         },
         async loadTimeline(page = 1) {
-            if (!this.timelineFilter.elderId) {
+            const elderId = this.validateOptionalPositiveId(this.timelineFilter.elderId, '老人ID');
+            if (elderId === null) return;
+            this.timelineFilter.elderId = elderId;
+            if (!elderId) {
                 this.timelineSummary = { total: 0 };
                 this.timelinePage = { records: [], pageNum: 1, pageSize: 20, pages: 0, total: 0 };
                 return;
@@ -4453,8 +4698,8 @@ createApp({
             if (this.timelineFilter.endDate) params.set('endDate', this.timelineFilter.endDate);
             if (this.timelineFilter.eventType) params.set('eventType', this.timelineFilter.eventType);
             const [listRes, summaryRes] = await Promise.all([
-                this.api(`/api/timeline/${encodeURIComponent(this.timelineFilter.elderId)}?${params.toString()}`),
-                this.api(`/api/timeline/${encodeURIComponent(this.timelineFilter.elderId)}/summary`)
+                this.api(`/api/timeline/${encodeURIComponent(elderId)}?${params.toString()}`),
+                this.api(`/api/timeline/${encodeURIComponent(elderId)}/summary?${params.toString()}`)
             ]);
             if (listRes?.code === 200) {
                 const pg = listRes.data || {};
@@ -4521,7 +4766,7 @@ createApp({
                 this.toast('提示', '两次输入的密码不一致', 'error');
                 return;
             }
-            const res = await this.api('/api/profile/password', {
+            const res = await this.api('/api/auth/password', {
                 method: 'PUT',
                 body: JSON.stringify({
                     oldPassword: this.profile.pwd.oldPassword,
@@ -4634,9 +4879,16 @@ createApp({
                 this.toast('提示', '请填写完整信息', 'error');
                 return;
             }
+            const elderId = this.normalizePositiveId(this.nurseRecordForm.elderId, '老人ID');
+            if (!elderId) return;
+            const nurseId = this.nurseRecordForm.nurseId
+                ? this.normalizePositiveId(this.nurseRecordForm.nurseId, '护士ID')
+                : (this.userInfo.userId || this.userInfo.id || 5);
+            if (!nurseId) return;
             const body = {
                 ...this.nurseRecordForm,
-                nurseId: this.nurseRecordForm.nurseId || this.userInfo.userId || this.userInfo.id || 5
+                elderId: Number(elderId),
+                nurseId: Number(nurseId)
             };
             const isEdit = !!body.id;
             const res = await this.api(isEdit ? `/api/nurse/records/${body.id}` : '/api/nurse/records', {
@@ -4738,9 +4990,22 @@ createApp({
                 this.toast('提示', '请填写完整信息', 'error');
                 return;
             }
+            const elderId = this.normalizePositiveId(this.nursePlanForm.elderId, '老人ID');
+            if (!elderId) return;
+            const nurseId = this.nursePlanForm.nurseId
+                ? this.normalizePositiveId(this.nursePlanForm.nurseId, '护士ID')
+                : (this.userInfo.userId || this.userInfo.id || 5);
+            if (!nurseId) return;
+            const totalCount = this.nursePlanForm.totalCount
+                ? this.normalizePositiveId(this.nursePlanForm.totalCount, '总次数')
+                : '';
+            if (totalCount === null) return;
+            if (!this.validateDateOrder(this.nursePlanForm.startDate, this.nursePlanForm.endDate)) return;
             const body = {
                 ...this.nursePlanForm,
-                nurseId: this.nursePlanForm.nurseId || this.userInfo.userId || this.userInfo.id || 5
+                elderId: Number(elderId),
+                nurseId: Number(nurseId),
+                totalCount: totalCount ? Number(totalCount) : this.nursePlanForm.totalCount
             };
             const isEdit = !!body.id;
             const res = await this.api(isEdit ? `/api/nurse/plans/${body.id}` : '/api/nurse/plans', {
@@ -4849,8 +5114,10 @@ createApp({
                 diastolicPressure: this.examForm.diastolicPressure ? Number(this.examForm.diastolicPressure) : null,
                 heartRate: this.examForm.heartRate ? Number(this.examForm.heartRate) : null,
                 bloodSugarFasting: this.examForm.bloodSugarFasting ? Number(this.examForm.bloodSugarFasting) : null,
+                bloodSugarRandom: this.examForm.bloodSugarRandom ? Number(this.examForm.bloodSugarRandom) : null,
                 temperature: this.examForm.temperature ? Number(this.examForm.temperature) : null,
-                bloodOxygen: this.examForm.bloodOxygen ? Number(this.examForm.bloodOxygen) : null
+                bloodOxygen: this.examForm.bloodOxygen ? Number(this.examForm.bloodOxygen) : null,
+                waistline: this.examForm.waistline ? Number(this.examForm.waistline) : null
             };
             const isEdit = !!body.id;
             const res = await this.api(isEdit ? `/api/exams/${body.id}` : '/api/exams', {

@@ -6,6 +6,7 @@ import com.medical.common.exception.BusinessException;
 import com.medical.entity.*;
 import com.medical.mapper.*;
 import com.medical.service.AssessmentService;
+import com.medical.service.TimelineService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -37,6 +38,12 @@ public class AssessmentServiceImpl implements AssessmentService {
     @Autowired
     private HealthWarningMapper healthWarningMapper;
 
+    @Autowired
+    private AiHealthReportMapper aiHealthReportMapper;
+
+    @Autowired
+    private TimelineService timelineService;
+
 
     @Override
     public Page<AssessmentRecord> list(Integer pageNum, Integer pageSize, Long elderId, Integer assessType) {
@@ -59,17 +66,21 @@ public class AssessmentServiceImpl implements AssessmentService {
 
     @Override
     public Long create(AssessmentRecord record) {
+        validateRecord(record);
         // 自动评级
         autoGrade(record);
         assessmentRecordMapper.insert(record);
+        addAssessmentTimeline(record);
         return record.getId();
     }
 
     @Override
     public void update(Long id, AssessmentRecord record) {
         record.setId(id);
+        validateRecord(record);
         autoGrade(record);
         assessmentRecordMapper.updateById(record);
+        addAssessmentTimeline(record);
     }
 
     @Override
@@ -196,7 +207,27 @@ public class AssessmentServiceImpl implements AssessmentService {
                  .last("LIMIT 5");
         report.put("recentWarnings", healthWarningMapper.selectList(hwWrapper));
 
-        // 7. 报告元信息
+        // 7. 最近AI健康评估报告
+        LambdaQueryWrapper<AiHealthReport> aiWrapper = new LambdaQueryWrapper<>();
+        aiWrapper.eq(AiHealthReport::getElderId, elderId)
+                 .orderByDesc(AiHealthReport::getCreateTime)
+                 .last("LIMIT 5");
+        List<AiHealthReport> aiReports = aiHealthReportMapper.selectList(aiWrapper);
+        report.put("aiReports", aiReports);
+        report.put("aiReportCount", aiReports.size());
+        AiHealthReport latestAiReport = aiReports.isEmpty() ? null : aiReports.get(0);
+        if (latestAiReport != null) {
+            Map<String, Object> aiSummary = new LinkedHashMap<>();
+            aiSummary.put("id", latestAiReport.getId());
+            aiSummary.put("source", latestAiReport.getSource());
+            aiSummary.put("riskScore", latestAiReport.getRiskScore());
+            aiSummary.put("riskLevel", latestAiReport.getRiskLevel());
+            aiSummary.put("status", latestAiReport.getStatus());
+            aiSummary.put("createTime", latestAiReport.getCreateTime());
+            report.put("latestAiReport", aiSummary);
+        }
+
+        // 8. 报告元信息
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("reportNo", "RP" + System.currentTimeMillis());
         meta.put("generatedAt", LocalDateTime.now());
@@ -213,44 +244,92 @@ public class AssessmentServiceImpl implements AssessmentService {
         if (record.getScore() == null) return;
         double score = record.getScore().doubleValue();
         Integer type = record.getAssessType();
+        boolean keepLevel = record.getLevel() != null && !record.getLevel().trim().isEmpty();
+        boolean keepSuggestion = record.getSuggestion() != null && !record.getSuggestion().trim().isEmpty();
+        String level = null;
+        String suggestion = null;
 
         if (type == null) return;
 
         switch (type) {
             case 1: // ADL日常生活能力 (满分100)
-                if (score >= 80) { record.setLevel("自理"); record.setSuggestion("老人生活能力良好，建议保持规律运动。"); }
-                else if (score >= 60) { record.setLevel("轻度依赖"); record.setSuggestion("建议提供部分生活辅助，加强锻炼。"); }
-                else if (score >= 40) { record.setLevel("中度依赖"); record.setSuggestion("需要日常照护，建议安排护理人员定期上门。"); }
-                else { record.setLevel("重度依赖"); record.setSuggestion("需要全面照护支持，建议入住养老机构或安排24小时护理。"); }
+                if (score >= 80) { level = "自理"; suggestion = "老人生活能力良好，建议保持规律运动。"; }
+                else if (score >= 60) { level = "轻度依赖"; suggestion = "建议提供部分生活辅助，加强锻炼。"; }
+                else if (score >= 40) { level = "中度依赖"; suggestion = "需要日常照护，建议安排护理人员定期上门。"; }
+                else { level = "重度依赖"; suggestion = "需要全面照护支持，建议入住养老机构或安排24小时护理。"; }
                 break;
             case 2: // MMSE认知功能 (满分30)
-                if (score >= 27) { record.setLevel("正常"); record.setSuggestion("认知功能正常，建议保持社交和脑力活动。"); }
-                else if (score >= 21) { record.setLevel("轻度障碍"); record.setSuggestion("存在轻度认知下降，建议定期复查并增加认知训练。"); }
-                else if (score >= 10) { record.setLevel("中度障碍"); record.setSuggestion("认知功能明显下降，建议就医评估并考虑药物干预。"); }
-                else { record.setLevel("重度障碍"); record.setSuggestion("认知功能严重受损，需要专业照护和持续治疗。"); }
+                if (score >= 27) { level = "正常"; suggestion = "认知功能正常，建议保持社交和脑力活动。"; }
+                else if (score >= 21) { level = "轻度障碍"; suggestion = "存在轻度认知下降，建议定期复查并增加认知训练。"; }
+                else if (score >= 10) { level = "中度障碍"; suggestion = "认知功能明显下降，建议就医评估并考虑药物干预。"; }
+                else { level = "重度障碍"; suggestion = "认知功能严重受损，需要专业照护和持续治疗。"; }
                 break;
             case 3: // GDS情绪/心理 (满分15，分数越高越严重)
-                if (score <= 4) { record.setLevel("正常"); record.setSuggestion("情绪状态良好，建议保持积极社交。"); }
-                else if (score <= 8) { record.setLevel("轻度抑郁"); record.setSuggestion("存在轻度抑郁倾向，建议增加户外活动和社交。"); }
-                else if (score <= 11) { record.setLevel("中度抑郁"); record.setSuggestion("建议心理咨询干预，必要时药物治疗。"); }
-                else { record.setLevel("重度抑郁"); record.setSuggestion("需要立即就医，接受专业心理和药物治疗。"); }
+                if (score <= 4) { level = "正常"; suggestion = "情绪状态良好，建议保持积极社交。"; }
+                else if (score <= 8) { level = "轻度抑郁"; suggestion = "存在轻度抑郁倾向，建议增加户外活动和社交。"; }
+                else if (score <= 11) { level = "中度抑郁"; suggestion = "建议心理咨询干预，必要时药物治疗。"; }
+                else { level = "重度抑郁"; suggestion = "需要立即就医，接受专业心理和药物治疗。"; }
                 break;
             case 4: // MNA营养评估 (满分30)
-                if (score >= 24) { record.setLevel("营养良好"); record.setSuggestion("营养状况良好，保持均衡饮食。"); }
-                else if (score >= 17) { record.setLevel("有营养不良风险"); record.setSuggestion("存在营养风险，建议调整饮食结构，增加蛋白质摄入。"); }
-                else { record.setLevel("营养不良"); record.setSuggestion("营养状况差，建议营养科就诊，制定个性化营养方案。"); }
+                if (score >= 24) { level = "营养良好"; suggestion = "营养状况良好，保持均衡饮食。"; }
+                else if (score >= 17) { level = "有营养不良风险"; suggestion = "存在营养风险，建议调整饮食结构，增加蛋白质摄入。"; }
+                else { level = "营养不良"; suggestion = "营养状况差，建议营养科就诊，制定个性化营养方案。"; }
                 break;
             case 5: // 跌倒风险 (Morse跌倒评估，满分125)
-                if (score <= 24) { record.setLevel("低风险"); record.setSuggestion("跌倒风险较低，注意日常安全即可。"); }
-                else if (score <= 50) { record.setLevel("中风险"); record.setSuggestion("建议改善居家环境，安装扶手，穿防滑鞋。"); }
-                else { record.setLevel("高风险"); record.setSuggestion("跌倒风险高，建议使用助行器，家中消除障碍物，必要时安排陪护。"); }
+                if (score <= 24) { level = "低风险"; suggestion = "跌倒风险较低，注意日常安全即可。"; }
+                else if (score <= 50) { level = "中风险"; suggestion = "建议改善居家环境，安装扶手，穿防滑鞋。"; }
+                else { level = "高风险"; suggestion = "跌倒风险高，建议使用助行器，家中消除障碍物，必要时安排陪护。"; }
                 break;
             case 6: // 综合评估 (满分100)
-                if (score >= 80) { record.setLevel("优"); record.setSuggestion("整体健康状况优良，保持现有生活方式。"); }
-                else if (score >= 60) { record.setLevel("良"); record.setSuggestion("健康状况良好，部分指标可改善。"); }
-                else if (score >= 40) { record.setLevel("中"); record.setSuggestion("健康状况一般，建议全面体检并制定健康管理方案。"); }
-                else { record.setLevel("差"); record.setSuggestion("健康状况较差，建议加强医疗干预和日常照护。"); }
+                if (score >= 80) { level = "优"; suggestion = "整体健康状况优良，保持现有生活方式。"; }
+                else if (score >= 60) { level = "良"; suggestion = "健康状况良好，部分指标可改善。"; }
+                else if (score >= 40) { level = "中"; suggestion = "健康状况一般，建议全面体检并制定健康管理方案。"; }
+                else { level = "差"; suggestion = "健康状况较差，建议加强医疗干预和日常照护。"; }
                 break;
+        }
+        if (!keepLevel) record.setLevel(level);
+        if (!keepSuggestion) record.setSuggestion(suggestion);
+    }
+
+    private void validateRecord(AssessmentRecord record) {
+        if (record.getElderId() == null || record.getElderId() <= 0) {
+            throw new BusinessException(400, "老人ID必须为正整数");
+        }
+        if (record.getDoctorId() != null && record.getDoctorId() <= 0) {
+            throw new BusinessException(400, "责任医生ID必须为正整数");
+        }
+        if (record.getScore() != null
+                && (record.getScore().compareTo(BigDecimal.ZERO) < 0
+                || record.getScore().compareTo(new BigDecimal("100")) > 0)) {
+            throw new BusinessException(400, "评分必须在0到100之间");
+        }
+    }
+
+    private void addAssessmentTimeline(AssessmentRecord record) {
+        TimelineEvent event = new TimelineEvent();
+        event.setElderId(record.getElderId());
+        event.setDoctorId(record.getDoctorId());
+        event.setEventType(6);
+        event.setEventTitle("健康评估：" + getAssessmentTypeText(record.getAssessType()));
+        event.setEventContent("评分：" + (record.getScore() == null ? "-" : record.getScore())
+                + "，等级：" + (record.getLevel() == null ? "-" : record.getLevel())
+                + "，建议：" + (record.getSuggestion() == null ? "-" : record.getSuggestion()));
+        event.setSourceType("assessment_record");
+        event.setSourceId(record.getId());
+        event.setEventTime(record.getAssessDate() == null ? LocalDateTime.now() : record.getAssessDate().atStartOfDay());
+        timelineService.addEvent(event);
+    }
+
+    private String getAssessmentTypeText(Integer type) {
+        if (type == null) return "未知";
+        switch (type) {
+            case 1: return "日常生活能力";
+            case 2: return "认知功能";
+            case 3: return "情绪心理";
+            case 4: return "营养";
+            case 5: return "跌倒风险";
+            case 6: return "综合评估";
+            default: return "未知";
         }
     }
 }
