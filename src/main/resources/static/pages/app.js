@@ -86,6 +86,7 @@ const TAB_META = [
 
 const ADMIN_TAB_META = [
     { key: 'admin-dashboard', label: '管理工作台', icon: 'A' },
+    { key: 'admin-ai-config', label: 'AI配置', icon: 'Z' },
     { key: 'elders', label: '老人档案', icon: 'E' },
     { key: 'warnings', label: '预警中心', icon: 'W' },
     { key: 'followup', label: '随访计划', icon: 'F' },
@@ -692,18 +693,31 @@ createApp({
                         <h3>评估记录</h3>
                         <p>记录和管理老人的各类健康评估，包括ADL、慢病和心理评估，支持多维度评分和建议</p>
                     </div>
-                    <div class="actions"><button class="primary-btn" @click="openAssessmentModal()">+ 新增评估记录</button><button class="soft-btn" @click="openAssessmentReport()">📋 生成评估报告</button></div>
+                    <div class="actions"><button class="primary-btn" @click="openAssessmentModal()">+ 新增评估记录</button><button class="soft-btn" @click="openAssessmentReport()">📋 生成评估报告</button><button class="soft-btn" @click="openAiAssessment()">🤖 AI 健康评估</button><button class="soft-btn" @click="openAiReportList()">📂 查看AI评估记录</button></div>
                 </div>
                 <div class="panel-grid" style="margin-bottom:14px;">
                     <div class="card stat-card"><div class="stat-label">总评估数</div><div class="stat-value">{{ assessmentStats.total || 0 }}</div></div>
                     <div class="card stat-card"><div class="stat-label">ADL</div><div class="stat-value">{{ assessmentStats.type1 || 0 }}</div></div>
                     <div class="card stat-card"><div class="stat-label">慢病评估</div><div class="stat-value">{{ assessmentStats.type2 || 0 }}</div></div>
-                    <div class="card stat-card"><div class="stat-label">心理评估</div><div class="stat-value">{{ assessmentStats.type3 || 0 }}</div></div>
+                    <div class="card stat-card"><div class="stat-label">AI评估</div><div class="stat-value">{{ aiAssessmentStats.count || 0 }}</div></div>
                 </div>
                 <div class="filters">
-                    <div class="field"><label>老人ID</label><input v-model="assessmentFilter.elderId" type="number" placeholder="输入老人档案ID"></div>
+                    <div class="field"><label>老人ID</label><input v-model="assessmentFilter.elderId" type="number" placeholder="输入老人档案ID" @change="loadAiReportsForElder"></div>
                     <div class="field"><label>评估类型</label><select v-model="assessmentFilter.assessType"><option value="">全部类型</option><option v-for="(txt,key) in assessmentTypeMap" :key="key" :value="key">{{ txt }}</option></select></div>
-                    <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadAssessments(1)">查询</button></div>
+                    <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadAssessments(1);loadAiReportsForElder()">查询</button></div>
+                </div>
+                <div v-if="aiReportsForElder.length>0" class="table-wrap" style="margin-bottom:14px;">
+                    <h4 style="margin:0 0 8px;">🤖 AI 健康评估报告</h4>
+                    <table class="data-table">
+                        <thead><tr><th>ID</th><th>来源</th><th>风险分</th><th>风险等级</th><th>状态</th><th>时间</th><th>操作</th></tr></thead>
+                        <tbody><tr v-for="r in aiReportsForElder" :key="'ai'+r.id">
+                            <td>{{ r.id }}</td><td>{{ r.source===1?'规则引擎':'AI引擎' }}</td><td>{{ r.riskScore }}</td>
+                            <td><span class="tag" :class="r.riskLevel==='CRITICAL'||r.riskLevel==='HIGH'?'tag-danger':r.riskLevel==='MEDIUM'?'tag-warning':'tag-success'">{{ aiRiskLevelTextOf(r.riskLevel) }}</span></td>
+                            <td>{{ ['草稿','已确认','已驳回','已归档'][r.status]||'-' }}</td>
+                            <td>{{ dateTimeText(r.createTime) }}</td>
+                            <td><button class="link" @click="viewAiReport(r.id)">查看</button></td>
+                        </tr></tbody>
+                    </table>
                 </div>
                 <div class="table-wrap">
                     <table class="data-table">
@@ -725,6 +739,46 @@ createApp({
                     <button :disabled="assessmentPage.pageNum<=1" @click="loadAssessments(assessmentPage.pageNum-1)">上一页</button>
                     <button v-for="p in pageWindow(assessmentPage.pageNum, assessmentPage.pages)" :key="'a'+p" :class="{active: p===assessmentPage.pageNum}" @click="loadAssessments(p)">{{ p }}</button>
                     <button :disabled="assessmentPage.pageNum>=assessmentPage.pages" @click="loadAssessments(assessmentPage.pageNum+1)">下一页</button>
+                </div>
+            </section>
+            <section v-if="activeTab==='admin-ai-config'" class="card section">
+                <div class="section-head">
+                    <div>
+                        <h3>🤖 AI 健康评估 — 管理员配置</h3>
+                        <p>配置 DeepSeek API Key 及模型参数，支持 Mock 模式用于开发测试</p>
+                    </div>
+                    <div class="actions">
+                        <button class="soft-btn" @click="loadAiConfig()">🔄 刷新配置</button>
+                        <button class="primary-btn" @click="saveAiConfig()">💾 保存配置</button>
+                    </div>
+                </div>
+                <div v-if="aiConfig.loading" class="empty-state">加载中...</div>
+                <div v-else style="max-width:640px;">
+                    <div class="form-row" style="margin-bottom:12px; grid-template-columns:1fr;">
+                        <div class="field">
+                            <label>API Key</label>
+                            <input v-model="aiConfig.form.apiKey" type="text" placeholder="sk-xxxxxxxxxxxxxxxx" style="font-family:monospace;">
+                            <span class="hint">通过环境变量 DEEPSEEK_API_KEY 注入，或在此处直接填写</span>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="field"><label>API 地址</label><input v-model="aiConfig.form.baseUrl" placeholder="https://api.deepseek.com"></div>
+                        <div class="field"><label>模型</label><input v-model="aiConfig.form.model" placeholder="deepseek-chat"></div>
+                    </div>
+                    <div class="form-row" style="margin-top:12px;">
+                        <div class="field"><label>每日限制（次/医生）</label><input v-model.number="aiConfig.form.maxPerDay" type="number"></div>
+                        <div class="field"><label>超时（秒）</label><input v-model.number="aiConfig.form.timeoutSeconds" type="number"></div>
+                    </div>
+                    <div class="form-row" style="margin-top:12px;">
+                        <div class="field"><label>重试次数</label><input v-model.number="aiConfig.form.maxRetries" type="number"></div>
+                        <div class="field" style="align-self:end;">
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                <input type="checkbox" v-model="aiConfig.form.mockEnabled" style="width:auto;">
+                                Mock 模式（开发测试用，不消耗 API 额度）
+                            </label>
+                        </div>
+                    </div>
+                    <div v-if="aiConfig.saved" class="tag tag-success" style="margin-top:12px;display:inline-block;">✅ 配置已保存</div>
                 </div>
             </section>
             <section v-if="activeTab==='referral'" class="card section">
@@ -1431,6 +1485,103 @@ createApp({
                         </div>
                     </div>
                 </template>
+                <template v-else-if="modal==='ai-assessment-input'">
+                    <div style="padding:10px 0;">
+                        <p style="margin-bottom:8px;font-weight:600;">🤖 AI 健康评估</p>
+                        <p class="hint" style="margin-bottom:16px;">系统将自动读取老人全部健康数据，通过专业规则模板生成评估报告（秒级响应）。报告包含风险评分、慢病管理建议、随访干预建议和注意事项。</p>
+                        <div class="field"><label>老人档案ID</label><input v-model="aiAssessmentInput.elderId" type="number" placeholder="请输入老人ID（如 1, 2, 3...）" @keyup.enter="submitAiAssessment"></div>
+                        <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
+                            <button class="ghost-btn" @click="closeModal">取消</button>
+                            <button class="primary-btn" @click="submitAiAssessment">🤖 生成AI评估报告</button>
+                        </div>
+                    </div>
+                </template>
+                <template v-else-if="modal==='ai-report-list'">
+                    <div style="padding:10px 0;">
+                        <p class="hint" style="margin-bottom:16px;">输入老人ID，查看该老人的所有AI健康评估报告记录。</p>
+                        <div class="field"><label>老人档案ID</label><input v-model="aiReportListFilter.elderId" type="number" placeholder="请输入老人ID" @keyup.enter="loadAiReportList"></div>
+                        <div style="margin-top:12px;display:flex;gap:10px;"><button class="primary-btn" @click="loadAiReportList">查询</button></div>
+                        <div v-if="aiReportList.loading" class="empty-state" style="margin-top:12px;">加载中...</div>
+                        <div v-else-if="aiReportList.records.length===0" class="empty-state" style="margin-top:12px;">暂无AI评估记录</div>
+                        <div v-else class="table-wrap" style="margin-top:12px;">
+                            <table class="data-table"><thead><tr><th>ID</th><th>老人</th><th>来源</th><th>风险分</th><th>风险等级</th><th>状态</th><th>时间</th><th>操作</th></tr></thead>
+                            <tbody><tr v-for="r in aiReportList.records" :key="r.id">
+                                <td>{{ r.id }}</td><td>{{ r.elderId }}</td>
+                                <td>{{ r.source===1?'规则引擎':'AI引擎' }}</td>
+                                <td>{{ r.riskScore }}</td>
+                                <td><span class="tag" :class="r.riskLevel==='CRITICAL'||r.riskLevel==='HIGH'?'tag-danger':r.riskLevel==='MEDIUM'?'tag-warning':'tag-success'">{{ aiRiskLevelTextOf(r.riskLevel) }}</span></td>
+                                <td>{{ ['草稿','已确认','已驳回','已归档'][r.status]||'-' }}</td>
+                                <td>{{ dateTimeText(r.createTime) }}</td>
+                                <td><button class="link" @click="viewAiReport(r.id)">查看</button></td>
+                            </tr></tbody></table>
+                        </div>
+                    </div>
+                </template>
+                <template v-else-if="modal==='ai-report'">
+                    <div v-if="aiReport.loading" class="empty-state">
+                        <p>⏳ 正在生成评估报告...</p>
+                        <p class="hint">读取健康数据，匹配评估规则，请稍候</p>
+                    </div>
+                    <div v-else-if="aiReport.error" class="empty-state" style="color:#f56c6c;">{{ aiReport.error }}</div>
+                    <div v-else-if="aiReport.data" class="report-container" style="max-height:65vh;overflow-y:auto;">
+                        <div style="text-align:center;padding:20px;margin-bottom:16px;border-radius:12px;" :style="aiRiskCardStyle()">
+                            <div style="font-size:48px;font-weight:bold;">{{ aiReport.data.riskScore || 0 }}</div>
+                            <div style="font-size:16px;margin-top:4px;">风险评分</div>
+                            <div style="display:inline-block;padding:4px 16px;border-radius:20px;font-weight:bold;margin-top:8px;font-size:14px;" :style="aiRiskBadgeStyle()">{{ aiRiskLevelText() }}</div>
+                        </div>
+                        <div class="hint" style="margin-bottom:12px;text-align:center;" v-if="aiReport.data.elderBrief">
+                            {{ aiReport.data.elderBrief.name || '-' }} · {{ aiReport.data.elderBrief.gender || '' }} · {{ aiReport.data.elderBrief.age || '' }}岁
+                        </div>
+                        <div v-if="aiReport.data.riskReasons && aiReport.data.riskReasons.length" style="margin-bottom:14px;">
+                            <h4 style="margin:0 0 8px;font-size:14px;">⚠️ 风险原因</h4>
+                            <div v-for="(r,i) in aiReport.data.riskReasons" :key="i" class="timeline-card" style="margin:4px 0;">{{ r }}</div>
+                        </div>
+                        <div v-if="aiReport.data.findings && aiReport.data.findings.length" style="margin-bottom:14px;">
+                            <h4 style="margin:0 0 8px;font-size:14px;">📋 详细发现与建议</h4>
+                            <div v-for="(f,i) in aiReport.data.findings" :key="i" class="timeline-card" style="margin:4px 0;">
+                                <div class="desc">[{{ f.category }}] {{ f.finding }}</div>
+                                <div style="margin-top:2px;">→ {{ f.advice }}</div>
+                            </div>
+                        </div>
+                        <div v-if="aiReport.data.chronicAdvice && aiReport.data.chronicAdvice.length" style="margin-bottom:14px;">
+                            <h4 style="margin:0 0 8px;font-size:14px;">💊 慢病管理建议</h4>
+                            <div v-for="(c,i) in aiReport.data.chronicAdvice" :key="i" class="timeline-card" style="margin:4px 0;">
+                                <strong>{{ c.disease }}</strong><br>{{ c.advice }}
+                            </div>
+                        </div>
+                        <div v-if="aiReport.data.followUpAdvice && aiReport.data.followUpAdvice.length" style="margin-bottom:14px;">
+                            <h4 style="margin:0 0 8px;font-size:14px;">📅 随访建议</h4>
+                            <div v-for="(f,i) in aiReport.data.followUpAdvice" :key="i" class="timeline-card" style="margin:4px 0;">{{ f }}</div>
+                        </div>
+                        <div v-if="aiReport.data.interventionAdvice && aiReport.data.interventionAdvice.length" style="margin-bottom:14px;">
+                            <h4 style="margin:0 0 8px;font-size:14px;">🩺 干预建议</h4>
+                            <div v-for="(iv,i) in aiReport.data.interventionAdvice" :key="i" class="timeline-card" style="margin:4px 0;">
+                                [{{ iv.type }}] {{ iv.content }}<span v-if="iv.effect" class="desc">（{{ iv.effect }}）</span>
+                            </div>
+                        </div>
+                        <div v-if="aiReport.data.notices && aiReport.data.notices.length" style="margin-bottom:14px;">
+                            <h4 style="margin:0 0 8px;font-size:14px;">⚡ 注意事项</h4>
+                            <div v-for="(n,i) in aiReport.data.notices" :key="i" class="timeline-card" style="margin:4px 0;">{{ n }}</div>
+                        </div>
+                        <div class="timeline-card" style="margin-bottom:12px;line-height:1.8;">
+                            <strong>📝 综合摘要：</strong>{{ aiReport.data.reportText }}
+                        </div>
+                        <div v-if="aiReport.data.aiComment" class="timeline-card" style="margin-bottom:12px;">
+                            <h4 style="margin:0 0 8px;font-size:14px;">🧠 AI 深度分析</h4>
+                            <p style="margin:4px 0;font-size:13px;">{{ aiReport.data.aiComment }}</p>
+                            <div v-if="aiReport.data.aiSuggestions" style="margin-top:8px;">
+                                <p v-for="(s,i) in aiReport.data.aiSuggestions" :key="i" style="margin:3px 0;font-size:12px;">💡 {{ s }}</p>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;padding-top:10px;">
+                            <button v-if="aiReport.reportId && !aiReport.data.aiComment" class="soft-btn" @click="triggerDeepAnalysis(aiReport.reportId)">🧠 AI 增强分析</button>
+                            <button v-if="aiReport.reportId && aiReport.data.aiComment" class="soft-btn" @click="triggerDeepAnalysis(aiReport.reportId)">🔄 重新AI分析</button>
+                            <button v-if="aiReport.reportId" class="primary-btn" @click="confirmAiReport(aiReport.reportId)">💾 确认保存</button>
+                            <button v-if="aiReport.reportId" class="ghost-btn" @click="rejectAiReport(aiReport.reportId)">驳回</button>
+                            <button class="ghost-btn" @click="closeModal">退出</button>
+                        </div>
+                    </div>
+                </template>
                 <template v-else-if="modal==='assessment-report'">
                     <div v-if="reportData.loading" class="empty-state">正在生成报告...</div>
                     <div v-else-if="reportData.error" class="empty-state" style="color:#E06A6A;">{{ reportData.error }}</div>
@@ -1906,6 +2057,14 @@ createApp({
             assessmentStats: { total: 0 },
             assessmentForm: blankAssessment(),
             reportData: { loading: false, error: '', data: null },
+            generateReportInput: { elderId: '' },
+            aiAssessmentInput: { elderId: '' },
+            aiReport: { loading: false, error: '', data: null, reportId: null, status: 0 },
+            aiConfig: { loading: false, saved: false, form: { apiKey: '', baseUrl: 'https://api.deepseek.com', model: 'deepseek-chat', maxPerDay: 20, timeoutSeconds: 30, maxRetries: 2, mockEnabled: true } },
+            aiReportListFilter: { elderId: '' },
+            aiReportList: { loading: false, records: [] },
+            aiReportsForElder: [],
+            aiAssessmentStats: { count: 0 },
             referralFilter: { doctorId: '', status: '', referralType: '' },
             referralPage: { records: [], pageNum: 1, pageSize: 10, pages: 0, total: 0 },
             referralStats: { pending: 0, processing: 0, completed: 0, upCount: 0, downCount: 0 },
@@ -1997,6 +2156,9 @@ createApp({
                 interventionDetail: '干预详情',
                 'assessment-report': '健康评估报告',
                 'report-input': '生成健康评估报告',
+                'ai-assessment-input': 'AI 健康评估',
+                'ai-report': 'AI 健康评估报告',
+                'ai-report-list': 'AI 评估记录',
                 exam: this.examForm.id ? '编辑体检记录' : '新增体检记录',
                 'exam-detail': '体检详情',
                 'review-record-detail': '护理记录详情',
@@ -2111,7 +2273,7 @@ createApp({
             return parts.join('\n');
         },
         modalWidth() {
-            return ['healthDetail', 'interventionDetail', 'assessment-report', 'follow-records'].includes(this.modal) ? 'modal' : 'modal sm';
+            return ['healthDetail', 'interventionDetail', 'assessment-report', 'follow-records', 'ai-report', 'ai-report-list'].includes(this.modal) ? 'modal' : 'modal sm';
         },
         diseaseMap() { return DISEASE_MAP; },
         freqMap() { return FREQ_MAP; },
@@ -2194,6 +2356,7 @@ createApp({
             this.activeTab = tab;
             if (this.isAdmin) {
                 if (tab === 'admin-dashboard') this.loadAdminDashboard();
+                else if (tab === 'admin-ai-config') this.loadAiConfig();
                 else if (tab === 'elders') this.loadElders(1);
                 else if (tab === 'warnings') this.loadWarnings(1);
                 else if (tab === 'followup') this.loadFollowups(1);
@@ -3104,7 +3267,6 @@ createApp({
             this.modal = 'assessment';
             this.modalData = { item };
         },
-        generateReportInput: { elderId: '' },
         openAssessmentReport() {
             this.generateReportInput = { elderId: '' };
             this.modal = 'report-input';
@@ -3127,6 +3289,183 @@ createApp({
                 this.reportData = { loading: false, error: '', data: res.data };
             } else {
                 this.reportData = { loading: false, error: res?.msg || '获取报告失败，请检查老人ID是否正确', data: null };
+            }
+        },
+        // ========== AI 健康评估 ==========
+        openAiAssessment() {
+            this.aiAssessmentInput = { elderId: '' };
+            this.modal = 'ai-assessment-input';
+            this.modalData = {};
+        },
+        submitAiAssessment() {
+            const elderId = String(this.aiAssessmentInput.elderId).trim();
+            if (!elderId) {
+                this.toast('提示', '请输入老人档案ID', 'error');
+                return;
+            }
+            this.runAiAssessment(elderId);
+        },
+        async runAiAssessment(elderId) {
+            this.aiReport = { loading: true, error: '', data: null, reportId: null, status: 0 };
+            this.modal = 'ai-report';
+            this.modalData = {};
+            const res = await this.api(`/api/ai/health-report/generate/${encodeURIComponent(elderId)}`, { method: 'POST' });
+            if (res?.code === 200 && res.data) {
+                const report = res.data;
+                this.aiReport = {
+                    loading: false, error: '',
+                    data: report.reportJson ? JSON.parse(report.reportJson) : null,
+                    reportId: report.id, status: report.status || 0
+                };
+            } else {
+                this.aiReport = { loading: false, error: res?.msg || '评估生成失败，请检查老人ID是否正确', data: null, reportId: null, status: 0 };
+            }
+        },
+        async triggerDeepAnalysis(reportId) {
+            if (!reportId) return;
+            this.aiReport.loading = true;
+            const res = await this.api(`/api/ai/health-report/${reportId}/deep-analysis`, { method: 'POST' });
+            if (res?.code === 200 && res.data) {
+                const report = res.data;
+                this.aiReport = {
+                    loading: false, error: '',
+                    data: report.reportJson ? JSON.parse(report.reportJson) : null,
+                    reportId: report.id, status: report.status || 0
+                };
+                this.toast('成功', 'AI 深度分析完成');
+            } else {
+                this.aiReport.loading = false;
+                this.toast('提示', res?.msg || 'AI 分析失败，请稍后重试', 'error');
+            }
+        },
+        async confirmAiReport(reportId) {
+            if (!reportId) return;
+            const res = await this.api(`/api/ai/health-report/${reportId}/confirm`, { method: 'PUT', body: JSON.stringify({}) });
+            if (res?.code === 200) {
+                this.toast('成功', '报告已确认，将进入老人时间轴');
+                this.closeModal();
+                this.loadAiReportsForElder();
+            } else {
+                this.toast('提示', res?.msg || '操作失败', 'error');
+            }
+        },
+        async rejectAiReport(reportId) {
+            const reason = prompt('请输入驳回原因：');
+            if (reason === null) return;
+            const res = await this.api(`/api/ai/health-report/${reportId}/reject`, {
+                method: 'PUT', body: JSON.stringify({ reason: reason || '医生驳回' })
+            });
+            if (res?.code === 200) {
+                this.toast('成功', '报告已驳回');
+                this.closeModal();
+                this.loadAiReportsForElder();
+            } else {
+                this.toast('提示', res?.msg || '操作失败', 'error');
+            }
+        },
+        aiRiskCardStyle() {
+            const level = this.aiReport.data?.riskLevel;
+            if (level === 'CRITICAL') return 'background:rgba(245,108,108,0.12);border:2px solid #f56c6c;';
+            if (level === 'HIGH') return 'background:rgba(230,162,60,0.12);border:2px solid #e6a23c;';
+            if (level === 'MEDIUM') return 'background:rgba(59,179,155,0.12);border:2px solid #3BB39B;';
+            return 'background:rgba(103,194,58,0.12);border:2px solid #67c23a;';
+        },
+        aiRiskBadgeStyle() {
+            const level = this.aiReport.data?.riskLevel;
+            if (level === 'CRITICAL') return 'background:#f56c6c;color:#fff;';
+            if (level === 'HIGH') return 'background:#e6a23c;color:#fff;';
+            if (level === 'MEDIUM') return 'background:#3BB39B;color:#fff;';
+            return 'background:#67c23a;color:#fff;';
+        },
+        aiRiskLevelText() {
+            const map = { LOW: '低风险', MEDIUM: '中等风险', HIGH: '高风险', CRITICAL: '危急' };
+            return map[this.aiReport.data?.riskLevel] || '-';
+        },
+        aiRiskLevelTextOf(level) {
+            const map = { LOW: '低风险', MEDIUM: '中等风险', HIGH: '高风险', CRITICAL: '危急' };
+            return map[level] || (level || '-');
+        },
+        // ========== AI 报告记录查看 ==========
+        openAiReportList() {
+            this.aiReportListFilter = { elderId: '' };
+            this.aiReportList = { loading: false, records: [] };
+            this.modal = 'ai-report-list';
+            this.modalData = {};
+        },
+        async loadAiReportList() {
+            const eid = String(this.aiReportListFilter.elderId).trim();
+            if (!eid) { this.toast('提示', '请输入老人ID', 'error'); return; }
+            this.aiReportList.loading = true;
+            const res = await this.api(`/api/ai/health-report/list?elderId=${encodeURIComponent(eid)}&pageSize=50`);
+            if (res?.code === 200 && res.data) {
+                this.aiReportList.records = res.data.records || [];
+            }
+            this.aiReportList.loading = false;
+        },
+        async viewAiReport(id) {
+            const res = await this.api(`/api/ai/health-report/${id}`);
+            if (res?.code === 200 && res.data) {
+                const report = res.data;
+                this.aiReport = {
+                    loading: false, error: '',
+                    data: JSON.parse(report.reportJson || '{}'),
+                    reportId: report.id, status: report.status || 0
+                };
+                this.modal = 'ai-report';
+                this.modalData = {};
+            } else {
+                this.toast('提示', res?.msg || '加载失败', 'error');
+            }
+        },
+        async loadAiReportsForElder() {
+            const eid = String(this.assessmentFilter.elderId).trim();
+            if (!eid) { this.aiReportsForElder = []; this.aiAssessmentStats.count = 0; return; }
+            const res = await this.api(`/api/ai/health-report/list?elderId=${encodeURIComponent(eid)}&pageSize=20`);
+            if (res?.code === 200 && res.data) {
+                this.aiReportsForElder = res.data.records || [];
+                this.aiAssessmentStats.count = res.data.total || this.aiReportsForElder.length;
+            }
+        },
+        // ========== 管理员 AI 配置 ==========
+        async loadAiConfig() {
+            this.aiConfig.loading = true;
+            this.aiConfig.saved = false;
+            try {
+                const res = await this.api('/api/ai/config');
+                if (res?.code === 200 && res.data) {
+                    const map = {};
+                    (res.data || []).forEach(c => { map[c.configKey] = c.configValue; });
+                    this.aiConfig.form.apiKey = map['ai.api_key'] || '';
+                    this.aiConfig.form.baseUrl = map['ai.base_url'] || 'https://api.deepseek.com';
+                    this.aiConfig.form.model = map['ai.model'] || 'deepseek-chat';
+                    this.aiConfig.form.maxPerDay = parseInt(map['ai.max_per_day'] || '20');
+                    this.aiConfig.form.timeoutSeconds = parseInt(map['ai.timeout_seconds'] || '30');
+                    this.aiConfig.form.maxRetries = parseInt(map['ai.max_retries'] || '2');
+                    this.aiConfig.form.mockEnabled = (map['ai.mock_enabled'] || 'true') === 'true';
+                }
+            } catch (e) {
+                console.warn('加载AI配置失败，使用默认值', e);
+            }
+            this.aiConfig.loading = false;
+        },
+        async saveAiConfig() {
+            const f = this.aiConfig.form;
+            const body = {
+                'ai.api_key': { value: f.apiKey || '', desc: 'DeepSeek API Key' },
+                'ai.base_url': { value: f.baseUrl || 'https://api.deepseek.com', desc: 'API 基础地址' },
+                'ai.model': { value: f.model || 'deepseek-chat', desc: '模型名称' },
+                'ai.mock_enabled': { value: f.mockEnabled ? 'true' : 'false', desc: 'Mock模式' },
+                'ai.max_per_day': { value: String(f.maxPerDay || 20), desc: '每日上限' },
+                'ai.timeout_seconds': { value: String(f.timeoutSeconds || 30), desc: '超时秒数' },
+                'ai.max_retries': { value: String(f.maxRetries || 2), desc: '重试次数' }
+            };
+            const res = await this.api('/api/ai/config', { method: 'PUT', body: JSON.stringify(body) });
+            if (res?.code === 200) {
+                this.aiConfig.saved = true;
+                this.toast('成功', 'AI 配置已保存');
+                setTimeout(() => { this.aiConfig.saved = false; }, 3000);
+            } else {
+                this.toast('提示', res?.msg || '保存失败', 'error');
             }
         },
         reportLevelClass(level) {
