@@ -512,11 +512,10 @@ createApp({
                 <div class="section-head">
                     <div>
                         <h3>重点人群风险分层</h3>
-                        <p>基于高龄、慢病、预警、护理异常和随访逾期等因素识别重点管理对象，并自动生成随访任务</p>
+                        <p>基于高龄、慢病、预警、护理异常和随访逾期等因素识别重点管理对象，并自动生成随访计划</p>
                     </div>
                     <div class="actions">
-                        <button class="soft-btn" @click="calculateAllRisk()">重新计算风险</button>
-                        <button class="primary-btn" @click="generateFollowupTasks()">生成随访任务</button>
+                        <button class="primary-btn" @click="generateFollowupPlans()">生成随访计划</button>
                     </div>
                 </div>
                 <div class="panel-grid" style="margin-bottom:14px;">
@@ -544,7 +543,7 @@ createApp({
                 <div class="filters">
                     <div class="field">
                         <label>风险等级</label>
-                        <select v-model="riskFilter.riskLevel">
+                        <select v-model.number="riskFilter.riskLevel">
                             <option :value="null">全部等级</option>
                             <option :value="4">高危</option>
                             <option :value="3">重点</option>
@@ -568,7 +567,7 @@ createApp({
                             <td>{{ dateTimeText(row.lastCalculateTime) }}</td>
                             <td><div class="actions">
                                 <button class="link" @click="viewRiskDetail(row)">查看画像</button>
-                                <button class="ok" @click="generateFollowupTasks()">生成任务</button>
+                                <button class="ok" @click="generateFollowupPlans(row)">生成计划</button>
                             </div></td>
                         </tr>
                         </tbody>
@@ -693,7 +692,10 @@ createApp({
                         <h3>随访计划管理</h3>
                         <p>制定和执行老人随访计划，记录每次随访结果，确保慢病管理和健康跟踪不遗漏</p>
                     </div>
-                    <div class="actions"><button class="primary-btn" @click="openPlanModal()">+ 新增随访计划</button></div>
+                    <div class="actions">
+                        <button class="danger" @click="deleteGeneratedFollowupPlans()">清理自动生成计划</button>
+                        <button class="primary-btn" @click="openPlanModal()">+ 新增随访计划</button>
+                    </div>
                 </div>
                 <div class="filters">
                     <div class="field"><label>状态</label><select v-model="followFilter.status"><option value="">全部状态</option><option value="0">待执行</option><option value="1">进行中</option><option value="2">已完成</option><option value="3">已关闭</option></select></div>
@@ -2727,32 +2729,46 @@ createApp({
                 this.toast('提示', '加载重点人群失败', 'error');
             }
         },
-        async calculateAllRisk() {
+        async generateFollowupPlans(row = null) {
             try {
-                const res = await this.api('/api/risk/elders/calculate', { method: 'POST' });
+                const params = new URLSearchParams();
+                const doctorId = this.userInfo.userId || this.userInfo.id;
+                if (doctorId) params.set('doctorId', doctorId);
+                if (row?.elderId) params.set('elderId', row.elderId);
+                const suffix = params.toString() ? `?${params.toString()}` : '';
+                const res = await this.api(`/api/followup/plans/generate-risk${suffix}`, { method: 'POST' });
                 if (res?.code === 200) {
-                    this.toast('成功', res.msg || res.message || '风险计算完成');
+                    const data = res.data || {};
+                    const createdCount = Number(data.createdCount || 0);
+                    if (createdCount > 0) {
+                        const lines = (data.createdPlans || []).map(item => {
+                            const elder = item.elderName ? `${item.elderName}(ID:${item.elderId})` : `老人ID:${item.elderId}`;
+                            return `- ${item.planName}，${elder}，下次随访：${item.nextFollowDate || '-'}`;
+                        }).join('\n');
+                        const goFollowup = confirm(`已生成 ${createdCount} 条随访计划：\n${lines}\n\n是否跳转到“随访计划管理”页面查看？`);
+                        this.toast('成功', `已生成 ${createdCount} 条随访计划`);
+                        this.followFilter.status = '';
+                        this.followFilter.diseaseType = '';
+                        this.followFilter.elderId = row?.elderId ? String(row.elderId) : '';
+                        if (goFollowup) {
+                            this.activeTab = 'followup';
+                            await this.loadFollowups(1);
+                        }
+                    } else {
+                        const reasons = (data.skippedReasons || []).slice(0, 5).join('\n');
+                        alert(`本次未生成新的随访计划。\n${data.message || '当前没有可生成的重点/高危老人。'}${reasons ? `\n\n明细：\n${reasons}` : ''}`);
+                    }
                     this.loadRiskStats();
                     this.loadKeyPopulation(1);
+                    this.loadDashboard();
                 }
             } catch (error) {
-                console.error('风险计算失败:', error);
-                this.toast('提示', '风险计算失败', 'error');
+                console.error('生成随访计划失败:', error);
+                this.toast('提示', '生成随访计划失败', 'error');
             }
         },
-        async generateFollowupTasks() {
-            try {
-                const res = await this.api('/api/followup/tasks/generate', { method: 'POST' });
-                if (res?.code === 200) {
-                    this.toast('成功', res.msg || res.message || '任务生成完成');
-                    this.loadTodayTasks();
-                    this.loadRiskStats();
-                    this.loadKeyPopulation(1);
-                }
-            } catch (error) {
-                console.error('生成任务失败:', error);
-                this.toast('提示', '生成任务失败', 'error');
-            }
+        async generateFollowupTasks(row = null) {
+            return this.generateFollowupPlans(row);
         },
         async loadTodayTasks() {
             try {
@@ -2788,10 +2804,10 @@ createApp({
         },
         async createFollowupTask(row) {
             try {
-                if (!confirm('当前系统按风险规则批量生成随访任务，是否立即执行生成?')) return;
-                await this.generateFollowupTasks();
+                if (!confirm('当前系统按风险规则生成随访计划，是否立即执行生成？')) return;
+                await this.generateFollowupPlans(row);
             } catch (error) {
-                console.error('创建任务失败:', error);
+                console.error('创建随访计划失败:', error);
             }
         },
         async finishFollowupTask(row) {
@@ -4031,6 +4047,18 @@ createApp({
                 this.loadDashboard();
             } else {
                 this.toast('提示', res?.msg || res?.message || '删除失败', 'error');
+            }
+        },
+        async deleteGeneratedFollowupPlans() {
+            if (!confirm('确认清理所有自动生成的风险随访计划吗？\n此按钮只删除系统自动生成的演示计划，不会删除手工新增计划。')) return;
+            const res = await this.api('/api/followup/plans/generated', { method: 'DELETE' });
+            if (res?.code === 200) {
+                const count = Number(res.data || 0);
+                this.toast('成功', `已清理 ${count} 条自动生成计划`);
+                this.loadFollowups(1);
+                this.loadDashboard();
+            } else {
+                this.toast('提示', res?.msg || res?.message || '清理失败', 'error');
             }
         },
         async changeFollowPlanStatus(id, status) {

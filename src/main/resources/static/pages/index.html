@@ -1573,7 +1573,6 @@
                                     <template #header>
                                         <div class="card-header">
                                             <span style="font-weight: bold">重点人群列表</span>
-                                            <el-button type="primary" size="small" @click="calculateAllRisk">重新计算风险</el-button>
                                         </div>
                                     </template>
                                     <el-form :inline="true" :model="riskFilter">
@@ -1587,7 +1586,7 @@
                                         </el-form-item>
                                         <el-form-item>
                                             <el-button type="primary" @click="loadKeyPopulation(1)">查询</el-button>
-                                            <el-button type="success" @click="generateFollowupTasks">自动生成随访任务</el-button>
+                                            <el-button type="success" @click="generateFollowupPlans">自动生成随访计划</el-button>
                                         </el-form-item>
                                     </el-form>
                                     <el-table :data="keyPopulationPage.records" v-loading="loading" border stripe>
