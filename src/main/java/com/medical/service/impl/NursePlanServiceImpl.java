@@ -89,9 +89,12 @@ public class NursePlanServiceImpl implements NursePlanService {
     @Override
     public void delete(Long id) {
         NursingPlan plan = nursingPlanMapper.selectById(id);
-        if (plan != null) {
-            plan.setDeleted(1);
-            nursingPlanMapper.updateById(plan);
+        if (plan == null) {
+            throw new BusinessException(404, "护理计划不存在或已删除");
+        }
+        int affectedRows = nursingPlanMapper.deleteById(id);
+        if (affectedRows <= 0) {
+            throw new BusinessException(500, "护理计划删除失败");
         }
     }
 

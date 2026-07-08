@@ -5198,8 +5198,19 @@ createApp({
             if (!confirm('确认要删除吗？')) return;
             const res = await this.api(`/api/nurse/plans/${id}`, { method: 'DELETE' });
             if (res?.code === 200) {
+                const currentPage = this.nursePlanPage.pageNum || 1;
+                await this.loadNursePlans(currentPage);
+                if ((this.nursePlanPage.records || []).length === 0 && currentPage > 1) {
+                    await this.loadNursePlans(currentPage - 1);
+                }
+                const stillExists = (this.nursePlanPage.records || [])
+                    .some(row => Number(row.id) === Number(id));
+                if (stillExists) {
+                    this.toast('提示', '删除请求已返回成功，但列表仍存在该护理计划，请刷新后重试', 'error');
+                    return;
+                }
                 this.toast('成功', '删除成功');
-                this.loadNursePlans(this.nursePlanPage.pageNum);
+                this.loadNurseDashboard();
             } else {
                 this.toast('提示', res?.msg || res?.message || '操作失败', 'error');
             }
