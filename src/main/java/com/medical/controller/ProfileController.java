@@ -1,9 +1,9 @@
 package com.medical.controller;
 
-import cn.hutool.crypto.digest.BCrypt;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.annotation.OperationLog;
+import com.medical.common.utils.AccountSecurityValidator;
 import com.medical.common.result.R;
 import com.medical.entity.SysMessage;
 import com.medical.entity.SysOperationLog;
@@ -11,8 +11,11 @@ import com.medical.entity.SysUser;
 import com.medical.mapper.SysMessageMapper;
 import com.medical.mapper.SysOperationLogMapper;
 import com.medical.mapper.SysUserMapper;
+import com.medical.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import javax.servlet.http.HttpServletRequest;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -36,6 +39,9 @@ public class ProfileController {
     @Autowired
     private com.medical.common.utils.RedisUtils redisUtils;
 
+    @Autowired
+    private AuthService authService;
+
     @PutMapping("/info")
     @OperationLog(module = "个人中心", type = "修改", desc = "修改个人信息")
     public R<?> updateProfile(@RequestBody SysUser user, javax.servlet.http.HttpServletRequest request) {
@@ -48,7 +54,16 @@ public class ProfileController {
             return R.fail(404, "用户不存在");
         }
         if (user.getRealName() != null) existing.setRealName(user.getRealName());
-        if (user.getPhone() != null) existing.setPhone(user.getPhone());
+        if (user.getPhone() != null) {
+            String phone = AccountSecurityValidator.requirePhone(user.getPhone());
+            Long phoneCount = sysUserMapper.selectCount(new LambdaQueryWrapper<SysUser>()
+                    .eq(SysUser::getPhone, phone)
+                    .ne(SysUser::getId, uid));
+            if (phoneCount > 0) {
+                return R.fail(400, "该手机号已被其他账号绑定");
+            }
+            existing.setPhone(phone);
+        }
         if (user.getEmail() != null) existing.setEmail(user.getEmail());
         if (user.getAvatar() != null) existing.setAvatar(user.getAvatar());
         sysUserMapper.updateById(existing);
@@ -61,37 +76,17 @@ public class ProfileController {
     }
 
     @PutMapping("/password")
-    public R<?> changePassword(@RequestBody Map<String, String> params, @RequestAttribute(required = false) Long userId) {
+    public R<?> changePassword(@RequestBody Map<String, String> params, HttpServletRequest request) {
         String oldPassword = params.get("oldPassword");
         String newPassword = params.get("newPassword");
-        if (oldPassword == null || newPassword == null) {
+        String confirmPassword = params.get("confirmPassword");
+        if (oldPassword == null || newPassword == null || confirmPassword == null) {
             return R.fail("参数不完整");
         }
 
-        Long uid = userId != null ? userId : Long.parseLong(params.getOrDefault("userId", "0"));
-        SysUser user = sysUserMapper.selectById(uid);
-        if (user == null) {
-            return R.fail("用户不存在");
-        }
-
-        boolean passwordMatch;
-        String storedPassword = user.getPassword();
-        if (storedPassword != null && (storedPassword.startsWith("$2a$") || storedPassword.startsWith("$2b$") || storedPassword.startsWith("$2y$"))) {
-            try {
-                passwordMatch = BCrypt.checkpw(oldPassword, storedPassword);
-            } catch (Exception e) {
-                passwordMatch = false;
-            }
-        } else {
-            passwordMatch = oldPassword.equals(storedPassword);
-        }
-
-        if (!passwordMatch) {
-            return R.fail("原密码错误");
-        }
-
-        user.setPassword(BCrypt.hashpw(newPassword));
-        sysUserMapper.updateById(user);
+        AccountSecurityValidator.requirePasswordConfirmed(newPassword, confirmPassword);
+        Long uid = (Long) request.getAttribute("currentUserId");
+        authService.changePassword(uid, oldPassword, newPassword);
         return R.ok("密码修改成功");
     }
 

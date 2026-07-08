@@ -25,7 +25,7 @@ public interface AuthService {
     /**
      * 密码重置
      */
-    void resetPassword(String username, String newPassword);
+    void resetPassword(String username, String phone, String newPassword, String confirmPassword);
 
     /**
      * 注册参数预校验

@@ -2,6 +2,7 @@ package com.medical.controller;
 
 import com.medical.common.result.R;
 import com.medical.common.annotation.OperationLog;
+import com.medical.common.utils.AccountSecurityValidator;
 import com.medical.entity.SysMessage;
 import com.medical.mapper.SysMessageMapper;
 import com.medical.service.AuthService;
@@ -30,14 +31,11 @@ public class AuthController {
 
     @PostMapping("/login")
     public R<?> login(@RequestBody LoginDTO loginDTO, HttpServletRequest request) {
-        if (!StringUtils.hasText(loginDTO.getUsername()) || !StringUtils.hasText(loginDTO.getPassword())) {
+        if (loginDTO == null || !StringUtils.hasText(loginDTO.getUsername()) || !StringUtils.hasText(loginDTO.getPassword())) {
             return R.fail(400, "用户名和密码不能为空");
         }
-        // 验证码校验（基于Redis分布式存储）
-        if (StringUtils.hasText(loginDTO.getCaptchaKey())) {
-            if (!captchaController.verify(loginDTO.getCaptchaKey(), loginDTO.getCaptchaCode())) {
-                return R.fail(400, "验证码错误或已过期");
-            }
+        if (!verifyCaptcha(loginDTO.getCaptchaKey(), loginDTO.getCaptchaCode())) {
+            return R.fail(400, "验证码错误或已过期");
         }
         String ip = request.getRemoteAddr();
         return R.ok("登录成功", authService.login(loginDTO.getUsername(), loginDTO.getPassword(), ip));
@@ -61,6 +59,10 @@ public class AuthController {
     @OperationLog(module = "账号安全", type = "修改密码", desc = "个人中心修改登录密码")
     public R<?> changePassword(@RequestBody PasswordDTO dto, HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("currentUserId");
+        if (dto == null || !StringUtils.hasText(dto.getOldPassword()) || !StringUtils.hasText(dto.getNewPassword())) {
+            return R.fail(400, "参数不完整");
+        }
+        AccountSecurityValidator.requirePasswordConfirmed(dto.getNewPassword(), dto.getConfirmPassword());
         authService.changePassword(userId, dto.getOldPassword(), dto.getNewPassword());
         createSystemMessage(userId, "密码修改成功", "你的登录密码已修改，请妥善保管账号信息。", "profile_password");
         return R.ok("密码修改成功，请重新登录");
@@ -71,26 +73,15 @@ public class AuthController {
      */
     @PostMapping("/register")
     public R<?> register(@RequestBody RegisterDTO dto) {
-        if (!StringUtils.hasText(dto.getUsername()) || !StringUtils.hasText(dto.getPassword())) {
+        if (dto == null || !StringUtils.hasText(dto.getUsername()) || !StringUtils.hasText(dto.getPassword())) {
             return R.fail(400, "用户名和密码不能为空");
         }
-        if (!StringUtils.hasText(dto.getConfirmPassword())) {
-            return R.fail(400, "请确认密码");
-        }
-        if (!dto.getPassword().equals(dto.getConfirmPassword())) {
-            return R.fail(400, "两次输入的密码不一致");
-        }
-        if (dto.getPassword().length() < 6) {
-            return R.fail(400, "密码至少6位");
+        AccountSecurityValidator.requirePasswordConfirmed(dto.getPassword(), dto.getConfirmPassword());
+        if (!verifyCaptcha(dto.getCaptchaKey(), dto.getCaptchaCode())) {
+            return R.fail(400, "验证码错误或已过期");
         }
         authService.validateRegistration(dto.getUsername(), dto.getPassword(),
                 dto.getRealName(), dto.getPhone(), dto.getUserType());
-        // 验证码校验
-        if (StringUtils.hasText(dto.getCaptchaKey())) {
-            if (!captchaController.verify(dto.getCaptchaKey(), dto.getCaptchaCode())) {
-                return R.fail(400, "验证码错误或已过期");
-            }
-        }
         authService.register(dto.getUsername(), dto.getPassword(),
                 dto.getRealName(), dto.getPhone(), dto.getUserType());
         return R.ok("注册成功，请登录");
@@ -102,13 +93,16 @@ public class AuthController {
     @PostMapping("/resetPassword")
     @OperationLog(module = "账号安全", type = "重置密码", desc = "登录页找回密码")
     public R<?> resetPassword(@RequestBody ResetPasswordDTO dto) {
-        if (!StringUtils.hasText(dto.getUsername()) || !StringUtils.hasText(dto.getNewPassword())) {
+        if (dto == null || !StringUtils.hasText(dto.getUsername())
+                || !StringUtils.hasText(dto.getPhone())
+                || !StringUtils.hasText(dto.getNewPassword())) {
             return R.fail(400, "参数不完整");
         }
-        if (dto.getNewPassword().length() < 6) {
-            return R.fail(400, "新密码至少6位");
+        AccountSecurityValidator.requirePasswordConfirmed(dto.getNewPassword(), dto.getConfirmPassword());
+        if (!verifyCaptcha(dto.getCaptchaKey(), dto.getCaptchaCode())) {
+            return R.fail(400, "验证码错误或已过期");
         }
-        authService.resetPassword(dto.getUsername(), dto.getNewPassword());
+        authService.resetPassword(dto.getUsername(), dto.getPhone(), dto.getNewPassword(), dto.getConfirmPassword());
         return R.ok("密码重置成功，请使用新密码登录");
     }
 
@@ -124,6 +118,7 @@ public class AuthController {
     static class PasswordDTO {
         private String oldPassword;
         private String newPassword;
+        private String confirmPassword;
     }
 
     @Data
@@ -131,6 +126,9 @@ public class AuthController {
         private String username;
         private String phone;
         private String newPassword;
+        private String confirmPassword;
+        private String captchaKey;
+        private String captchaCode;
     }
 
     @Data
@@ -155,5 +153,11 @@ public class AuthController {
         msg.setIsRead(0);
         msg.setSourceType(sourceType);
         sysMessageMapper.insert(msg);
+    }
+
+    private boolean verifyCaptcha(String captchaKey, String captchaCode) {
+        return StringUtils.hasText(captchaKey)
+                && StringUtils.hasText(captchaCode)
+                && captchaController.verify(captchaKey, captchaCode);
     }
 }
