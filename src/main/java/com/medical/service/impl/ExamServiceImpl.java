@@ -90,10 +90,13 @@ public class ExamServiceImpl implements ExamService {
 
     @Override
     public void delete(Long id) {
-        PhysicalExam exam = physicalExamMapper.selectById(id);
-        if (exam != null) {
-            exam.setDeleted(1);
-            physicalExamMapper.updateById(exam);
+        if (id == null || id <= 0) {
+            throw new BusinessException(400, "体检记录ID不正确");
+        }
+        PhysicalExam exam = getById(id);
+        int rows = physicalExamMapper.deleteById(exam.getId());
+        if (rows <= 0) {
+            throw new BusinessException(500, "体检记录删除失败");
         }
     }
 

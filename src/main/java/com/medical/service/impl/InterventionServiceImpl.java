@@ -79,10 +79,13 @@ public class InterventionServiceImpl implements InterventionService {
 
     @Override
     public void delete(Long id) {
-        InterventionRecord record = interventionRecordMapper.selectById(id);
-        if (record != null) {
-            record.setDeleted(1);
-            interventionRecordMapper.updateById(record);
+        if (id == null || id <= 0) {
+            throw new BusinessException(400, "干预记录ID不正确");
+        }
+        InterventionRecord record = getById(id);
+        int rows = interventionRecordMapper.deleteById(record.getId());
+        if (rows <= 0) {
+            throw new BusinessException(500, "干预记录删除失败");
         }
     }
 
