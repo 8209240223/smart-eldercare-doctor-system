@@ -817,9 +817,9 @@ createApp({
                 </div>
                 <div v-else-if="profileTab==='password'" class="card list-card" style="max-width: 640px;">
                     <div class="form-row" style="grid-template-columns:1fr;">
-                        <div class="field"><label>旧密码</label><input type="password" v-model="profile.pwd.oldPassword" placeholder="请输入当前使用的密码"></div>
-                        <div class="field"><label>新密码</label><input type="password" v-model="profile.pwd.newPassword" placeholder="8-20位，至少包含字母和数字"></div>
-                        <div class="field"><label>确认新密码</label><input type="password" v-model="profile.pwd.confirmPassword" placeholder="请再次输入相同的新密码"></div>
+                        <div class="field"><label>旧密码</label><input type="password" v-model="profile.pwd.oldPassword" placeholder="请输入当前使用的密码" maxlength="20" autocomplete="current-password"></div>
+                        <div class="field"><label>新密码</label><input type="password" v-model="profile.pwd.newPassword" placeholder="8-20位，至少包含字母和数字" minlength="8" maxlength="20" autocomplete="new-password"></div>
+                        <div class="field"><label>确认新密码</label><input type="password" v-model="profile.pwd.confirmPassword" placeholder="请再次输入相同的新密码" minlength="8" maxlength="20" autocomplete="new-password"></div>
                     </div>
                     <div style="margin-top: 16px;" class="actions"><button class="primary-btn" @click="changePassword">确认修改密码</button></div>
                 </div>
