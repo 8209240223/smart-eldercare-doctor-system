@@ -109,10 +109,13 @@ public class NurseRecordServiceImpl implements NurseRecordService {
 
     @Override
     public void delete(Long id) {
-        NursingRecord record = nursingRecordMapper.selectById(id);
-        if (record != null) {
-            record.setDeleted(1);
-            nursingRecordMapper.updateById(record);
+        if (id == null || id <= 0) {
+            throw new BusinessException(400, "护理记录ID不正确");
+        }
+        NursingRecord record = getById(id);
+        int rows = nursingRecordMapper.deleteById(record.getId());
+        if (rows <= 0) {
+            throw new BusinessException(500, "护理记录删除失败");
         }
     }
 
