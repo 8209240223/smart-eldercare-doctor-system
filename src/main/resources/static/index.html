@@ -256,11 +256,13 @@
         /* Toast */
         .toast {
             position: fixed; top: 30px; left: 50%; transform: translateX(-50%);
+            max-width: min(420px, calc(100vw - 32px));
             padding: 12px 24px; border-radius: var(--radius); color: var(--text-primary); font-size: 14px;
+            text-align: center;
             background: var(--bg-overlay);
             border: 1px solid var(--border-base);
             border-left: 3px solid var(--info);
-            z-index: 10000; box-shadow: var(--shadow-overlay);
+            z-index: 2147483000; box-shadow: var(--shadow-overlay);
             animation: fadeInDown 0.3s ease;
         }
         .toast.error { border-left-color: var(--danger); }
