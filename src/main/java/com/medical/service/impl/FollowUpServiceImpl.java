@@ -5,9 +5,13 @@ import cn.hutool.core.bean.copier.CopyOptions;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.exception.BusinessException;
+import com.medical.entity.ElderInfo;
+import com.medical.entity.ElderRiskProfile;
 import com.medical.entity.FollowPlan;
 import com.medical.entity.FollowRecord;
 import com.medical.entity.TimelineEvent;
+import com.medical.mapper.ElderInfoMapper;
+import com.medical.mapper.ElderRiskProfileMapper;
 import com.medical.mapper.FollowPlanMapper;
 import com.medical.mapper.FollowRecordMapper;
 import com.medical.service.FollowUpService;
@@ -19,17 +23,27 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
 public class FollowUpServiceImpl implements FollowUpService {
+
+    private static final String AUTO_RISK_MARK = "[AUTO_RISK_FOLLOWUP]";
 
     @Autowired
     private FollowPlanMapper followPlanMapper;
 
     @Autowired
     private FollowRecordMapper followRecordMapper;
+
+    @Autowired
+    private ElderRiskProfileMapper elderRiskProfileMapper;
+
+    @Autowired
+    private ElderInfoMapper elderInfoMapper;
 
     @Autowired
     private TimelineService timelineService;
@@ -70,6 +84,58 @@ public class FollowUpServiceImpl implements FollowUpService {
         }
         followPlanMapper.insert(plan);
         return plan.getId();
+    }
+
+    @Override
+    public Map<String, Object> generateRiskFollowPlans(Long doctorId, Long elderId) {
+        LambdaQueryWrapper<ElderRiskProfile> riskWrapper = new LambdaQueryWrapper<>();
+        riskWrapper.ge(ElderRiskProfile::getRiskLevel, 3)
+                .eq(elderId != null, ElderRiskProfile::getElderId, elderId)
+                .orderByDesc(ElderRiskProfile::getRiskLevel)
+                .orderByDesc(ElderRiskProfile::getRiskScore);
+        List<ElderRiskProfile> profiles = elderRiskProfileMapper.selectList(riskWrapper);
+
+        List<Map<String, Object>> createdPlans = new ArrayList<>();
+        List<String> skippedReasons = new ArrayList<>();
+        for (ElderRiskProfile profile : profiles) {
+            ElderInfo elder = elderInfoMapper.selectById(profile.getElderId());
+            if (elder == null || (elder.getDeleted() != null && elder.getDeleted() == 1)) {
+                skippedReasons.add("老人ID " + profile.getElderId() + " 不存在或已删除");
+                continue;
+            }
+            if (doctorId != null && elder.getDoctorId() != null && !doctorId.equals(elder.getDoctorId())) {
+                skippedReasons.add(elder.getName() + " 不属于当前医生，已跳过");
+                continue;
+            }
+            long existing = followPlanMapper.selectCount(new LambdaQueryWrapper<FollowPlan>()
+                    .eq(FollowPlan::getElderId, profile.getElderId())
+                    .in(FollowPlan::getStatus, 0, 1)
+                    .likeRight(FollowPlan::getRemark, AUTO_RISK_MARK));
+            if (existing > 0) {
+                skippedReasons.add(elder.getName() + " 已存在自动生成的进行中随访计划");
+                continue;
+            }
+
+            FollowPlan plan = buildRiskFollowPlan(profile, elder, doctorId);
+            followPlanMapper.insert(plan);
+            createdPlans.add(toGeneratedPlanView(plan, profile, elder));
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("createdCount", createdPlans.size());
+        result.put("createdPlans", createdPlans);
+        result.put("skippedCount", skippedReasons.size());
+        result.put("skippedReasons", skippedReasons);
+        result.put("message", createdPlans.isEmpty()
+                ? "没有生成新的随访计划：符合条件的老人可能已经存在自动生成计划，或当前筛选下没有高危/重点老人"
+                : "已生成 " + createdPlans.size() + " 条随访计划");
+        return result;
+    }
+
+    @Override
+    public int deleteGeneratedRiskFollowPlans() {
+        return followPlanMapper.delete(new LambdaQueryWrapper<FollowPlan>()
+                .likeRight(FollowPlan::getRemark, AUTO_RISK_MARK));
     }
 
     @Override
@@ -208,6 +274,67 @@ public class FollowUpServiceImpl implements FollowUpService {
             endDate = calculateNextDate(endDate, frequencyType);
         }
         return endDate;
+    }
+
+    private FollowPlan buildRiskFollowPlan(ElderRiskProfile profile, ElderInfo elder, Long requestDoctorId) {
+        Integer riskLevel = profile.getRiskLevel() == null ? 3 : profile.getRiskLevel();
+        LocalDate startDate = LocalDate.now();
+        FollowPlan plan = new FollowPlan();
+        plan.setElderId(profile.getElderId());
+        plan.setDoctorId(elder.getDoctorId() != null ? elder.getDoctorId() : requestDoctorId);
+        plan.setPlanName(getRiskLevelText(riskLevel) + "风险随访计划-" + elder.getName());
+        plan.setDiseaseType(inferDiseaseType(profile.getRiskTags()));
+        plan.setFrequencyType(riskLevel >= 4 ? 2 : 3);
+        plan.setStartDate(startDate);
+        plan.setNextFollowDate(startDate.plusDays(riskLevel >= 4 ? 3 : 7));
+        plan.setTotalCount(riskLevel >= 4 ? 12 : 8);
+        plan.setCompletedCount(0);
+        plan.setStatus(1);
+        plan.setEndDate(calculateEndDate(plan.getStartDate(), plan.getFrequencyType(), plan.getTotalCount()));
+        plan.setRemark(AUTO_RISK_MARK + " 风险等级:" + getRiskLevelText(riskLevel)
+                + ",评分:" + (profile.getRiskScore() == null ? 0 : profile.getRiskScore())
+                + ",标签:" + (profile.getRiskTags() == null ? "-" : profile.getRiskTags()));
+        return plan;
+    }
+
+    private Map<String, Object> toGeneratedPlanView(FollowPlan plan, ElderRiskProfile profile, ElderInfo elder) {
+        Map<String, Object> item = new HashMap<>();
+        item.put("id", plan.getId());
+        item.put("planName", plan.getPlanName());
+        item.put("elderId", plan.getElderId());
+        item.put("elderName", elder.getName());
+        item.put("riskLevel", profile.getRiskLevel());
+        item.put("riskLevelText", getRiskLevelText(profile.getRiskLevel()));
+        item.put("riskScore", profile.getRiskScore());
+        item.put("diseaseType", plan.getDiseaseType());
+        item.put("nextFollowDate", plan.getNextFollowDate());
+        return item;
+    }
+
+    private Integer inferDiseaseType(String riskTags) {
+        String tags = riskTags == null ? "" : riskTags;
+        if (tags.contains("糖尿病")) return 2;
+        if (tags.contains("冠心病")) return 3;
+        if (tags.contains("脑卒中")) return 4;
+        if (tags.contains("慢阻肺")) return 5;
+        if (tags.contains("阿尔茨海默")) return 6;
+        return 1;
+    }
+
+    private String getRiskLevelText(Integer riskLevel) {
+        if (riskLevel == null) return "未知";
+        switch (riskLevel) {
+            case 4:
+                return "高危";
+            case 3:
+                return "重点";
+            case 2:
+                return "关注";
+            case 1:
+                return "普通";
+            default:
+                return "未知";
+        }
     }
 
     private void validatePlan(FollowPlan plan) {

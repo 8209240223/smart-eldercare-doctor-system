@@ -64,30 +64,29 @@ async loadKeyPopulation(pageNum) {
     }
 },
 
-async calculateAllRisk() {
+async generateFollowupPlans(row = null) {
     try {
-        const res = await axios.post('/api/risk/elders/calculate');
+        const params = {};
+        if (this.userInfo?.userId || this.userInfo?.id) {
+            params.doctorId = this.userInfo.userId || this.userInfo.id;
+        }
+        if (row?.elderId) {
+            params.elderId = row.elderId;
+        }
+        const res = await axios.post('/api/followup/plans/generate-risk', null, { params });
         if (res.data.code === 200) {
-            this.$message.success(res.data.message);
+            const data = res.data.data || {};
+            if ((data.createdCount || 0) > 0) {
+                this.$message.success(`已生成${data.createdCount}条随访计划`);
+            } else {
+                this.$message.warning(data.message || '本次未生成新的随访计划');
+            }
             this.loadRiskStats();
             this.loadKeyPopulation(1);
         }
     } catch (error) {
-        console.error('风险计算失败:', error);
-        this.$message.error('风险计算失败');
-    }
-},
-
-async generateFollowupTasks() {
-    try {
-        const res = await axios.post('/api/followup/tasks/generate');
-        if (res.data.code === 200) {
-            this.$message.success(res.data.message);
-            this.loadTodayTasks();
-        }
-    } catch (error) {
-        console.error('生成任务失败:', error);
-        this.$message.error('生成任务失败');
+        console.error('生成随访计划失败:', error);
+        this.$message.error('生成随访计划失败');
     }
 },
 

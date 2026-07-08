@@ -35,6 +35,19 @@ public class FollowUpController {
         return R.ok("创建成功", followUpService.createPlan(plan));
     }
 
+    @PostMapping("/plans/generate-risk")
+    @OperationLog(module = "随访管理", type = "生成", desc = "根据风险分层生成随访计划")
+    public R<?> generateRiskPlans(@RequestParam(required = false) Long doctorId,
+                                  @RequestParam(required = false) Long elderId) {
+        return R.ok("生成成功", followUpService.generateRiskFollowPlans(doctorId, elderId));
+    }
+
+    @DeleteMapping("/plans/generated")
+    @OperationLog(module = "随访管理", type = "删除", desc = "清理自动生成的风险随访计划")
+    public R<?> deleteGeneratedPlans() {
+        return R.ok("清理成功", followUpService.deleteGeneratedRiskFollowPlans());
+    }
+
     @PutMapping("/plans/{id}")
     @OperationLog(module = "随访管理", type = "修改", desc = "修改随访计划")
     public R<?> updatePlan(@PathVariable Long id, @Valid @RequestBody FollowPlan plan) {

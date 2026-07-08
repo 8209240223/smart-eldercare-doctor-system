@@ -15,6 +15,10 @@ public interface FollowUpService {
 
     Long createPlan(FollowPlan plan);
 
+    Map<String, Object> generateRiskFollowPlans(Long doctorId, Long elderId);
+
+    int deleteGeneratedRiskFollowPlans();
+
     void updatePlan(Long id, FollowPlan plan);
 
     void changePlanStatus(Long id, Integer status);
