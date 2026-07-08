@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,34 +20,30 @@ public class TimelineServiceImpl implements TimelineService {
 
     @Override
     public Page<TimelineEvent> getTimeline(Long elderId, String startDate, String endDate, Integer eventType, Integer pageNum, Integer pageSize) {
-        LambdaQueryWrapper<TimelineEvent> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(TimelineEvent::getElderId, elderId);
-        if (eventType != null) {
-            wrapper.eq(TimelineEvent::getEventType, eventType);
-        }
-        if (startDate != null && !startDate.isEmpty()) {
-            wrapper.ge(TimelineEvent::getEventTime, LocalDateTime.parse(startDate + "T00:00:00"));
-        }
-        if (endDate != null && !endDate.isEmpty()) {
-            wrapper.le(TimelineEvent::getEventTime, LocalDateTime.parse(endDate + "T23:59:59"));
-        }
+        LambdaQueryWrapper<TimelineEvent> wrapper = buildQuery(elderId, startDate, endDate, eventType);
         wrapper.orderByDesc(TimelineEvent::getEventTime);
         return timelineEventMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
     }
 
     @Override
-    public Map<String, Object> getSummary(Long elderId) {
+    public Map<String, Object> getSummary(Long elderId, String startDate, String endDate, Integer eventType) {
         Map<String, Object> summary = new HashMap<>();
-        LambdaQueryWrapper<TimelineEvent> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(TimelineEvent::getElderId, elderId);
-        summary.put("total", timelineEventMapper.selectCount(wrapper));
+        LambdaQueryWrapper<TimelineEvent> totalWrapper = buildQuery(elderId, startDate, endDate, eventType);
+        summary.put("total", timelineEventMapper.selectCount(totalWrapper));
 
-        // 各类型事件统计
+        Map<String, Object> typeCounts = new HashMap<>();
         for (int i = 1; i <= 9; i++) {
-            LambdaQueryWrapper<TimelineEvent> typeWrapper = new LambdaQueryWrapper<>();
-            typeWrapper.eq(TimelineEvent::getElderId, elderId).eq(TimelineEvent::getEventType, i);
-            summary.put("type" + i, timelineEventMapper.selectCount(typeWrapper));
+            if (eventType != null && eventType != i) {
+                typeCounts.put(String.valueOf(i), 0);
+                summary.put("type" + i, 0);
+                continue;
+            }
+            LambdaQueryWrapper<TimelineEvent> typeWrapper = buildQuery(elderId, startDate, endDate, i);
+            Long count = timelineEventMapper.selectCount(typeWrapper);
+            typeCounts.put(String.valueOf(i), count);
+            summary.put("type" + i, count);
         }
+        summary.put("typeCounts", typeCounts);
         return summary;
     }
 
@@ -61,5 +56,20 @@ public class TimelineServiceImpl implements TimelineService {
             event.setCreateTime(LocalDateTime.now());
         }
         timelineEventMapper.insert(event);
+    }
+
+    private LambdaQueryWrapper<TimelineEvent> buildQuery(Long elderId, String startDate, String endDate, Integer eventType) {
+        LambdaQueryWrapper<TimelineEvent> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(TimelineEvent::getElderId, elderId);
+        if (eventType != null) {
+            wrapper.eq(TimelineEvent::getEventType, eventType);
+        }
+        if (startDate != null && !startDate.isEmpty()) {
+            wrapper.ge(TimelineEvent::getEventTime, LocalDateTime.parse(startDate + "T00:00:00"));
+        }
+        if (endDate != null && !endDate.isEmpty()) {
+            wrapper.le(TimelineEvent::getEventTime, LocalDateTime.parse(endDate + "T23:59:59"));
+        }
+        return wrapper;
     }
 }

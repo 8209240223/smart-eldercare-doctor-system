@@ -65,6 +65,14 @@ public class WarningController {
         return R.ok("已忽略");
     }
 
+    @PutMapping("/{id}/processing")
+    @OperationLog(module = "健康预警", type = "处理中", desc = "将健康预警标记为处理中")
+    public R<?> markProcessing(@PathVariable Long id, @RequestBody(required = false) HealthWarning warning) {
+        Long doctorId = warning != null ? warning.getDoctorId() : null;
+        warningService.markProcessing(id, doctorId);
+        return R.ok("已标记为处理中");
+    }
+
     @PutMapping("/{id}/read")
     @OperationLog(module = "健康预警", type = "已读", desc = "标记预警已读")
     public R<?> markAsRead(@PathVariable Long id, @RequestBody(required = false) HealthWarning warning) {

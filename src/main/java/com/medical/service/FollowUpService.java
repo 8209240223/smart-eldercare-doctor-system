@@ -19,6 +19,8 @@ public interface FollowUpService {
 
     void changePlanStatus(Long id, Integer status);
 
+    void deletePlan(Long id);
+
     Page<FollowRecord> listRecords(Integer pageNum, Integer pageSize, Long planId, Long elderId);
 
     Long createRecord(FollowRecord record);

@@ -6,8 +6,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.exception.BusinessException;
 import com.medical.entity.InterventionRecord;
+import com.medical.entity.TimelineEvent;
 import com.medical.mapper.InterventionRecordMapper;
 import com.medical.service.InterventionService;
+import com.medical.service.TimelineService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -21,6 +23,9 @@ public class InterventionServiceImpl implements InterventionService {
 
     @Autowired
     private InterventionRecordMapper interventionRecordMapper;
+
+    @Autowired
+    private TimelineService timelineService;
 
     @Override
     public Page<InterventionRecord> list(Integer pageNum, Integer pageSize, Long elderId, Long followRecordId, Integer type) {
@@ -57,6 +62,7 @@ public class InterventionServiceImpl implements InterventionService {
             record.setInterventionDate(LocalDateTime.now());
         }
         interventionRecordMapper.insert(record);
+        addInterventionTimeline(record);
         return record.getId();
     }
 
@@ -68,6 +74,7 @@ public class InterventionServiceImpl implements InterventionService {
                 .ignoreNullValue()
                 .setIgnoreProperties("id", "createTime", "updateTime", "deleted"));
         interventionRecordMapper.updateById(existing);
+        addInterventionTimeline(existing);
     }
 
     @Override
@@ -109,5 +116,24 @@ public class InterventionServiceImpl implements InterventionService {
         if (!StringUtils.hasText(record.getInterventionContent())) {
             throw new BusinessException(400, "干预内容不能为空");
         }
+        if (record.getElderId() <= 0) {
+            throw new BusinessException(400, "老人ID必须为正整数");
+        }
+        if (record.getDoctorId() != null && record.getDoctorId() <= 0) {
+            throw new BusinessException(400, "医生ID必须为正整数");
+        }
+    }
+
+    private void addInterventionTimeline(InterventionRecord record) {
+        TimelineEvent event = new TimelineEvent();
+        event.setElderId(record.getElderId());
+        event.setDoctorId(record.getDoctorId());
+        event.setEventType(6);
+        event.setEventTitle("干预记录：" + record.getInterventionTitle());
+        event.setEventContent(record.getInterventionContent());
+        event.setSourceType("intervention_record");
+        event.setSourceId(record.getId());
+        event.setEventTime(record.getInterventionDate());
+        timelineService.addEvent(event);
     }
 }

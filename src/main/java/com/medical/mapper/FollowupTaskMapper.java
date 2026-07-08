@@ -36,6 +36,13 @@ public interface FollowupTaskMapper extends BaseMapper<FollowupTask> {
             "ORDER BY ft.priority DESC, ft.due_date ASC")
     List<Map<String, Object>> selectByDoctorId(@Param("doctorId") Long doctorId, @Param("status") Integer status);
 
+    @Select("SELECT ft.*, ei.name, ei.phone, ei.community " +
+            "FROM followup_task ft " +
+            "LEFT JOIN elder_info ei ON ft.elder_id = ei.id " +
+            "WHERE ft.status = #{status} AND ei.deleted = 0 " +
+            "ORDER BY ft.priority DESC, ft.due_date ASC")
+    List<Map<String, Object>> selectByStatus(@Param("status") Integer status);
+
     /**
      * 统计待执行任务数量
      */

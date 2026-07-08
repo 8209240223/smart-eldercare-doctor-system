@@ -4,10 +4,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.exception.BusinessException;
 import com.medical.entity.HealthWarning;
+import com.medical.entity.TimelineEvent;
 import com.medical.entity.WarningEventLog;
 import com.medical.mapper.HealthWarningMapper;
 import com.medical.mapper.WarningEventLogMapper;
 import com.medical.service.SseService;
+import com.medical.service.TimelineService;
 import com.medical.service.WarningService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +37,9 @@ public class WarningServiceImpl implements WarningService {
 
     @Autowired
     private SseService sseService;
+
+    @Autowired
+    private TimelineService timelineService;
 
     @Override
     public Page<HealthWarning> list(Integer pageNum, Integer pageSize, Integer status, Integer warningLevel, Long elderId) {
@@ -102,6 +107,29 @@ public class WarningServiceImpl implements WarningService {
 
     @Override
     @Transactional
+    public void markProcessing(Long id, Long doctorId) {
+        HealthWarning entity = healthWarningMapper.selectById(id);
+        if (entity == null) {
+            throw new BusinessException(404, "预警不存在");
+        }
+        if (entity.getStatus() != null && entity.getStatus() != 0 && entity.getStatus() != 1) {
+            throw new BusinessException(400, "只有待处理或处理中的预警可以标记为处理中");
+        }
+        entity.setStatus(1);
+        entity.setDoctorId(doctorId);
+        healthWarningMapper.updateById(entity);
+
+        WarningEventLog eventLog = new WarningEventLog();
+        eventLog.setWarningId(id);
+        eventLog.setEventType(3);
+        eventLog.setOperatorId(doctorId);
+        eventLog.setOperatorName(doctorId != null ? "医生-" + doctorId : "系统");
+        eventLog.setEventDetail("预警标记为处理中");
+        warningEventLogMapper.insert(eventLog);
+    }
+
+    @Override
+    @Transactional
     public Long create(HealthWarning warning) {
         warning.setStatus(0);
         healthWarningMapper.insert(warning);
@@ -115,6 +143,7 @@ public class WarningServiceImpl implements WarningService {
         warningEventLogMapper.insert(eventLog);
 
         // 构建推送数据
+        addWarningTimeline(warning);
         Map<String, Object> pushData = new HashMap<>();
         pushData.put("id", warningId);
         pushData.put("warningId", warningId);
@@ -167,6 +196,8 @@ public class WarningServiceImpl implements WarningService {
         Map<String, Object> stats = new HashMap<>();
         long pending = healthWarningMapper.selectCount(
                 new LambdaQueryWrapper<HealthWarning>().eq(HealthWarning::getStatus, 0));
+        long processing = healthWarningMapper.selectCount(
+                new LambdaQueryWrapper<HealthWarning>().eq(HealthWarning::getStatus, 1));
         long handled = healthWarningMapper.selectCount(
                 new LambdaQueryWrapper<HealthWarning>().eq(HealthWarning::getStatus, 2));
         long ignored = healthWarningMapper.selectCount(
@@ -184,9 +215,10 @@ public class WarningServiceImpl implements WarningService {
                 new LambdaQueryWrapper<HealthWarning>().ge(HealthWarning::getCreateTime, todayStart));
 
         stats.put("pending", pending);
+        stats.put("processing", processing);
         stats.put("handled", handled);
         stats.put("ignored", ignored);
-        stats.put("total", pending + handled + ignored);
+        stats.put("total", pending + processing + handled + ignored);
         stats.put("red", red);
         stats.put("orange", orange);
         stats.put("yellow", yellow);
@@ -375,6 +407,19 @@ public class WarningServiceImpl implements WarningService {
         }
 
         return create(warning);
+    }
+
+    private void addWarningTimeline(HealthWarning warning) {
+        TimelineEvent event = new TimelineEvent();
+        event.setElderId(warning.getElderId());
+        event.setEventType(2);
+        event.setEventTitle(warning.getWarningTitle());
+        event.setEventContent(warning.getWarningContent());
+        event.setSourceType("warning");
+        event.setSourceId(warning.getId());
+        event.setDoctorId(warning.getDoctorId());
+        event.setEventTime(warning.getCreateTime() != null ? warning.getCreateTime() : LocalDateTime.now());
+        timelineService.addEvent(event);
     }
 
     private String getEventTypeText(Integer eventType) {

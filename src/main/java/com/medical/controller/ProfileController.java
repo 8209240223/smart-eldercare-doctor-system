@@ -56,6 +56,7 @@ public class ProfileController {
             redisUtils.delete(com.medical.common.constant.RedisKeyConstant.buildUserKey(uid));
         } catch (Exception ignored) {
         }
+        createSystemMessage(uid, "个人信息已更新", "你的个人中心资料已保存成功。", "profile_info");
         return R.ok("修改成功");
     }
 
@@ -145,5 +146,17 @@ public class ProfileController {
         update.setIsRead(1);
         sysMessageMapper.update(update, wrapper);
         return R.ok("全部已读");
+    }
+
+    private void createSystemMessage(Long userId, String title, String content, String sourceType) {
+        if (userId == null) return;
+        SysMessage msg = new SysMessage();
+        msg.setUserId(userId);
+        msg.setTitle(title);
+        msg.setContent(content);
+        msg.setMsgType(3);
+        msg.setIsRead(0);
+        msg.setSourceType(sourceType);
+        sysMessageMapper.insert(msg);
     }
 }

@@ -79,6 +79,7 @@ public class NursePlanServiceImpl implements NursePlanService {
         if (existing.getStatus() != null && (existing.getStatus() == 2 || existing.getStatus() == 3)) {
             throw new BusinessException(400, "已完成或已终止的计划不能修改");
         }
+        validateRequired(plan);
         BeanUtil.copyProperties(plan, existing, CopyOptions.create()
                 .ignoreNullValue()
                 .setIgnoreProperties("id", "createTime", "updateTime", "deleted", "completedCount"));
@@ -97,6 +98,7 @@ public class NursePlanServiceImpl implements NursePlanService {
     @Override
     public void updateStatus(Long id, Integer status) {
         NursingPlan existing = getById(id);
+        validateStatus(status);
         if (status == 2 && existing.getStatus() != null && existing.getStatus() == 1) {
             // 已完成 -> 设置完成的次数
             existing.setCompletedCount(existing.getTotalCount());
@@ -151,8 +153,14 @@ public class NursePlanServiceImpl implements NursePlanService {
         if (plan.getElderId() == null) {
             throw new BusinessException(400, "老人ID不能为空");
         }
+        if (plan.getElderId() <= 0) {
+            throw new BusinessException(400, "老人ID必须为正整数");
+        }
         if (plan.getNurseId() == null) {
             throw new BusinessException(400, "护士ID不能为空");
+        }
+        if (plan.getNurseId() <= 0) {
+            throw new BusinessException(400, "护士ID必须为正整数");
         }
         if (!StringUtils.hasText(plan.getPlanName())) {
             throw new BusinessException(400, "计划名称不能为空");
@@ -162,6 +170,30 @@ public class NursePlanServiceImpl implements NursePlanService {
         }
         if (plan.getStartDate() == null) {
             throw new BusinessException(400, "开始日期不能为空");
+        }
+        if (plan.getEndDate() != null && plan.getEndDate().isBefore(plan.getStartDate())) {
+            throw new BusinessException(400, "结束日期不能早于开始日期");
+        }
+        if (plan.getTotalCount() != null && plan.getTotalCount() < 1) {
+            throw new BusinessException(400, "总次数必须为正整数");
+        }
+        if (plan.getCompletedCount() != null && plan.getCompletedCount() < 0) {
+            throw new BusinessException(400, "已完成次数不能为负数");
+        }
+        if (plan.getEffectScore() != null && (plan.getEffectScore() < 1 || plan.getEffectScore() > 5)) {
+            throw new BusinessException(400, "效果评分必须在1到5之间");
+        }
+        if (plan.getDoctorApproval() != null && (plan.getDoctorApproval() < 0 || plan.getDoctorApproval() > 2)) {
+            throw new BusinessException(400, "医生审核状态不正确");
+        }
+        if (plan.getStatus() != null) {
+            validateStatus(plan.getStatus());
+        }
+    }
+
+    private void validateStatus(Integer status) {
+        if (status == null || status < 0 || status > 3) {
+            throw new BusinessException(400, "护理计划状态必须是待执行、进行中、已完成或已终止");
         }
     }
 }
