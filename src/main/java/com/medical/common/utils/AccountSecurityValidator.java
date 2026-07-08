@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
  */
 public final class AccountSecurityValidator {
 
-    private static final Pattern USERNAME_PATTERN = Pattern.compile("^[A-Za-z0-9_]{4,20}$");
+    private static final Pattern USERNAME_PATTERN = Pattern.compile("^[\\p{IsHan}A-Za-z0-9_]{4,20}$");
     private static final Pattern PHONE_PATTERN = Pattern.compile("^1[3-9]\\d{9}$");
     private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[A-Za-z])(?=.*\\d)[A-Za-z\\d@$!%*#?&._-]{8,20}$");
 
@@ -21,7 +21,7 @@ public final class AccountSecurityValidator {
     public static String requireUsername(String username) {
         String value = trim(username);
         if (!StringUtils.hasText(value) || !USERNAME_PATTERN.matcher(value).matches()) {
-            throw new BusinessException(400, "用户名必须为4-20位字母、数字或下划线");
+            throw new BusinessException(400, "用户名必须为4-20位中文、字母、数字或下划线");
         }
         return value;
     }
