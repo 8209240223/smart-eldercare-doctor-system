@@ -34,6 +34,17 @@ class AccountSecurityValidatorTest {
     }
 
     @Test
+    void requireUsernameAcceptsChineseLettersAndNumbers() {
+        assertDoesNotThrow(() -> AccountSecurityValidator.requireUsername("羊官123"));
+    }
+
+    @Test
+    void requireUsernameRejectsUnsupportedSymbols() {
+        assertThrows(BusinessException.class,
+                () -> AccountSecurityValidator.requireUsername("羊官-123"));
+    }
+
+    @Test
     void matchesStoredPasswordSupportsBcryptAndPlainText() {
         String hashed = BCrypt.hashpw("Doctor123");
 

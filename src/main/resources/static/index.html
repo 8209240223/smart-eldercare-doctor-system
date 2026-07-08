@@ -360,7 +360,7 @@
             modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,14,18,0.70);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;';
             modal.innerHTML = `<div style="background:var(--bg-overlay);border:1px solid var(--border-base);border-radius:16px;padding:30px;width:420px;max-width:92%;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-overlay);" onclick="event.stopPropagation()">
                 <h3 style="margin-bottom:20px;color:var(--text-primary);">📝 注册账号</h3>
-                <div style="margin-bottom:14px;"><label style="font-size:13px;color:var(--text-secondary);">用户名 *</label><input type="text" id="regUsername" class="form-input" placeholder="用于登录，4-20位字母或数字" maxlength="20"></div>
+                <div style="margin-bottom:14px;"><label style="font-size:13px;color:var(--text-secondary);">用户名 *</label><input type="text" id="regUsername" class="form-input" placeholder="4-20位中文、字母、数字或下划线" maxlength="20"></div>
                 <div style="margin-bottom:14px;"><label style="font-size:13px;color:var(--text-secondary);">真实姓名</label><input type="text" id="regRealName" class="form-input" placeholder="请输入您的真实姓名"></div>
                 <div style="margin-bottom:14px;"><label style="font-size:13px;color:var(--text-secondary);">手机号 *</label><input type="text" id="regPhone" class="form-input" placeholder="11位大陆手机号，用于密码找回" maxlength="11"></div>
                 <div style="margin-bottom:14px;"><label style="font-size:13px;color:var(--text-secondary);">角色</label><select id="regUserType" class="form-input" style="height:50px;"><option value="2">医生</option><option value="3">护士</option></select></div>
@@ -406,7 +406,7 @@
             const captchaCode = document.getElementById('regCaptchaCode').value.trim();
             const captchaKey = document.getElementById('regCaptchaKey').value;
             if (!username) { showToast('请输入用户名', 'error'); return; }
-            if (!isValidUsername(username)) { showToast('用户名必须为4-20位字母、数字或下划线', 'error'); return; }
+            if (!isValidUsername(username)) { showToast('用户名必须为4-20位中文、字母、数字或下划线', 'error'); return; }
             if (!isValidPhone(phone)) { showToast('请输入正确的11位大陆手机号', 'error'); return; }
             if (!password) { showToast('请输入密码', 'error'); return; }
             if (!isStrongPassword(password)) { showToast('密码必须为8-20位，至少包含字母和数字', 'error'); return; }
@@ -487,7 +487,7 @@
             const captchaCode = document.getElementById('resetCaptchaCode').value.trim();
             const captchaKey = document.getElementById('resetCaptchaKey').value;
             if (!username || !phone || !newPassword || !confirmPassword) { showToast('请填写完整信息', 'error'); return; }
-            if (!isValidUsername(username)) { showToast('用户名必须为4-20位字母、数字或下划线', 'error'); return; }
+            if (!isValidUsername(username)) { showToast('用户名必须为4-20位中文、字母、数字或下划线', 'error'); return; }
             if (!isValidPhone(phone)) { showToast('请输入正确的11位大陆手机号', 'error'); return; }
             if (!isStrongPassword(newPassword)) { showToast('新密码必须为8-20位，至少包含字母和数字', 'error'); return; }
             if (newPassword !== confirmPassword) { showToast('两次输入的密码不一致', 'error'); return; }
@@ -513,7 +513,7 @@
         }
 
         function isValidUsername(value) {
-            return /^[A-Za-z0-9_]{4,20}$/.test(value);
+            return /^[\u4e00-\u9fa5A-Za-z0-9_]{4,20}$/.test(value);
         }
 
         function isValidPhone(value) {
