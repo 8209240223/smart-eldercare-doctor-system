@@ -279,7 +279,7 @@ createApp({
                 <div class="toolbar">
                     <div class="user-chip">
                         <div class="avatar">
-                            <img v-if="userAvatarUrl" :src="userAvatarUrl" alt="头像" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+                            <img v-if="userAvatarUrl" :src="userAvatarUrl" alt="头像" @error="handleAvatarError" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
                             <span v-else>{{ userAvatar }}</span>
                         </div>
                         <div>
@@ -786,7 +786,13 @@ createApp({
                         <div class="timeline-card"><div class="desc">姓名</div><div>{{ profile.info.realName || '-' }}</div></div>
                         <div class="timeline-card"><div class="desc">手机号</div><div>{{ profile.info.phone || '-' }}</div></div>
                         <div class="timeline-card"><div class="desc">邮箱</div><div>{{ profile.info.email || '-' }}</div></div>
-                        <div class="timeline-card"><div class="desc">头像</div><div>{{ profile.info.avatar || '-' }}</div></div>
+                        <div class="timeline-card">
+                            <div class="desc">头像</div>
+                            <div>
+                                <img v-if="profileAvatarUrl" :src="profileAvatarUrl" alt="头像" @error="handleProfileAvatarError" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,0.18);">
+                                <span v-else>-</span>
+                            </div>
+                        </div>
                         <div class="timeline-card"><div class="desc">角色</div><div>{{ userRoleText }}</div></div>
                         <div style="margin-top:16px;" class="actions"><button class="primary-btn" @click="saveProfile">保存基本信息</button></div>
                     </div>
@@ -796,7 +802,14 @@ createApp({
                             <div class="field"><label>姓名</label><input v-model="profile.info.realName" placeholder="请输入新的姓名"></div>
                             <div class="field"><label>手机号</label><input v-model="profile.info.phone" placeholder="请输入11位大陆手机号"></div>
                             <div class="field"><label>邮箱</label><input v-model="profile.info.email" placeholder="请输入新的邮箱"></div>
-                            <div class="field"><label>头像URL</label><input v-model="profile.info.avatar" placeholder="请输入头像图片地址"></div>
+                            <div class="field">
+                                <label>头像</label>
+                                <div class="actions" style="gap:10px;margin-top:0;">
+                                    <button class="ghost-btn" type="button" @click="chooseAvatarFile" :disabled="avatarUploading">{{ avatarUploading ? '上传中...' : '选择头像' }}</button>
+                                    <button v-if="profile.info.avatar" class="ghost-btn" type="button" @click="clearProfileAvatar">清除</button>
+                                </div>
+                                <input ref="avatarFileInput" type="file" accept="image/jpeg,image/png,image/gif,image/webp" @change="uploadProfileAvatar" style="display:none;">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2340,6 +2353,9 @@ createApp({
                 unreadCount: 0,
                 pwd: { oldPassword: '', newPassword: '', confirmPassword: '' }
             },
+            avatarUploading: false,
+            avatarLoadFailed: false,
+            profileAvatarLoadFailed: false,
             healthDetail: { loading: false, data: null },
             charts: { gender: null, warning: null, follow: null, trend: null, rtTrend: null, adminGender: null, adminRole: null, adminBiz: null }
         };
@@ -2352,7 +2368,12 @@ createApp({
             return (this.userDisplayName || '医').charAt(0);
         },
         userAvatarUrl() {
+            if (this.avatarLoadFailed) return '';
             return this.userInfo.avatar || this.profile.info.avatar || '';
+        },
+        profileAvatarUrl() {
+            if (this.profileAvatarLoadFailed) return '';
+            return this.profile.info.avatar || '';
         },
         currentTabLabel() {
             const tab = this.tabs.find(t => t.key === this.activeTab);
@@ -2848,6 +2869,35 @@ createApp({
             }
             if (!/^1[3-9]\d{9}$/.test(raw)) {
                 this.toast('提示', `${label}格式不正确`, 'error');
+                return false;
+            }
+            return true;
+        },
+        validateRealName(value) {
+            const raw = String(value ?? '').trim();
+            if (!raw) return true;
+            if (!/^[\u4e00-\u9fa5A-Za-z0-9·.\s]{2,30}$/.test(raw)) {
+                this.toast('提示', '姓名必须为2-30位中文、字母、数字、空格、点号或间隔号', 'error');
+                return false;
+            }
+            return true;
+        },
+        validateEmail(value) {
+            const raw = String(value ?? '').trim();
+            if (!raw) return true;
+            if (raw.length > 100 || !/^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,20}$/.test(raw)) {
+                this.toast('提示', '邮箱格式不正确', 'error');
+                return false;
+            }
+            return true;
+        },
+        validateAvatarPath(value) {
+            const raw = String(value ?? '').trim();
+            if (!raw) return true;
+            const uploaded = /^\/upload\/avatar\/[A-Za-z0-9._-]+\.(png|jpe?g|gif|webp)$/i.test(raw);
+            const remote = /^https?:\/\/[^\s?#]+\.(png|jpe?g|gif|webp)([?#][^\s]*)?$/i.test(raw);
+            if (!uploaded && !remote) {
+                this.toast('提示', '头像必须通过图片上传生成', 'error');
                 return false;
             }
             return true;
@@ -4743,14 +4793,85 @@ createApp({
                 this.api(`/api/profile/messages?userId=${this.userInfo.userId || this.userInfo.id || 0}`),
                 this.api(`/api/profile/messages/unread-count?userId=${this.userInfo.userId || this.userInfo.id || 0}`)
             ]);
-            if (info?.code === 200) this.profile.info = info.data || {};
+            if (info?.code === 200) {
+                this.profile.info = info.data || {};
+                this.avatarLoadFailed = false;
+                this.profileAvatarLoadFailed = false;
+            }
             else this.profile.info = { ...this.profile.info, ...this.userInfo };
             if (logs?.code === 200) this.profile.logs = logs.data.records || logs.data || [];
             if (messages?.code === 200) this.profile.messages = messages.data.records || messages.data || [];
             if (unread?.code === 200) this.profile.unreadCount = unread.data || 0;
         },
+        chooseAvatarFile() {
+            this.$refs.avatarFileInput?.click();
+        },
+        handleAvatarError() {
+            this.avatarLoadFailed = true;
+        },
+        handleProfileAvatarError() {
+            this.profileAvatarLoadFailed = true;
+        },
+        clearProfileAvatar() {
+            this.profile.info.avatar = '';
+            this.userInfo = { ...this.userInfo, avatar: '' };
+            localStorage.setItem('userInfo', JSON.stringify(this.userInfo));
+            this.avatarLoadFailed = false;
+            this.profileAvatarLoadFailed = false;
+        },
+        async uploadProfileAvatar(event) {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (!file) return;
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                this.toast('提示', '头像只支持jpg、png、gif或webp图片', 'error');
+                return;
+            }
+            if (file.size > 2 * 1024 * 1024) {
+                this.toast('提示', '头像图片不能超过2MB', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            this.avatarUploading = true;
+            try {
+                const res = await fetch('/api/profile/avatar', {
+                    method: 'POST',
+                    headers: {
+                        Authorization: 'Bearer ' + this.token
+                    },
+                    body: formData
+                });
+                const data = await res.json();
+                if (data?.code === 401) {
+                    this.logout();
+                    return;
+                }
+                if (data?.code !== 200) {
+                    this.toast('提示', data?.msg || data?.message || '头像上传失败', 'error');
+                    return;
+                }
+                const avatar = data.data?.avatar || '';
+                this.profile.info.avatar = avatar;
+                this.userInfo = { ...this.userInfo, avatar };
+                localStorage.setItem('userInfo', JSON.stringify(this.userInfo));
+                this.avatarLoadFailed = false;
+                this.profileAvatarLoadFailed = false;
+                this.toast('成功', '头像上传成功');
+            } catch (e) {
+                console.error(e);
+                this.toast('提示', e?.message || '头像上传失败', 'error');
+            } finally {
+                this.avatarUploading = false;
+            }
+        },
         async saveProfile() {
+            if (!this.validateRealName(this.profile.info.realName)) return;
             if (!this.validatePhone(this.profile.info.phone, '手机号', true)) return;
+            if (!this.validateEmail(this.profile.info.email)) return;
+            if (!this.validateAvatarPath(this.profile.info.avatar)) return;
             const body = {
                 id: this.profile.info.id || this.userInfo.id || this.userInfo.userId,
                 realName: this.profile.info.realName,
