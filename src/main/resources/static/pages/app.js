@@ -986,8 +986,8 @@ createApp({
                 <div class="filters">
                     <div class="field"><label>老人ID</label><input v-model="vitalsState.elderId" type="number" min="1" placeholder="输入老人档案ID"></div>
                     <div class="field"><label>监测指标</label><select v-model.number="vitalsState.metric"><option v-for="(txt,key) in vitalTypeMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
-                    <div class="field"><label>开始日期</label><input v-model="vitalsState.startDate" type="date"></div>
-                    <div class="field"><label>结束日期</label><input v-model="vitalsState.endDate" type="date"></div>
+                    <div class="field"><label>开始日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" v-model="vitalsState.startDate" type="date"></div>
+                    <div class="field"><label>结束日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" v-model="vitalsState.endDate" type="date"></div>
                     <div class="field"><label>模拟数据天数</label><input v-model.number="vitalsState.mockDays" type="number" min="1" max="365"></div>
                     <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadVitals">查询</button></div>
                     <div class="field" style="align-self:end;"><button class="soft-btn" @click="generateMockVitals">生成模拟数据</button></div>
@@ -1043,8 +1043,8 @@ createApp({
                 <div class="filters">
                     <div class="field"><label>老人ID</label><input v-model="timelineFilter.elderId" type="number" min="1" placeholder="输入老人档案ID"></div>
                     <div class="field"><label>事件类型</label><select v-model="timelineFilter.eventType"><option value="">全部类型</option><option v-for="(txt,key) in timelineTypeMap" :key="key" :value="key">{{ txt }}</option></select></div>
-                    <div class="field"><label>开始日期</label><input v-model="timelineFilter.startDate" type="date"></div>
-                    <div class="field"><label>结束日期</label><input v-model="timelineFilter.endDate" type="date"></div>
+                    <div class="field"><label>开始日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" v-model="timelineFilter.startDate" type="date"></div>
+                    <div class="field"><label>结束日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" v-model="timelineFilter.endDate" type="date"></div>
                 </div>
                 <div class="panel-grid" style="margin:14px 0;">
                     <div class="card stat-card"><div class="stat-label">总事件数</div><div class="stat-value">{{ timelineSummary.total || 0 }}</div></div>
@@ -1274,8 +1274,8 @@ createApp({
                     <div class="field"><label>老人ID</label><input v-model="nurseRecordFilter.elderId" type="number" min="1" placeholder="老人ID"></div>
                     <div class="field"><label>记录类型</label><select v-model="nurseRecordFilter.recordType"><option value="">全部类型</option><option v-for="(txt,key) in recordTypeMap" :key="key" :value="key">{{ txt }}</option></select></div>
                     <div class="field"><label>上报状态</label><select v-model="nurseRecordFilter.reportStatus"><option value="">全部</option><option value="0">未上报</option><option value="1">已上报</option><option value="2">已处理</option></select></div>
-                    <div class="field"><label>开始日期</label><input v-model="nurseRecordFilter.startDate" type="date"></div>
-                    <div class="field"><label>结束日期</label><input v-model="nurseRecordFilter.endDate" type="date"></div>
+                    <div class="field"><label>开始日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" v-model="nurseRecordFilter.startDate" type="date"></div>
+                    <div class="field"><label>结束日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" v-model="nurseRecordFilter.endDate" type="date"></div>
                     <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadNurseRecords(1)">查询</button></div>
                 </div>
                 <div class="table-wrap">
@@ -1372,8 +1372,8 @@ createApp({
                 </div>
                 <div class="filters">
                     <div class="field"><label>老人ID</label><input v-model="examFilter.elderId" type="number" min="1" placeholder="老人档案ID"></div>
-                    <div class="field"><label>开始日期</label><input v-model="examFilter.startDate" type="date"></div>
-                    <div class="field"><label>结束日期</label><input v-model="examFilter.endDate" type="date"></div>
+                    <div class="field"><label>开始日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" v-model="examFilter.startDate" type="date"></div>
+                    <div class="field"><label>结束日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" v-model="examFilter.endDate" type="date"></div>
                     <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadExams(1)">查询</button></div>
                 </div>
                 <div class="table-wrap">
@@ -1489,7 +1489,7 @@ createApp({
                     <div class="form-row">
                         <div class="field"><label>姓名</label><input v-model="elderForm.name" placeholder="请输入姓名"></div>
                         <div class="field"><label>性别</label><select v-model.number="elderForm.gender"><option :value="1">男</option><option :value="2">女</option></select></div>
-                        <div class="field"><label>出生日期</label><input type="date" v-model="elderForm.birthDate"></div>
+                        <div class="field"><label>出生日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" type="date" v-model="elderForm.birthDate"></div>
                         <div class="field"><label>身份证号</label><input v-model="elderForm.idCard" maxlength="18"></div>
                         <div class="field"><label>联系电话</label><input v-model="elderForm.phone"></div>
                         <div class="field"><label>所属社区</label><input v-model="elderForm.community"></div>
@@ -1520,7 +1520,7 @@ createApp({
                         <div class="field"><label>老人ID</label><input type="number" min="1" v-model.number="planForm.elderId"></div>
                         <div class="field"><label>疾病类型</label><select v-model.number="planForm.diseaseType"><option v-for="(txt,key) in diseaseMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
                         <div class="field"><label>随访频次</label><select v-model.number="planForm.frequencyType"><option v-for="(txt,key) in freqMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
-                        <div class="field"><label>开始日期</label><input type="date" v-model="planForm.startDate"></div>
+                        <div class="field"><label>开始日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" type="date" v-model="planForm.startDate"></div>
                         <div class="field"><label>总次数</label><input type="number" min="1" v-model.number="planForm.totalCount"></div>
                         <div class="field"><label>随访状态</label><select v-model.number="planForm.status"><option :value="0">待执行</option><option :value="1">进行中</option><option :value="2">已完成</option><option :value="3">已终止</option></select></div>
                     </div>
@@ -1531,13 +1531,13 @@ createApp({
                         <div class="field"><label>随访计划ID</label><input v-model="followRecordForm.planId" disabled></div>
                         <div class="field"><label>老人ID</label><input v-model="followRecordForm.elderId" disabled></div>
                         <div class="field"><label>随访方式</label><select v-model.number="followRecordForm.followType"><option v-for="(txt,key) in followTypeMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
-                        <div class="field"><label>随访日期</label><input type="datetime-local" v-model="followRecordForm.followDate"></div>
+                        <div class="field"><label>随访日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" type="datetime-local" v-model="followRecordForm.followDate"></div>
                         <div class="field"><label>收缩压</label><input type="number" min="60" max="240" v-model.number="followRecordForm.systolicPressure"></div>
                         <div class="field"><label>舒张压</label><input type="number" min="40" max="140" v-model.number="followRecordForm.diastolicPressure"></div>
                         <div class="field"><label>心率</label><input type="number" min="30" max="180" v-model.number="followRecordForm.heartRate"></div>
                         <div class="field"><label>空腹血糖</label><input type="number" min="2" max="30" step="0.1" v-model.number="followRecordForm.bloodSugarFasting"></div>
                         <div class="field"><label>体重</label><input type="number" min="20" max="200" step="0.1" v-model.number="followRecordForm.weight"></div>
-                        <div class="field"><label>下次随访日期</label><input type="date" v-model="followRecordForm.nextFollowDate"></div>
+                        <div class="field"><label>下次随访日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" type="date" v-model="followRecordForm.nextFollowDate"></div>
                     </div>
                     <div class="form-row" style="margin-top:12px; grid-template-columns:1fr;"><div class="field"><label>随访结果</label><textarea v-model="followRecordForm.followResult"></textarea></div></div>
                 </template>
@@ -1604,7 +1604,7 @@ createApp({
                         <div class="field"><label>老人ID</label><input v-model="assessmentForm.elderId" type="number" min="1"></div>
                         <div class="field"><label>责任医生ID</label><input v-model="assessmentForm.doctorId" type="number" min="1"></div>
                         <div class="field"><label>评估类型</label><select v-model.number="assessmentForm.assessType"><option v-for="(txt,key) in assessmentTypeMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
-                        <div class="field"><label>评估日期</label><input type="date" v-model="assessmentForm.assessDate"></div>
+                        <div class="field"><label>评估日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" type="date" v-model="assessmentForm.assessDate"></div>
                         <div class="field"><label>评分</label><input type="number" min="0" max="100" step="0.1" v-model="assessmentForm.score"></div>
                         <div class="field"><label>等级</label><input v-model="assessmentForm.level" placeholder="如：轻度、中度、重度"></div>
                     </div>
@@ -1994,7 +1994,7 @@ createApp({
                     <div class="form-row">
                         <div class="field"><label>老人ID</label><input v-model="nurseRecordForm.elderId" type="number" min="1" placeholder="老人档案ID"></div>
                         <div class="field"><label>记录类型</label><select v-model.number="nurseRecordForm.recordType"><option v-for="(txt,key) in recordTypeMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
-                        <div class="field"><label>护理日期</label><input type="datetime-local" v-model="nurseRecordForm.recordDate"></div>
+                        <div class="field"><label>护理日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" type="datetime-local" v-model="nurseRecordForm.recordDate"></div>
                         <div class="field"><label>是否异常</label><select v-model.number="nurseRecordForm.isAbnormal"><option :value="0">正常</option><option :value="1">异常</option></select></div>
                     </div>
                     <div class="form-row" style="margin-top:12px; grid-template-columns:1fr;">
@@ -2036,8 +2036,8 @@ createApp({
                         <div class="field"><label>老人ID</label><input v-model="nursePlanForm.elderId" type="number" min="1" placeholder="老人档案ID"></div>
                         <div class="field"><label>计划名称</label><input v-model="nursePlanForm.planName" placeholder="如：基础护理计划"></div>
                         <div class="field"><label>计划类型</label><select v-model.number="nursePlanForm.planType"><option v-for="(txt,key) in planTypeMap" :key="key" :value="Number(key)">{{ txt }}</option></select></div>
-                        <div class="field"><label>开始日期</label><input type="date" v-model="nursePlanForm.startDate"></div>
-                        <div class="field"><label>结束日期</label><input type="date" v-model="nursePlanForm.endDate"></div>
+                        <div class="field"><label>开始日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" type="date" v-model="nursePlanForm.startDate"></div>
+                        <div class="field"><label>结束日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" type="date" v-model="nursePlanForm.endDate"></div>
                         <div class="field"><label>总次数</label><input type="number" min="1" v-model.number="nursePlanForm.totalCount" placeholder="计划总执行次数"></div>
                         <div class="field"><label>护理频次</label><input v-model="nursePlanForm.frequency" placeholder="如：每日1次"></div>
                     </div>
@@ -2069,7 +2069,7 @@ createApp({
                 <template v-else-if="modal==='exam'">
                     <div class="form-row">
                         <div class="field"><label>老人ID</label><input v-model="examForm.elderId" type="number" min="1"></div>
-                        <div class="field"><label>体检日期</label><input type="date" v-model="examForm.examDate"></div>
+                        <div class="field"><label>体检日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" type="date" v-model="examForm.examDate"></div>
                         <div class="field"><label>身高(cm)</label><input v-model="examForm.height" type="number" min="1" step="0.1"></div>
                         <div class="field"><label>体重(kg)</label><input v-model="examForm.weight" type="number" min="1" step="0.1"></div>
                         <div class="field"><label>收缩压</label><input v-model="examForm.systolicPressure" type="number" min="1"></div>
@@ -2974,6 +2974,19 @@ createApp({
         dateTimeText(v) {
             if (!v) return '-';
             return String(v).replace('T', ' ').slice(0, 16);
+        },
+        openDatePicker(event) {
+            const input = event && event.target;
+            if (!input || typeof input.showPicker !== 'function') return;
+            try {
+                input.showPicker();
+            } catch (error) {
+                // showPicker may be rejected if the browser decides the focus event is not user-initiated.
+            }
+        },
+        blockDateTyping(event) {
+            const allowedKeys = ['Tab', 'Escape'];
+            if (!allowedKeys.includes(event.key)) event.preventDefault();
         },
         pageWindow(current, total) {
             const pages = [];

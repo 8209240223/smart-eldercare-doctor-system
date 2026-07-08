@@ -556,6 +556,8 @@
             font-size: 13px; outline: none; transition: all 0.25s;
             background: var(--bg-fill); color: var(--text-primary);
         }
+        .calendar-input { cursor: pointer; }
+        .calendar-input::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.9; }
         .field input::placeholder, .field textarea::placeholder { color: var(--text-placeholder); }
         .field input:focus, .field select:focus, .field textarea:focus {
             border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), 0 0 8px -2px var(--primary-glow);
@@ -1711,7 +1713,7 @@
                 <el-row :gutter="20">
                     <el-col :span="12">
                         <el-form-item label="出生日期">
-                            <el-date-picker v-model="elderModal.form.birthDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+                            <el-date-picker v-model="elderModal.form.birthDate" type="date" value-format="YYYY-MM-DD" :editable="false" :clearable="false" style="width: 100%" />
                         </el-form-item>
                     </el-col>
                     <el-col :span="12">
