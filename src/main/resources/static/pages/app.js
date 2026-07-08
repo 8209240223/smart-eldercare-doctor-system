@@ -739,13 +739,13 @@ createApp({
                     <div class="field"><label>干预类型</label><select v-model="interventionFilter.type"><option value="">全部类型</option><option value="1">健康宣教</option><option value="2">用药指导</option><option value="3">康复训练</option><option value="4">心理干预</option></select></div>
                     <div class="field"><label>老人ID</label><input v-model="interventionFilter.elderId" type="number" min="1" placeholder="老人ID"></div>
                     <div class="field"><label>关联随访记录ID</label><input v-model="interventionFilter.followRecordId" type="number" min="1" placeholder="记录ID"></div>
-                    <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadInterventions(1)">查询</button></div>
+                    <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadInterventions(1, { notify: true })">查询</button></div>
                 </div>
                 <div class="table-wrap">
                     <table class="data-table">
                         <thead><tr><th>干预标题</th><th>老人ID</th><th>干预类型</th><th>干预日期</th><th>效果评价</th><th>操作</th></tr></thead>
                         <tbody>
-                        <tr v-if="interventionPage.records.length===0"><td colspan="6"><div class="empty-state">暂无干预记录数据</div></td></tr>
+                        <tr v-if="interventionPage.records.length===0"><td colspan="6"><div class="empty-state">{{ interventionPage.error || '暂无干预记录数据' }}</div></td></tr>
                         <tr v-for="row in interventionPage.records" :key="row.id">
                             <td><strong>{{ row.interventionTitle }}</strong></td>
                             <td>{{ row.elderId }}</td>
@@ -2232,6 +2232,7 @@ createApp({
             modal: '',
             modalData: {},
             toasts: [],
+            lastApiErrorToast: { message: '', at: 0 },
             // 护士工作台
             nurseDashboard: {
                 stats: { todayRecords: 0, activePlans: 0, pendingReports: 0, pendingWarnings: 0, totalElders: 0, myFollowTasks: 0 },
@@ -2286,7 +2287,7 @@ createApp({
             followRecords: [],
             followRecordsPlan: null,
             interventionFilter: { type: '', elderId: '', followRecordId: '' },
-            interventionPage: { records: [], pageNum: 1, pageSize: 10, pages: 0, total: 0 },
+            interventionPage: { records: [], pageNum: 1, pageSize: 10, pages: 0, total: 0, error: '' },
             interventionForm: blankIntervention(),
             assessmentFilter: { elderId: '', assessType: '' },
             assessmentPage: { records: [], pageNum: 1, pageSize: 10, pages: 0, total: 0 },
@@ -2614,14 +2615,33 @@ createApp({
         });
     },
     methods: {
+        apiErrorMessage(error) {
+            if (error?.name === 'AbortError') return '请求超时，请稍后重试';
+            if (error instanceof SyntaxError) return '服务器返回数据格式异常';
+            if (error instanceof TypeError && /Failed to fetch|NetworkError|Load failed|fetch/i.test(error.message || '')) {
+                return '网络连接失败，请确认后端服务已启动';
+            }
+            return error?.message || '操作失败';
+        },
+        toastApiError(error, fallback = '操作失败') {
+            const message = this.apiErrorMessage(error) || fallback;
+            const now = Date.now();
+            if (this.lastApiErrorToast.message === message && now - this.lastApiErrorToast.at < 1500) return;
+            this.lastApiErrorToast = { message, at: now };
+            this.toast('提示', message, 'error');
+        },
         async api(url, options = {}) {
+            const { silent = false, timeout = 8000, ...fetchOptions } = options;
+            const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            const timer = controller ? setTimeout(() => controller.abort(), timeout) : null;
             try {
                 const res = await fetch(url, {
-                    ...options,
+                    ...fetchOptions,
+                    signal: controller ? controller.signal : fetchOptions.signal,
                     headers: {
                         'Content-Type': 'application/json',
                         Authorization: 'Bearer ' + this.token,
-                        ...(options.headers || {})
+                        ...(fetchOptions.headers || {})
                     }
                 });
                 const data = await res.json();
@@ -2632,8 +2652,10 @@ createApp({
                 return data;
             } catch (e) {
                 console.error(e);
-                this.toast('提示', e?.message || '操作失败', 'error');
+                if (!silent) this.toastApiError(e);
                 return null;
+            } finally {
+                if (timer) clearTimeout(timer);
             }
         },
         toast(title, message = '', type = 'success') {
@@ -4141,7 +4163,9 @@ createApp({
             this.modal = 'follow-records';
             this.modalData = { plan: this.followRecordsPlan };
         },
-        async loadInterventions(page = 1) {
+        async loadInterventions(page = 1, options = {}) {
+            const { notify = false } = options;
+            this.interventionPage = { ...this.interventionPage, error: '' };
             const query = new URLSearchParams({
                 pageNum: page,
                 pageSize: this.interventionPage.pageSize,
@@ -4149,7 +4173,7 @@ createApp({
                 elderId: this.interventionFilter.elderId || '',
                 followRecordId: this.interventionFilter.followRecordId || ''
             });
-            const res = await this.api(`/api/intervention/list?${query.toString()}`);
+            const res = await this.api(`/api/intervention/list?${query.toString()}`, { silent: !notify });
             if (res?.code === 200) {
                 const pg = res.data || {};
                 this.interventionPage = {
@@ -4157,8 +4181,20 @@ createApp({
                     pageNum: pg.current || page,
                     pageSize: pg.size || this.interventionPage.pageSize,
                     pages: pg.pages || 0,
-                    total: pg.total || 0
+                    total: pg.total || 0,
+                    error: ''
                 };
+            } else {
+                const message = res?.msg || res?.message || '干预记录加载失败，请稍后重试';
+                this.interventionPage = {
+                    ...this.interventionPage,
+                    records: [],
+                    pageNum: page,
+                    pages: 0,
+                    total: 0,
+                    error: message
+                };
+                if (notify) this.toast('提示', message, 'error');
             }
         },
         openInterventionModal(item = null) {
