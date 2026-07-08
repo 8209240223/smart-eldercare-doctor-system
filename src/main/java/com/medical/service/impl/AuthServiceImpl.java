@@ -4,6 +4,7 @@ import cn.hutool.crypto.digest.BCrypt;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.medical.common.constant.RedisKeyConstant;
 import com.medical.common.exception.BusinessException;
+import com.medical.common.utils.AccountSecurityValidator;
 import com.medical.common.utils.JwtUtils;
 import com.medical.common.utils.RedisUtils;
 import com.medical.entity.SysUser;
@@ -60,17 +61,8 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // 3. 验证密码（支持明文和BCrypt）
-        boolean passwordMatch = false;
         String storedPassword = user.getPassword();
-        if (storedPassword.startsWith("$2a$") || storedPassword.startsWith("$2b$") || storedPassword.startsWith("$2y$")) {
-            try {
-                passwordMatch = BCrypt.checkpw(password, storedPassword);
-            } catch (Exception e) {
-                passwordMatch = false;
-            }
-        } else {
-            passwordMatch = password.equals(storedPassword);
-        }
+        boolean passwordMatch = AccountSecurityValidator.matchesStoredPassword(password, storedPassword);
 
         if (!passwordMatch) {
             // 记录错误次数
@@ -144,22 +136,15 @@ public class AuthServiceImpl implements AuthService {
         if (user == null) {
             throw new BusinessException(401, "用户不存在");
         }
+        AccountSecurityValidator.requireStrongPassword(newPassword);
 
         // 验证原密码
-        boolean match = false;
         String storedPwd = user.getPassword();
-        if (storedPwd.startsWith("$2a$") || storedPwd.startsWith("$2b$") || storedPwd.startsWith("$2y$")) {
-            try {
-                match = BCrypt.checkpw(oldPassword, storedPwd);
-            } catch (Exception e) {
-                match = false;
-            }
-        } else {
-            match = oldPassword.equals(storedPwd);
-        }
+        boolean match = AccountSecurityValidator.matchesStoredPassword(oldPassword, storedPwd);
         if (!match) {
             throw new BusinessException(400, "原密码不正确");
         }
+        AccountSecurityValidator.requireDifferentFromStoredPassword(newPassword, storedPwd);
 
         // 更新为BCrypt加密密码
         user.setPassword(BCrypt.hashpw(newPassword));
@@ -170,13 +155,19 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public void resetPassword(String username, String newPassword) {
+    public void resetPassword(String username, String phone, String newPassword, String confirmPassword) {
+        String normalizedUsername = AccountSecurityValidator.requireUsername(username);
+        String normalizedPhone = AccountSecurityValidator.requirePhone(phone);
+        AccountSecurityValidator.requireStrongPassword(newPassword);
+        AccountSecurityValidator.requirePasswordConfirmed(newPassword, confirmPassword);
+
         SysUser user = sysUserMapper.selectOne(
-                new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, username)
+                new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, normalizedUsername)
         );
-        if (user == null) {
-            throw new BusinessException(400, "用户不存在");
+        if (user == null || user.getStatus() == 0 || user.getPhone() == null || !normalizedPhone.equals(user.getPhone().trim())) {
+            throw new BusinessException(400, "用户名或绑定手机号不匹配");
         }
+        AccountSecurityValidator.requireDifferentFromStoredPassword(newPassword, user.getPassword());
         user.setPassword(BCrypt.hashpw(newPassword));
         sysUserMapper.updateById(user);
 
@@ -186,28 +177,25 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void validateRegistration(String username, String password, String realName, String phone, Integer userType) {
+        String normalizedUsername = AccountSecurityValidator.requireUsername(username);
+        String normalizedPhone = AccountSecurityValidator.requirePhone(phone);
+        AccountSecurityValidator.requireStrongPassword(password);
+        if (userType != null && userType != 2 && userType != 3) {
+            throw new BusinessException(400, "注册角色不合法");
+        }
+
         // 1. 用户名唯一性校验
         Long count = sysUserMapper.selectCount(
-                new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, username));
+                new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, normalizedUsername));
         if (count > 0) {
             throw new BusinessException(400, "用户名已存在，请更换");
         }
 
-        // 2. 手机号校验（非必填，填了则校验格式和唯一性）
-        if (phone != null && !phone.trim().isEmpty()) {
-            if (!phone.matches("^1[3-9]\\d{9}$")) {
-                throw new BusinessException(400, "手机号格式不正确");
-            }
-            Long phoneCount = sysUserMapper.selectCount(
-                    new LambdaQueryWrapper<SysUser>().eq(SysUser::getPhone, phone));
-            if (phoneCount > 0) {
-                throw new BusinessException(400, "该手机号已被注册");
-            }
-        }
-
-        // 3. 密码强度校验
-        if (password == null || password.length() < 6) {
-            throw new BusinessException(400, "密码至少6位");
+        // 2. 手机号校验
+        Long phoneCount = sysUserMapper.selectCount(
+                new LambdaQueryWrapper<SysUser>().eq(SysUser::getPhone, normalizedPhone));
+        if (phoneCount > 0) {
+            throw new BusinessException(400, "该手机号已被注册");
         }
     }
 
@@ -216,10 +204,10 @@ public class AuthServiceImpl implements AuthService {
         validateRegistration(username, password, realName, phone, userType);
         // 4. 创建用户
         SysUser user = new SysUser();
-        user.setUsername(username);
+        user.setUsername(AccountSecurityValidator.requireUsername(username));
         user.setPassword(BCrypt.hashpw(password));
-        user.setRealName(realName != null ? realName : username);
-        user.setPhone(phone);
+        user.setRealName(realName != null ? realName.trim() : user.getUsername());
+        user.setPhone(AccountSecurityValidator.requirePhone(phone));
         user.setUserType(userType != null ? userType : 2); // 默认医生
         user.setStatus(1); // 直接激活
         sysUserMapper.insert(user);

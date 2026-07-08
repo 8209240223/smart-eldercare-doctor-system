@@ -794,7 +794,7 @@ createApp({
                         <div class="list-title">快速修改信息</div>
                         <div class="form-row" style="margin-top: 14px;">
                             <div class="field"><label>姓名</label><input v-model="profile.info.realName" placeholder="请输入新的姓名"></div>
-                            <div class="field"><label>手机号</label><input v-model="profile.info.phone" placeholder="请输入新的手机号"></div>
+                            <div class="field"><label>手机号</label><input v-model="profile.info.phone" placeholder="请输入11位大陆手机号"></div>
                             <div class="field"><label>邮箱</label><input v-model="profile.info.email" placeholder="请输入新的邮箱"></div>
                             <div class="field"><label>头像URL</label><input v-model="profile.info.avatar" placeholder="请输入头像图片地址"></div>
                         </div>
@@ -803,7 +803,7 @@ createApp({
                 <div v-else-if="profileTab==='password'" class="card list-card" style="max-width: 640px;">
                     <div class="form-row" style="grid-template-columns:1fr;">
                         <div class="field"><label>旧密码</label><input type="password" v-model="profile.pwd.oldPassword" placeholder="请输入当前使用的密码"></div>
-                        <div class="field"><label>新密码</label><input type="password" v-model="profile.pwd.newPassword" placeholder="至少 6 位"></div>
+                        <div class="field"><label>新密码</label><input type="password" v-model="profile.pwd.newPassword" placeholder="8-20位，至少包含字母和数字"></div>
                         <div class="field"><label>确认新密码</label><input type="password" v-model="profile.pwd.confirmPassword" placeholder="请再次输入相同的新密码"></div>
                     </div>
                     <div style="margin-top: 16px;" class="actions"><button class="primary-btn" @click="changePassword">确认修改密码</button></div>
@@ -2846,8 +2846,16 @@ createApp({
                 if (required) this.toast('提示', `${label}不能为空`, 'error');
                 return !required;
             }
-            if (!/^1\d{10}$/.test(raw)) {
+            if (!/^1[3-9]\d{9}$/.test(raw)) {
                 this.toast('提示', `${label}格式不正确`, 'error');
+                return false;
+            }
+            return true;
+        },
+        validateStrongPassword(value, label = '密码') {
+            const raw = String(value ?? '');
+            if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&._-]{8,20}$/.test(raw)) {
+                this.toast('提示', `${label}必须为8-20位，至少包含字母和数字`, 'error');
                 return false;
             }
             return true;
@@ -4742,6 +4750,7 @@ createApp({
             if (unread?.code === 200) this.profile.unreadCount = unread.data || 0;
         },
         async saveProfile() {
+            if (!this.validatePhone(this.profile.info.phone, '手机号', true)) return;
             const body = {
                 id: this.profile.info.id || this.userInfo.id || this.userInfo.userId,
                 realName: this.profile.info.realName,
@@ -4771,8 +4780,9 @@ createApp({
                 this.toast('提示', '请填写完整信息', 'error');
                 return;
             }
-            if (this.profile.pwd.newPassword.length < 6) {
-                this.toast('提示', '新密码至少6位', 'error');
+            if (!this.validateStrongPassword(this.profile.pwd.newPassword, '新密码')) return;
+            if (this.profile.pwd.oldPassword === this.profile.pwd.newPassword) {
+                this.toast('提示', '新密码不能与当前密码相同', 'error');
                 return;
             }
             if (this.profile.pwd.newPassword !== this.profile.pwd.confirmPassword) {
@@ -4783,7 +4793,8 @@ createApp({
                 method: 'PUT',
                 body: JSON.stringify({
                     oldPassword: this.profile.pwd.oldPassword,
-                    newPassword: this.profile.pwd.newPassword
+                    newPassword: this.profile.pwd.newPassword,
+                    confirmPassword: this.profile.pwd.confirmPassword
                 })
             });
             if (res?.code === 200) {
