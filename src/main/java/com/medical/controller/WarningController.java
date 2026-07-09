@@ -1,6 +1,7 @@
 package com.medical.controller;
 
 import com.medical.common.annotation.OperationLog;
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.result.R;
 import com.medical.common.utils.JwtUtils;
 import com.medical.entity.HealthWarning;
@@ -54,12 +55,14 @@ public class WarningController {
 
     @PutMapping("/{id}/handle")
     @OperationLog(module = "健康预警", type = "处理", desc = "处理健康预警")
+    @RequireRole({2})
     public R<?> handle(@PathVariable Long id, @RequestBody HealthWarning warning) {
         warningService.handle(id, warning.getHandleResult(), warning.getDoctorId());
         return R.ok("处理成功");
     }
 
     @PutMapping("/{id}/ignore")
+    @RequireRole({2})
     public R<?> ignore(@PathVariable Long id, @RequestBody HealthWarning warning) {
         warningService.ignore(id, warning.getHandleResult());
         return R.ok("已忽略");
@@ -67,6 +70,7 @@ public class WarningController {
 
     @PutMapping("/{id}/processing")
     @OperationLog(module = "健康预警", type = "处理中", desc = "将健康预警标记为处理中")
+    @RequireRole({2})
     public R<?> markProcessing(@PathVariable Long id, @RequestBody(required = false) HealthWarning warning) {
         Long doctorId = warning != null ? warning.getDoctorId() : null;
         warningService.markProcessing(id, doctorId);
@@ -75,6 +79,7 @@ public class WarningController {
 
     @PutMapping("/{id}/read")
     @OperationLog(module = "健康预警", type = "已读", desc = "标记预警已读")
+    @RequireRole({2})
     public R<?> markAsRead(@PathVariable Long id, @RequestBody(required = false) HealthWarning warning) {
         Long doctorId = warning != null ? warning.getDoctorId() : null;
         warningService.markAsRead(id, doctorId);
@@ -83,6 +88,7 @@ public class WarningController {
 
     @PostMapping
     @OperationLog(module = "健康预警", type = "新增", desc = "手动添加预警")
+    @RequireRole({2})
     public R<?> create(@RequestBody HealthWarning warning) {
         return R.ok("预警已生成", warningService.create(warning));
     }

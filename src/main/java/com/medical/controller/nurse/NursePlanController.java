@@ -1,6 +1,7 @@
 package com.medical.controller.nurse;
 
 import com.medical.common.annotation.OperationLog;
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.result.R;
 import com.medical.entity.NursingPlan;
 import com.medical.service.NursePlanService;
@@ -15,6 +16,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/nurse/plans")
+@RequireRole({1, 2, 3})
 public class NursePlanController {
 
     @Autowired
@@ -37,12 +39,14 @@ public class NursePlanController {
 
     @PostMapping
     @OperationLog(module = "护理计划", type = "新增", desc = "新增护理计划")
+    @RequireRole({3})
     public R<?> create(@RequestBody NursingPlan plan) {
         return R.ok("新增成功", nursePlanService.create(plan));
     }
 
     @PutMapping("/{id}")
     @OperationLog(module = "护理计划", type = "修改", desc = "修改护理计划")
+    @RequireRole({3})
     public R<?> update(@PathVariable Long id, @RequestBody NursingPlan plan) {
         nursePlanService.update(id, plan);
         return R.ok("修改成功");
@@ -50,6 +54,7 @@ public class NursePlanController {
 
     @DeleteMapping("/{id}")
     @OperationLog(module = "护理计划", type = "删除", desc = "删除护理计划")
+    @RequireRole({3})
     public R<?> delete(@PathVariable Long id) {
         nursePlanService.delete(id);
         return R.ok("删除成功");
@@ -57,6 +62,7 @@ public class NursePlanController {
 
     @PutMapping("/{id}/status")
     @OperationLog(module = "护理计划", type = "修改状态", desc = "更新护理计划状态")
+    @RequireRole({3})
     public R<?> updateStatus(@PathVariable Long id, @RequestBody Map<String, Integer> body) {
         Integer status = body.get("status");
         if (status == null) {
@@ -68,6 +74,7 @@ public class NursePlanController {
 
     @PostMapping("/{id}/increment")
     @OperationLog(module = "护理计划", type = "增加次数", desc = "增加护理计划完成次数")
+    @RequireRole({3})
     public R<?> incrementCompleted(@PathVariable Long id) {
         nursePlanService.incrementCompleted(id);
         return R.ok("完成次数+1");

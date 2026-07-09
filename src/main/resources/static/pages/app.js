@@ -107,8 +107,6 @@ const NURSE_TAB_META = [
     { key: 'nurse-plans', label: '护理计划', icon: 'P' },
     { key: 'elders', label: '老人档案', icon: 'E' },
     { key: 'warnings', label: '预警中心', icon: 'W' },
-    { key: 'followup', label: '随访计划', icon: 'F' },
-    { key: 'assessment', label: 'AI评估', icon: 'A' },
     { key: 'vitals', label: '生命体征', icon: 'V' },
     { key: 'timeline', label: '服务时间线', icon: 'T' },
     { key: 'profile', label: '个人中心', icon: 'P' }
@@ -605,7 +603,7 @@ createApp({
                         <span class="rt-badge" :class="sse.connected ? 'rt-on' : 'rt-off'">
                             <span class="rt-dot"></span>{{ sse.connected ? '实时监测中' : (sse.connecting ? '连接中…' : '未连接') }}
                         </span>
-                        <button class="primary-btn" @click="openWarningModal()">+ 新建预警</button>
+                        <button v-if="!isAdmin && !isNurse" class="primary-btn" @click="openWarningModal()">+ 新建预警</button>
                     </div>
                 </div>
                 <div class="rt-panel">
@@ -671,10 +669,10 @@ createApp({
                             <td><span class="tag" :class="warningStatusClass(row.status)">{{ warningStatusText(row.status) }}</span></td>
                             <td>{{ dateTimeText(row.createTime) }}</td>
                             <td><div class="actions">
-                                <button class="link" v-if="row.status===0" @click="markWarningProcessing(row)">处理中</button>
-                                <button class="link" v-if="row.status===0 || row.status===1" @click="openWarningHandle(row, 'handle')">处理</button>
-                                <button class="warn" v-if="row.status===0" @click="openWarningHandle(row, 'ignore')">忽略</button>
-                                <button class="ok" v-else @click="openWarningDetail(row.id)">查看详情</button>
+                                <button class="link" v-if="row.status===0 && !isAdmin && !isNurse" @click="markWarningProcessing(row)">处理中</button>
+                                <button class="link" v-if="(row.status===0 || row.status===1) && !isAdmin && !isNurse" @click="openWarningHandle(row, 'handle')">处理</button>
+                                <button class="warn" v-if="row.status===0 && !isAdmin && !isNurse" @click="openWarningHandle(row, 'ignore')">忽略</button>
+                                <button class="ok" @click="openWarningDetail(row.id)">查看详情</button>
                             </div></td>
                         </tr>
                         </tbody>
@@ -996,7 +994,7 @@ createApp({
                         <h3>生命体征监测</h3>
                         <p>实时查看老人血压、血糖、体温、心率等体征数据，支持趋势图表和设备绑定管理</p>
                     </div>
-                    <div class="actions"><button class="primary-btn" @click="openDeviceModal()">+ 新增绑定设备</button></div>
+                    <div class="actions"><button v-if="!isAdmin" class="primary-btn" @click="openDeviceModal()">+ 新增绑定设备</button></div>
                 </div>
                 <div class="filters">
                     <div class="field"><label>老人ID</label><input v-model="vitalsState.elderId" type="number" min="1" placeholder="输入老人档案ID"></div>
@@ -1005,7 +1003,7 @@ createApp({
                     <div class="field"><label>结束日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" v-model="vitalsState.endDate" type="date"></div>
                     <div class="field"><label>模拟数据天数</label><input v-model.number="vitalsState.mockDays" type="number" min="1" max="365"></div>
                     <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadVitals">查询</button></div>
-                    <div class="field" style="align-self:end;"><button class="soft-btn" @click="generateMockVitals">生成模拟数据</button></div>
+                    <div class="field" style="align-self:end;"><button v-if="isAdmin" class="soft-btn" @click="generateMockVitals">生成模拟数据</button></div>
                 </div>
                 <div class="grid-2">
                     <div class="card list-card">
@@ -1040,7 +1038,7 @@ createApp({
                                 <td>{{ row.id }}</td><td>{{ row.deviceName || '-' }}</td><td>{{ deviceTypeText(row.deviceType) }}</td><td>{{ row.deviceSn || '-' }}</td>
                                 <td><span class="tag" :class="Number(row.bindStatus)===1?'tag-success':'tag-default'">{{ Number(row.bindStatus)===1 ? '已绑定' : '未绑定' }}</span></td>
                                 <td>{{ dateTimeText(row.bindTime) }}</td>
-                                <td><div class="actions"><button class="danger" v-if="Number(row.bindStatus)===1" @click="unbindDevice(row.id)">解绑</button></div></td>
+                                <td><div class="actions"><button class="danger" v-if="Number(row.bindStatus)===1 && !isAdmin" @click="unbindDevice(row.id)">解绑</button></div></td>
                             </tr>
                             </tbody>
                         </table>
@@ -1277,7 +1275,7 @@ createApp({
                         <h3>护理记录管理</h3>
                         <p>记录和管理老人的日常护理信息，支持异常情况上报给医生处理</p>
                     </div>
-                    <div class="actions"><button class="primary-btn" @click="openNurseRecordModal()">+ 新增护理记录</button></div>
+                    <div class="actions"><button v-if="isNurse" class="primary-btn" @click="openNurseRecordModal()">+ 新增护理记录</button></div>
                 </div>
                 <div class="panel-grid" style="margin-bottom:14px;">
                     <div class="card stat-card"><div class="stat-label">总记录</div><div class="stat-value">{{ nurseRecordStats.total || 0 }}</div></div>
@@ -1307,9 +1305,9 @@ createApp({
                             <td><span class="tag" :class="row.reportStatus===0?'tag-default':row.reportStatus===1?'tag-warning':'tag-success'">{{ row.reportStatus===0?'未上报':row.reportStatus===1?'已上报':'已处理' }}</span></td>
                             <td><div class="actions">
                                 <button class="link" @click="openNurseRecordDetail(row)">详情</button>
-                                <button class="ok" v-if="row.reportStatus===0" @click="openNurseRecordModal(row)">编辑</button>
-                                <button class="warn" v-if="row.isAbnormal===0||row.reportStatus===0" @click="reportNurseRecord(row.id)">上报异常</button>
-                                <button class="danger" v-if="row.reportStatus===0" @click="deleteNurseRecord(row.id)">删除</button>
+                                <button class="ok" v-if="row.reportStatus===0 && isNurse" @click="openNurseRecordModal(row)">编辑</button>
+                                <button class="warn" v-if="(row.isAbnormal===0||row.reportStatus===0) && isNurse" @click="reportNurseRecord(row.id)">上报异常</button>
+                                <button class="danger" v-if="row.reportStatus===0 && isNurse" @click="deleteNurseRecord(row.id)">删除</button>
                             </div></td>
                         </tr>
                         </tbody>
@@ -1329,7 +1327,7 @@ createApp({
                         <h3>护理计划管理</h3>
                         <p>制定和执行老人的个性化护理计划，跟踪护理进度和效果评价</p>
                     </div>
-                    <div class="actions"><button class="primary-btn" @click="openNursePlanModal()">+ 新增护理计划</button></div>
+                    <div class="actions"><button v-if="isNurse" class="primary-btn" @click="openNursePlanModal()">+ 新增护理计划</button></div>
                 </div>
                 <div class="panel-grid" style="margin-bottom:14px;">
                     <div class="card stat-card"><div class="stat-label">总计划</div><div class="stat-value">{{ nursePlanStats.total || 0 }}</div></div>
@@ -1358,10 +1356,10 @@ createApp({
                             <td><span class="tag" :class="row.doctorApproval===0?'tag-default':row.doctorApproval===1?'tag-success':'tag-danger'">{{ row.doctorApproval===0?'待审核':row.doctorApproval===1?'已通过':'已驳回' }}</span></td>
                             <td><div class="actions">
                                 <button class="link" @click="openNursePlanDetail(row)">详情</button>
-                                <button class="ok" v-if="row.status===0||row.status===1" @click="openNursePlanModal(row)">编辑</button>
-                                <button class="primary-btn" v-if="row.status===0" @click="startNursePlan(row.id)" style="font-size:12px;padding:4px 10px;">开始执行</button>
-                                <button class="ok" v-if="row.status===1" @click="incrementNursePlan(row.id)" style="font-size:12px;padding:4px 10px;">完成一次</button>
-                                <button class="danger" v-if="row.status===0||row.status===1" @click="deleteNursePlan(row.id)">删除</button>
+                                <button class="ok" v-if="(row.status===0||row.status===1) && isNurse" @click="openNursePlanModal(row)">编辑</button>
+                                <button class="primary-btn" v-if="row.status===0 && isNurse" @click="startNursePlan(row.id)" style="font-size:12px;padding:4px 10px;">开始执行</button>
+                                <button class="ok" v-if="row.status===1 && isNurse" @click="incrementNursePlan(row.id)" style="font-size:12px;padding:4px 10px;">完成一次</button>
+                                <button class="danger" v-if="(row.status===0||row.status===1) && isNurse" @click="deleteNursePlan(row.id)">删除</button>
                             </div></td>
                         </tr>
                         </tbody>
@@ -2179,8 +2177,8 @@ createApp({
                     </div>
                 </div>
                 <div class="alert-actions">
-                    <button class="primary-btn" @click="handleRealtimeWarningAction">立即处理</button>
-                    <button class="ghost-btn" @click="dismissWarningAlert">稍后处理</button>
+                    <button class="primary-btn" @click="handleRealtimeWarningAction">{{ isAdmin || isNurse ? '查看详情' : '立即处理' }}</button>
+                    <button class="ghost-btn" @click="dismissWarningAlert">{{ isAdmin || isNurse ? '关闭' : '稍后处理' }}</button>
                 </div>
                 <div class="alert-timer"><div class="timer-bar"></div></div>
             </div>
@@ -3912,8 +3910,10 @@ createApp({
             if (!item) return;
             this.dismissWarningAlert();
             this.switchTab('warnings');
-            if (item.id) {
+            if (item.id && !this.isAdmin && !this.isNurse) {
                 this.openWarningHandle(item, 'handle');
+            } else if (item.id) {
+                this.openWarningDetail(item.id);
             } else {
                 this.loadWarnings(1);
             }
@@ -3931,11 +3931,19 @@ createApp({
             }
         },
         openWarningModal() {
+            if (this.isAdmin || this.isNurse) {
+                this.toast('提示', '当前角色只能查看预警', 'error');
+                return;
+            }
             this.warningForm = blankWarning();
             this.modal = 'warning';
             this.modalData = {};
         },
         async saveWarning() {
+            if (this.isAdmin || this.isNurse) {
+                this.toast('提示', '当前角色无权新建预警', 'error');
+                return;
+            }
             if (!this.warningForm.elderId || !this.warningForm.warningTitle) {
                 this.toast('提示', '请填写完整信息', 'error');
                 return;
@@ -3955,11 +3963,23 @@ createApp({
             }
         },
         openWarningHandle(item, action) {
+            if (this.isAdmin || this.isNurse) {
+                if (item?.id) {
+                    this.openWarningDetail(item.id);
+                } else {
+                    this.toast('提示', '当前角色只能查看预警', 'error');
+                }
+                return;
+            }
             this.warningForm = blankWarning();
             this.modalData = { item, action };
             this.modal = 'warning-handle';
         },
         async submitWarningHandle() {
+            if (this.isAdmin || this.isNurse) {
+                this.toast('提示', '当前角色无权处理预警', 'error');
+                return;
+            }
             const item = this.modalData.item;
             if (!item) return;
             if (!this.warningForm.handleResult) {
@@ -4046,6 +4066,10 @@ createApp({
             }
         },
         async markWarningProcessing(item) {
+            if (this.isAdmin || this.isNurse) {
+                this.toast('提示', '当前角色只能查看预警', 'error');
+                return;
+            }
             if (!item?.id) return;
             const res = await this.api(`/api/warnings/${item.id}/processing`, {
                 method: 'PUT',

@@ -1,6 +1,7 @@
 package com.medical.controller.nurse;
 
 import com.medical.common.annotation.OperationLog;
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.result.R;
 import com.medical.entity.NursingRecord;
 import com.medical.service.NurseRecordService;
@@ -15,6 +16,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/nurse/records")
+@RequireRole({1, 2, 3})
 public class NurseRecordController {
 
     @Autowired
@@ -40,12 +42,14 @@ public class NurseRecordController {
 
     @PostMapping
     @OperationLog(module = "护理记录", type = "新增", desc = "新增护理记录")
+    @RequireRole({3})
     public R<?> create(@RequestBody NursingRecord record) {
         return R.ok("新增成功", nurseRecordService.create(record));
     }
 
     @PutMapping("/{id}")
     @OperationLog(module = "护理记录", type = "修改", desc = "修改护理记录")
+    @RequireRole({3})
     public R<?> update(@PathVariable Long id, @RequestBody NursingRecord record) {
         nurseRecordService.update(id, record);
         return R.ok("修改成功");
@@ -53,6 +57,7 @@ public class NurseRecordController {
 
     @DeleteMapping("/{id}")
     @OperationLog(module = "护理记录", type = "删除", desc = "删除护理记录")
+    @RequireRole({3})
     public R<?> delete(@PathVariable Long id) {
         nurseRecordService.delete(id);
         return R.ok("删除成功");
@@ -60,6 +65,7 @@ public class NurseRecordController {
 
     @PostMapping("/{id}/report")
     @OperationLog(module = "护理记录", type = "上报", desc = "上报异常护理记录")
+    @RequireRole({3})
     public R<?> reportAbnormal(@PathVariable Long id, @RequestBody Map<String, String> body) {
         String abnormalDesc = body.getOrDefault("abnormalDesc", "");
         nurseRecordService.reportAbnormal(id, abnormalDesc);

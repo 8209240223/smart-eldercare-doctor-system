@@ -1,5 +1,6 @@
 package com.medical.controller.nurse;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.result.R;
 import com.medical.service.NurseDashboardService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/nurse/dashboard")
+@RequireRole({1, 2, 3})
 public class NurseDashboardController {
 
     @Autowired
