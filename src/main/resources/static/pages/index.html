@@ -1,0 +1,1843 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧医养医生服务系统</title>
+    <!-- 引入 Element Plus 样式 -->
+    <link rel="stylesheet" href="../vendor/element-plus.css">
+    <!-- 引入 Vue 3 -->
+    <script src="../vendor/vue.global.prod.js"></script>
+    <!-- 引入 Element Plus 组件库 -->
+    <script src="../vendor/element-plus.js"></script>
+    <!-- 引入 Element Plus 图标 -->
+    <script src="../vendor/icons-vue.js"></script>
+    <!-- 引入 Axios -->
+    <script src="../vendor/axios.min.js"></script>
+    <!-- 引入 ECharts -->
+    <script src="../vendor/echarts.min.js"></script>
+    <style>
+        :root {
+            /* ---------- 背景 / 中性色阶（墨青调·临床守护） ---------- */
+            --bg-root:      #0A1413;
+            --bg-base:      #0D1917;
+            --bg-elevated:  #12211E;
+            --bg-card:      #142623;
+            --bg-overlay:   #1A2E2A;
+            --bg-hover:     rgba(120,200,185,0.05);
+            --bg-fill:      #172723;
+
+            /* ---------- 边框（青调） ---------- */
+            --border-base:   rgba(120,200,185,0.12);
+            --border-light:  rgba(120,200,185,0.07);
+            --border-strong: rgba(120,200,185,0.20);
+            --border-glow:   rgba(59,179,155,0.30);
+
+            /* ---------- 文字（暖白·带青调避免死白） ---------- */
+            --text-primary:     #E8F0EE;
+            --text-regular:     #B4C4C0;
+            --text-secondary:   #8A9C98;
+            --text-placeholder: #5E706C;
+            --text-disabled:    #46524F;
+
+            /* ---------- 主题主色 · 沉稳医疗青绿 teal ---------- */
+            --primary:         #3BB39B;
+            --primary-light-3: #62C4B0;
+            --primary-light-5: #89D5C6;
+            --primary-light-7: #B0E5DB;
+            --primary-light-9: rgba(59,179,155,0.12);
+            --primary-dark-2:  #2E9683;
+            --primary-deep:    #237567;
+            --primary-glow:    rgba(59,179,155,0.35);
+
+            /* 暖色强调 · 承载「人 / 温度 / 关怀」 */
+            --accent-warm: #E8895A;
+            --accent-gold: #E0A84E;
+            --accent-cyan: #4FB6C4;
+            --accent-blue: #4A80C0;
+
+            /* ---------- 功能色（去霓虹·沉稳临床） ---------- */
+            --success: #4CB395;  --success-bg: rgba(76,179,149,0.12);  --success-glow: rgba(76,179,149,0.32);
+            --warning: #E0A44E;  --warning-bg: rgba(224,164,78,0.12);  --warning-glow: rgba(224,164,78,0.32);
+            --danger:  #E06A6A;  --danger-bg:  rgba(224,106,106,0.12); --danger-glow:  rgba(224,106,106,0.32);
+            --info:    #7E9B96;  --info-bg:    rgba(126,155,150,0.14); --info-glow:    rgba(126,155,150,0.28);
+            --highlight: #E8895A;
+
+            /* ---------- 发光 / 阴影 ---------- */
+            --shadow-card:    0 6px 24px rgba(0,0,0,0.38), inset 0 1px 0 rgba(120,200,185,0.05);
+            --shadow-overlay: 0 20px 56px rgba(0,0,0,0.55), 0 0 32px -22px var(--primary-glow);
+            --shadow-hover:   0 10px 28px rgba(0,0,0,0.42), 0 0 16px -8px var(--primary-glow);
+            --glow-primary:   0 0 6px rgba(59,179,155,0.38), 0 0 16px -2px rgba(59,179,155,0.22);
+            --glow-border:    0 0 0 1px var(--border-glow), 0 0 14px -6px var(--primary-glow);
+
+            /* ---------- 圆角 ---------- */
+            --radius-sm: 6px;
+            --radius:    8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+
+            /* ---------- 动效 ---------- */
+            --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
+            --dur-fast: 0.15s;  --dur-base: 0.25s;  --dur-slow: 0.4s;
+
+            /* ---------- 字体 ---------- */
+            --font-base:   'HarmonyOS Sans','PingFang SC','Microsoft YaHei',-apple-system,sans-serif;
+            --font-number: 'DIN Alternate','Rajdhani','Oswald','JetBrains Mono','Roboto Mono',monospace;
+
+            /* ---------- Element Plus 主色链（保留变量名，只改值） ---------- */
+            --el-color-primary:         #3BB39B;
+            --el-color-primary-light-3: #62C4B0;
+            --el-color-primary-light-5: #89D5C6;
+            --el-color-primary-light-7: #B0E5DB;
+            --el-color-primary-light-8: #CDEEE8;
+            --el-color-primary-light-9: rgba(59,179,155,0.12);
+            --el-color-primary-dark-2:  #2E9683;
+
+            --el-color-success: #4CB395;
+            --el-color-warning: #E0A44E;
+            --el-color-danger:  #E06A6A;
+            --el-color-error:   #E06A6A;
+            --el-color-info:    #7E9B96;
+
+            --el-bg-color:         #142623;
+            --el-bg-color-page:    #0D1917;
+            --el-bg-color-overlay: #1A2E2A;
+
+            --el-text-color-primary:     #E8F0EE;
+            --el-text-color-regular:     #B4C4C0;
+            --el-text-color-secondary:   #8A9C98;
+            --el-text-color-placeholder: #5E706C;
+            --el-text-color-disabled:    #46524F;
+
+            --el-border-color:             rgba(120,200,185,0.16);
+            --el-border-color-light:       rgba(120,200,185,0.11);
+            --el-border-color-lighter:     rgba(120,200,185,0.08);
+            --el-border-color-extra-light: rgba(120,200,185,0.05);
+            --el-border-color-dark:        rgba(120,200,185,0.22);
+
+            --el-fill-color:         #172723;
+            --el-fill-color-light:   #142623;
+            --el-fill-color-lighter: #101E1B;
+            --el-fill-color-blank:   #142623;
+            --el-fill-color-dark:    #1D2E2A;
+
+            --el-mask-color:       rgba(10,20,19,0.75);
+            --el-box-shadow:       0 8px 24px rgba(0,0,0,0.5);
+            --el-box-shadow-light: 0 2px 12px rgba(0,0,0,0.35);
+        }
+
+        /* 无障碍：降低动效 */
+        @media (prefers-reduced-motion: reduce){
+            *{ animation:none !important; transition-duration:.01ms !important; }
+        }
+        html, body { background: var(--bg-root); }
+        body {
+            margin: 0;
+            font-family: var(--font-base);
+            color: var(--text-regular);
+            background-color: var(--bg-root);
+            background-image:
+                radial-gradient(1200px 600px at 15% -10%, rgba(59,179,155,0.08), transparent 60%),
+                radial-gradient(1000px 500px at 100% 0%, rgba(34,211,238,0.06), transparent 55%),
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: auto, auto, 40px 40px, 40px 40px;
+            background-attachment: fixed;
+        }
+        .layout-container {
+            height: 100vh;
+        }
+        .el-aside {
+            background-color: var(--bg-elevated);
+            color: var(--text-regular);
+            transition: width 0.3s;
+        }
+        .aside-header {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            background: rgba(255, 255, 255, 0.03);
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        .aside-logo {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-deep));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #0A0E12;
+            margin-right: 12px;
+            flex-shrink: 0;
+            box-shadow: 0 0 16px -2px var(--primary-glow);
+        }
+        .aside-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--text-primary);
+        }
+        .el-menu {
+            border-right: none !important;
+        }
+        .el-header {
+            background-color: var(--bg-elevated);
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+        .main-content {
+            padding: 20px;
+            background-color: transparent;
+        }
+        .box-card {
+            margin-bottom: 20px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-base);
+            box-shadow: var(--shadow-card) !important;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .stat-card {
+            text-align: center;
+            padding: 10px 0;
+        }
+        .stat-card .label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--text-primary);
+        }
+        .chart-box {
+            height: 300px;
+            width: 100%;
+        }
+        .fade-transform-enter-active,
+        .fade-transform-leave-active {
+            transition: all 0.3s;
+        }
+        .fade-transform-enter-from {
+            opacity: 0;
+            transform: translateX(-30px);
+        }
+        .fade-transform-leave-to {
+            opacity: 0;
+            transform: translateX(30px);
+        }
+        [v-cloak] { display: none; }
+
+        /* ========== 自定义模板样式（app.js） ========== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: var(--font-base); color: var(--text-regular); }
+
+        .shell { display: flex; height: 100vh; overflow: hidden; background: transparent; }
+
+        /* ===== 侧边栏 ===== */
+        .sidebar {
+            width: 280px; background: var(--bg-elevated);
+            display: flex; flex-direction: column; flex-shrink: 0;
+            border-right: 1px solid var(--border-light);
+            color: var(--text-regular);
+        }
+        .brand { padding: 24px 20px 16px; border-bottom: 1px solid var(--border-light); }
+        .brand-top { display: flex; align-items: center; gap: 14px; }
+        .brand-logo {
+            width: 44px; height: 44px; background: linear-gradient(135deg, var(--primary), var(--primary-deep));
+            border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            font-size: 22px; font-weight: bold; color: #0A0E12; flex-shrink: 0;
+            box-shadow: 0 0 16px -2px var(--primary-glow);
+        }
+        .brand h1 { font-size: 15px; color: var(--text-primary); font-weight: 700; line-height: 1.3; }
+        .brand p { font-size: 11px; color: var(--text-secondary); margin-top: 3px; line-height: 1.4; }
+
+        .nav { flex: 1; overflow-y: auto; padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+        .nav button {
+            display: flex; align-items: center; gap: 12px; padding: 11px 16px;
+            background: transparent; border: none; border-radius: var(--radius);
+            color: var(--text-secondary); font-size: 14px; cursor: pointer;
+            transition: all var(--dur-base) var(--ease-out); text-align: left; width: 100%;
+        }
+        .nav button:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .nav button.active {
+            color: var(--primary); font-weight: 600;
+            background: linear-gradient(90deg, rgba(59,179,155,0.14), transparent);
+            box-shadow: inset 3px 0 0 var(--primary);
+            position: relative;
+        }
+        .nav button.active::after {
+            content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+            background: var(--primary); box-shadow: 0 0 12px var(--primary-glow);
+        }
+        .nav .icon { width: 24px; text-align: center; font-weight: 700; font-size: 15px; }
+
+        .sidebar-footer {
+            padding: 14px 20px; border-top: 1px solid var(--border-light);
+            font-size: 12px; color: var(--text-placeholder); line-height: 1.8;
+        }
+
+        /* ===== 主内容区 ===== */
+        .content {
+            flex: 1; display: flex; flex-direction: column; overflow: hidden;
+            background: transparent;
+        }
+
+        .topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 28px; background: var(--bg-elevated); border-bottom: 1px solid var(--border-light);
+            flex-shrink: 0;
+        }
+        .hero h2 { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+        .hero p { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+        .toolbar { display: flex; align-items: center; gap: 16px; }
+        .user-chip {
+            display: flex; align-items: center; gap: 10px;
+            padding: 4px 8px; background: var(--bg-hover);
+            border: 1px solid var(--border-light); border-radius: var(--radius);
+        }
+        .avatar {
+            width: 38px; height: 38px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark-2));
+            display: flex; align-items: center; justify-content: center;
+            color: #0A0E12; font-weight: 700; font-size: 16px;
+        }
+        .name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+        .role { font-size: 12px; color: var(--text-secondary); }
+
+        .ghost-btn {
+            padding: 6px 16px; border: 1px solid var(--border-base); border-radius: var(--radius);
+            background: rgba(255,255,255,0.04); color: var(--text-regular); font-size: 13px; cursor: pointer;
+            transition: all var(--dur-base) var(--ease-out); position: relative; overflow: hidden;
+        }
+        .ghost-btn:hover { border-color: var(--border-glow); color: var(--text-primary); background: var(--bg-hover); }
+
+        .danger-btn {
+            padding: 6px 16px; border: 1px solid rgba(255,92,114,0.35); border-radius: var(--radius);
+            background: var(--danger-bg); color: var(--danger); font-size: 13px; cursor: pointer; transition: all var(--dur-base) var(--ease-out);
+        }
+        .danger-btn:hover { background: rgba(255,92,114,0.2); box-shadow: 0 4px 12px var(--danger-glow); transform: translateY(-1px); }
+
+        .primary-btn {
+            padding: 8px 20px; border: none; border-radius: var(--radius);
+            background: var(--primary); color: #0A0E12;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+            position: relative; overflow: hidden;
+            box-shadow: 0 4px 16px rgba(59,179,155,0.28);
+        }
+        .primary-btn::after {
+            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+            transition: left 0.5s;
+        }
+        .primary-btn:hover {
+            box-shadow: 0 6px 24px rgba(59,179,155,0.45);
+            transform: translateY(-1px);
+        }
+        .primary-btn:hover::after { left: 100%; }
+        .primary-btn:active { transform: scale(0.98); }
+
+        .soft-btn {
+            padding: 6px 16px; border: 1px solid var(--border-light); border-radius: var(--radius);
+            background: var(--bg-hover); color: var(--text-regular); font-size: 13px; cursor: pointer; transition: all var(--dur-base) var(--ease-out);
+        }
+        .soft-btn:hover { background: rgba(255,255,255,0.08); border-color: var(--border-glow); color: var(--primary); }
+
+        .link {
+            background: none; border: none; color: var(--primary); font-size: 13px;
+            cursor: pointer; padding: 2px 6px; transition: all var(--dur-base) var(--ease-out);
+        }
+        .link:hover { color: var(--primary-light-3); text-decoration: underline; }
+
+        .ok { background: none; border: none; color: var(--success); font-size: 13px; cursor: pointer; padding: 2px 6px; }
+        .ok:hover { text-decoration: underline; }
+        .warn { background: none; border: none; color: var(--warning); font-size: 13px; cursor: pointer; padding: 2px 6px; }
+        .warn:hover { text-decoration: underline; }
+        .danger { background: none; border: none; color: var(--danger); font-size: 13px; cursor: pointer; padding: 2px 6px; }
+        .danger:hover { text-decoration: underline; }
+
+        /* ===== 布局 ===== */
+        main.content > div { flex: 1; overflow-y: auto; padding: 24px 28px; }
+
+        .grid-1 { display: flex; flex-direction: column; gap: 20px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+        .panel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+        /* ===== 卡片入场动画 ===== */
+        @keyframes cardFadeIn {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes cardFloat {
+            0%, 100% { transform: translateY(0); }
+            50%       { transform: translateY(-4px); }
+        }
+        @keyframes statPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(0,181,90,0.15); }
+            50%      { box-shadow: 0 0 0 8px rgba(0,181,90,0); }
+        }
+        @keyframes greenGlow {
+            0%, 100% { box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
+            50%      { box-shadow: 0 2px 20px rgba(0,181,90,0.08); }
+        }
+        @keyframes accentSlide {
+            from { width: 0; }
+            to   { width: 100%; }
+        }
+        @keyframes countUp {
+            from { opacity: 0; transform: scale(0.8); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+
+        .card {
+            background: rgba(22,28,36,0.60); border-radius: var(--radius-lg); padding: 20px;
+            box-shadow: var(--shadow-card); border: 1px solid var(--border-base);
+            position: relative; overflow: hidden; color: var(--text-regular);
+            backdrop-filter: blur(12px) saturate(140%);
+            -webkit-backdrop-filter: blur(12px) saturate(140%);
+            animation: cardFadeIn 0.5s ease both;
+            transition: all var(--dur-base) var(--ease-out);
+        }
+        .card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            opacity: .5;
+            transform: scaleX(0); transform-origin: left;
+            transition: transform 0.4s ease;
+        }
+        .card:hover {
+            box-shadow: var(--shadow-hover);
+            border-color: var(--border-glow);
+            transform: translateY(-4px);
+        }
+        .card:hover::before { transform: scaleX(1); }
+
+        .stat-card {
+            text-align: center; position: relative; overflow: hidden;
+            cursor: default; background: var(--bg-card); border: 1px solid var(--border-base);
+        }
+        .stat-card::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--accent-cyan));
+            animation: accentSlide 0.6s ease 0.3s both;
+        }
+        .stat-card:nth-child(1) { animation-delay: 0.05s; }
+        .stat-card:nth-child(2) { animation-delay: 0.10s; }
+        .stat-card:nth-child(3) { animation-delay: 0.15s; }
+        .stat-card:nth-child(4) { animation-delay: 0.20s; }
+
+        .stat-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; position: relative; z-index: 1; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-value {
+            font-size: 32px; font-weight: 800; line-height: 1.2;
+            position: relative; z-index: 1;
+            font-family: var(--font-number); font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
+            color: var(--primary);
+            text-shadow: var(--glow-primary);
+            animation: countUp 0.4s ease both;
+        }
+        .stat-card:nth-child(1) .stat-value { animation-delay: 0.15s; }
+        .stat-card:nth-child(2) .stat-value { animation-delay: 0.20s; }
+        .stat-card:nth-child(3) .stat-value { animation-delay: 0.25s; }
+        .stat-card:nth-child(4) .stat-value { animation-delay: 0.30s; }
+        .stat-sub {
+            font-size: 12px; color: var(--text-secondary); margin-top: 6px; position: relative; z-index: 1;
+        }
+        .stat-card:hover .stat-value {
+            text-shadow: 0 0 12px rgba(59,179,155,0.7), 0 0 28px rgba(59,179,155,0.4);
+        }
+
+        .list-card { padding: 20px; background: var(--bg-card); border: 1px solid var(--border-base); }
+        .list-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .list-title {
+            font-size: 16px; font-weight: 700; color: var(--text-primary);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .list-title::before {
+            content: ''; display: inline-block; width: 4px; height: 18px;
+            background: linear-gradient(180deg, var(--primary), var(--accent-cyan));
+            border-radius: 2px; flex-shrink: 0;
+        }
+        .hint { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+        .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text-placeholder); font-size: 14px; }
+
+        .timeline-card {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 14px; border-bottom: 1px solid var(--border-light);
+            border-radius: var(--radius); margin-bottom: 4px;
+            background: var(--bg-hover); border: 1px solid var(--border-light);
+            transition: all 0.25s var(--ease-out); cursor: default;
+        }
+        .timeline-card:last-child { margin-bottom: 0; }
+        .timeline-card:hover {
+            border-color: var(--border-glow);
+            transform: translateX(2px);
+            padding-left: 18px;
+        }
+        .timeline-card .title {
+            font-size: 14px; font-weight: 600; color: var(--text-primary);
+            transition: color 0.2s;
+        }
+        .timeline-card:hover .title { color: var(--primary); }
+        .timeline-card .desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+        .tag {
+            display: inline-block; padding: 2px 10px; border-radius: var(--radius-sm);
+            font-size: 12px; font-weight: 600; line-height: 1.8;
+            transition: all 0.2s;
+        }
+        .tag:hover { transform: scale(1.05); }
+        .tag-success { background: var(--success-bg); border: 1px solid rgba(59,179,155,0.35); color: #33EBBB; }
+        .tag-warning { background: var(--warning-bg); border: 1px solid rgba(255,176,32,0.35); color: var(--warning); }
+        .tag-danger { background: var(--danger-bg); border: 1px solid rgba(255,92,114,0.35); color: var(--danger); }
+        .tag-info { background: var(--info-bg); border: 1px solid rgba(122,138,160,0.30); color: var(--text-regular); }
+        .tag-default { background: var(--bg-hover); border: 1px solid var(--border-light); color: var(--text-secondary); }
+
+        /* ===== 分组页面 ===== */
+        .section { padding: 24px; animation: cardFadeIn 0.5s ease both; }
+        .section-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+        .section-head h3 {
+            font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 0;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .section-head h3::before {
+            content: ''; display: inline-block; width: 5px; height: 22px;
+            background: linear-gradient(180deg, var(--primary), var(--accent-cyan));
+            border-radius: 3px; flex-shrink: 0;
+        }
+        .section-head p { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+        .filters {
+            display: flex; gap: 16px; align-items: flex-end;
+            flex-wrap: wrap; margin-bottom: 20px; padding: 16px;
+            background: var(--bg-card); border-radius: var(--radius-lg);
+            border: 1px solid var(--border-light); position: relative; overflow: hidden;
+        }
+        .filters::before {
+            content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 3px;
+            background: linear-gradient(180deg, var(--primary), var(--accent-cyan));
+            border-radius: 0 2px 2px 0;
+        }
+        .field { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
+        .field label { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+        .field input, .field select, .field textarea {
+            padding: 8px 12px; border: 1px solid var(--border-base); border-radius: var(--radius);
+            font-size: 13px; outline: none; transition: all 0.25s;
+            background: var(--bg-fill); color: var(--text-primary);
+        }
+        .calendar-input { cursor: pointer; }
+        .calendar-input::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.9; }
+        .field input::placeholder, .field textarea::placeholder { color: var(--text-placeholder); }
+        .field input:focus, .field select:focus, .field textarea:focus {
+            border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), 0 0 8px -2px var(--primary-glow);
+        }
+        .field textarea { resize: vertical; min-height: 60px; }
+
+        .table-wrap { overflow-x: auto; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; color: var(--text-regular); border-color: var(--border-light); }
+        .data-table th {
+            background: rgba(255,255,255,0.03); color: var(--text-regular);
+            font-weight: 600; padding: 12px 14px;
+            text-align: left; border-bottom: 1px solid var(--border-base); white-space: nowrap;
+            position: sticky; top: 0; text-transform: uppercase; letter-spacing: .5px; font-size: 12px;
+        }
+        .data-table td { padding: 11px 14px; border-bottom: 1px solid var(--border-light); color: var(--text-regular); }
+        .data-table tr { transition: background 0.2s; }
+        .data-table tbody tr:hover { background: rgba(59,179,155,0.06); }
+        .data-table tr td:first-child { box-shadow: inset 0 0 0 transparent; }
+        .data-table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
+
+        .pager { display: flex; gap: 6px; justify-content: center; margin-top: 20px; }
+        .pager button {
+            padding: 6px 14px; border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+            background: var(--bg-hover); color: var(--text-regular); font-size: 13px; cursor: pointer;
+            transition: all 0.2s; position: relative;
+        }
+        .pager button:hover:not(:disabled) { border-color: var(--primary); color: #0A0E12; background: var(--primary); }
+        .pager button.active { background: var(--primary); border-color: var(--primary); color: #0A0E12; }
+        .pager button:disabled { color: var(--text-disabled); opacity: 0.6; cursor: not-allowed; }
+
+        .profile-tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid var(--border-light); }
+        .profile-tabs button {
+            padding: 10px 24px; border: none; background: none; font-size: 14px;
+            color: var(--text-secondary); cursor: pointer; border-bottom: 2px solid transparent;
+            margin-bottom: -2px; transition: all 0.2s; position: relative;
+        }
+        .profile-tabs button::after {
+            content: ''; position: absolute; bottom: -2px; left: 50%; width: 0;
+            height: 2px; background: var(--primary); box-shadow: 0 0 8px var(--primary-glow);
+            transition: all 0.25s; transform: translateX(-50%);
+        }
+        .profile-tabs button.active { color: var(--primary); font-weight: 600; }
+        .profile-tabs button.active::after { width: 60%; }
+        .profile-tabs button:hover { color: var(--primary); }
+
+        .chart-box { width: 100%; height: 260px; background: transparent; }
+
+        /* ===== 实时预警监测面板 ===== */
+        .rt-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+            margin-right: 12px; letter-spacing: .3px;
+        }
+        .rt-badge .rt-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .rt-on  { background: var(--success-bg); color: var(--success); border: 1px solid rgba(76,179,149,0.35); }
+        .rt-on  .rt-dot { background: var(--success); box-shadow: 0 0 0 0 rgba(76,179,149,0.6); animation: pulseGlow 1.8s infinite; }
+        .rt-off { background: var(--info-bg); color: var(--text-secondary); border: 1px solid var(--border-base); }
+        .rt-off .rt-dot { background: var(--text-disabled); }
+
+        .rt-panel { margin-bottom: 20px; }
+        .rt-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
+        .rt-stat {
+            position: relative; padding: 16px 18px; border-radius: var(--radius-lg);
+            background: var(--bg-elevated); border: 1px solid var(--border-base);
+            overflow: hidden; transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+        }
+        .rt-stat::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+        .rt-stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+        .rt-stat-num { font-family: var(--font-number); font-size: 30px; font-weight: 700; line-height: 1; }
+        .rt-stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 8px; letter-spacing: .5px; }
+        .rt-stat-red::before    { background: var(--danger); }
+        .rt-stat-red    .rt-stat-num { color: var(--danger); }
+        .rt-stat-orange::before { background: var(--accent-warm); }
+        .rt-stat-orange .rt-stat-num { color: var(--accent-warm); }
+        .rt-stat-yellow::before { background: var(--warning); }
+        .rt-stat-yellow .rt-stat-num { color: var(--warning); }
+        .rt-stat-total::before  { background: var(--primary); }
+        .rt-stat-total  .rt-stat-num { color: var(--primary); }
+
+        .rt-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+        .rt-chart-card, .rt-feed-card {
+            background: var(--bg-elevated); border: 1px solid var(--border-base);
+            border-radius: var(--radius-lg); padding: 16px 18px;
+        }
+        .rt-card-title {
+            font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .rt-feed-count {
+            background: var(--primary-light-9); color: var(--primary); border: 1px solid var(--border-glow);
+            font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 10px; font-family: var(--font-number);
+        }
+        .rt-feed { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .rt-feed-item {
+            display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+            background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius);
+            animation: rtSlideIn var(--dur-base) var(--ease-out);
+        }
+        .rt-feed-item.rt-lv-3 { border-left: 3px solid var(--danger); }
+        .rt-feed-item.rt-lv-2 { border-left: 3px solid var(--accent-warm); }
+        .rt-feed-item.rt-lv-1 { border-left: 3px solid var(--warning); }
+        .rt-feed-lv { flex-shrink: 0; }
+        .rt-feed-body { flex: 1; min-width: 0; }
+        .rt-feed-title { font-size: 13px; color: var(--text-primary); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rt-feed-meta { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+        .rt-feed-empty { padding: 32px 16px; text-align: center; color: var(--text-placeholder); font-size: 13px; }
+        @keyframes rtSlideIn { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+        @media (max-width: 900px) {
+            .rt-stats { grid-template-columns: repeat(2, 1fr); }
+            .rt-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ===== 评估报告样式 ===== */
+        .report-container { font-size: 13px; color: var(--text-regular); }
+        .report-header {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            padding-bottom: 16px; margin-bottom: 16px;
+            border-bottom: 1px solid var(--border-base); flex-wrap: wrap; gap: 12px;
+        }
+        .report-brand { display: flex; align-items: center; gap: 12px; }
+        .report-logo {
+            width: 44px; height: 44px; background: linear-gradient(135deg, var(--primary), var(--primary-deep));
+            border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            font-size: 22px; font-weight: bold; color: #0A0E12;
+            box-shadow: 0 0 16px -2px var(--primary-glow);
+        }
+        .report-brand h2 { font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 0; }
+        .report-brand p { font-size: 11px; color: var(--text-secondary); margin: 2px 0 0; }
+        .report-meta { font-size: 11px; color: var(--text-secondary); line-height: 1.8; text-align: right; }
+        .report-section { margin-bottom: 18px; }
+        .report-section-title {
+            font-size: 14px; font-weight: 700; color: var(--primary); margin: 0 0 10px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .report-section-title::before {
+            content: ''; display: inline-block; width: 4px; height: 16px;
+            background: linear-gradient(180deg, var(--primary), var(--accent-cyan));
+            border-radius: 2px;
+        }
+        .report-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px;
+            padding: 12px; background: var(--bg-card); border-radius: var(--radius); border: 1px solid var(--border-light);
+        }
+        .report-field { display: flex; flex-direction: column; gap: 2px; }
+        .report-field label { font-size: 11px; color: var(--text-secondary); font-weight: 500; }
+        .report-field span { font-size: 13px; color: var(--text-primary); font-weight: 500; }
+        .report-field span.abnormal { color: var(--danger); font-weight: 700; }
+        .report-vital {
+            padding: 8px 12px; background: var(--bg-card); border-radius: var(--radius-sm);
+            border: 1px solid var(--border-light); text-align: center;
+        }
+        .report-vital label { font-size: 11px; color: var(--text-secondary); }
+        .report-vital span { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+        .report-score-summary { display: flex; gap: 12px; margin-bottom: 12px; }
+        .report-score-card {
+            padding: 14px 24px; background: var(--primary-light-9);
+            border-radius: var(--radius-lg); text-align: center; border: 1px solid rgba(59,179,155,0.25);
+            min-width: 140px;
+        }
+        .report-score-card .score-label { font-size: 11px; color: var(--text-secondary); }
+        .report-score-card .score-value { font-size: 28px; font-weight: 800; color: var(--primary); }
+        .report-score-card .score-level { font-size: 13px; color: var(--text-primary); font-weight: 600; }
+        .report-warning-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px; border-bottom: 1px solid var(--border-light);
+        }
+        .report-warning-item .title { flex: 1; font-size: 13px; color: var(--text-primary); }
+        .report-warning-item .time { font-size: 11px; color: var(--text-secondary); }
+        .report-conclusion {
+            background: var(--primary-light-9);
+            border-radius: var(--radius-lg); padding: 16px;
+            border-left: 3px solid var(--primary);
+        }
+        .conclusion-level { font-size: 14px; color: var(--text-primary); margin-bottom: 8px; }
+        .conclusion-level strong { color: var(--primary); }
+        .conclusion-text { font-size: 13px; color: var(--text-secondary); line-height: 1.7; }
+        @media print {
+            .report-container { padding: 0 !important; }
+            .report-section { break-inside: avoid; }
+        }
+
+        /* ===== 表单行 ===== */
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+        /* ===== Modal ===== */
+        .modal-mask {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(10,14,18,0.70); backdrop-filter: blur(2px); display: flex; align-items: center;
+            justify-content: center; z-index: 2000; padding: 40px;
+            animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .modal {
+            background: var(--bg-overlay); border-radius: var(--radius-lg); width: 100%;
+            max-width: 720px; max-height: 80vh; display: flex;
+            flex-direction: column; box-shadow: var(--shadow-overlay);
+            border: 1px solid var(--border-base); color: var(--text-regular);
+            animation: cardFadeIn 0.3s ease;
+            position: relative; overflow: hidden;
+        }
+        .modal::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--primary-deep), var(--primary), var(--accent-cyan), var(--primary));
+            background-size: 200% 100%; animation: gradientMove 2s ease infinite;
+        }
+        @keyframes gradientMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        .modal.sm { max-width: 600px; }
+        .modal-head {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 18px 24px; border-bottom: 1px solid var(--border-light);
+        }
+        .modal-head h4 { font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0; }
+        .modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+        .modal-foot { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 24px; border-top: 1px solid var(--border-light); }
+
+        /* ===== Realtime warning alert ===== */
+        .warning-alert-overlay {
+            position: fixed; inset: 0; z-index: 5000;
+            display: flex; align-items: flex-start; justify-content: center;
+            padding: 60px 16px 16px; background: rgba(0,0,0,0.50);
+            backdrop-filter: blur(4px);
+        }
+        .warning-alert-card {
+            width: 420px; max-width: 90vw; border-radius: var(--radius-lg);
+            background: var(--bg-overlay); border: 1px solid var(--border-strong);
+            box-shadow: var(--shadow-overlay); overflow: hidden;
+            animation: alertSlideIn 0.35s var(--ease-out);
+        }
+        .warning-alert-card.level-3 {
+            border-color: rgba(224,106,106,0.55);
+            box-shadow: 0 0 42px rgba(224,106,106,0.22), var(--shadow-overlay);
+        }
+        .warning-alert-card.level-2 {
+            border-color: rgba(224,164,78,0.52);
+            box-shadow: 0 0 38px rgba(224,164,78,0.20), var(--shadow-overlay);
+        }
+        .warning-alert-card.level-1 {
+            border-color: rgba(224,200,78,0.42);
+            box-shadow: 0 0 30px rgba(224,200,78,0.15), var(--shadow-overlay);
+        }
+        .alert-header {
+            display: flex; align-items: center; gap: 10px;
+            padding: 16px 20px; font-size: 16px; font-weight: 700;
+        }
+        .warning-alert-card.level-3 .alert-header {
+            background: linear-gradient(135deg, rgba(224,106,106,0.22), transparent);
+            color: #E06A6A;
+        }
+        .warning-alert-card.level-2 .alert-header {
+            background: linear-gradient(135deg, rgba(224,164,78,0.22), transparent);
+            color: #E0A44E;
+        }
+        .warning-alert-card.level-1 .alert-header {
+            background: linear-gradient(135deg, rgba(224,200,78,0.16), transparent);
+            color: #E0C84E;
+        }
+        .alert-icon { font-size: 28px; line-height: 1; }
+        .alert-body { padding: 12px 20px 16px; }
+        .alert-msg {
+            margin-bottom: 8px; font-size: 15px; font-weight: 650;
+            color: var(--text-primary); line-height: 1.5;
+        }
+        .alert-detail {
+            margin-bottom: 8px; font-size: 13px; line-height: 1.5;
+            color: var(--text-secondary);
+        }
+        .alert-meta {
+            display: flex; flex-wrap: wrap; gap: 10px 12px;
+            font-size: 11px; color: var(--text-placeholder);
+        }
+        .alert-actions {
+            display: flex; justify-content: flex-end; gap: 10px;
+            padding: 0 20px 16px;
+        }
+        .alert-timer { height: 3px; background: var(--border-light); }
+        .alert-timer .timer-bar {
+            height: 100%; width: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--accent-cyan));
+            animation: timerShrink 10s linear forwards;
+        }
+        .warning-alert-card.level-3 .timer-bar { background: linear-gradient(90deg, #E06A6A, #F78989); }
+        .warning-alert-card.level-2 .timer-bar { background: linear-gradient(90deg, #E0A44E, #F0C46E); }
+        @keyframes alertSlideIn {
+            from { opacity: 0; transform: translateY(-36px) scale(0.96); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes timerShrink {
+            from { width: 100%; }
+            to { width: 0%; }
+        }
+        .alert-enter-active, .alert-leave-active { transition: all 0.25s var(--ease-out); }
+        .alert-enter-from, .alert-leave-to { opacity: 0; transform: translateY(-28px) scale(0.96); }
+
+        /* ===== Toast ===== */
+        .toast-wrap {
+            position: fixed; top: 20px; right: 20px; z-index: 3000;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .toast {
+            padding: 12px 20px; border-radius: var(--radius); background: var(--bg-overlay); color: var(--text-primary);
+            font-size: 14px; box-shadow: var(--shadow-overlay);
+            border: 1px solid var(--border-base); border-left: 3px solid var(--success);
+            animation: fadeInUp 0.3s ease; min-width: 200px;
+        }
+        .toast.error { border-left-color: var(--danger); }
+        .toast .small { font-size: 12px; color: var(--text-secondary); display: block; margin-top: 2px; }
+
+        /* ===== Content transition ===== */
+        .content-enter-active, .content-leave-active { transition: all var(--dur-base) var(--ease-out); }
+        .content-enter-from { opacity: 0; transform: translateX(20px); }
+        .content-leave-to { opacity: 0; transform: translateX(-20px); }
+
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ===== 滚动条美化 ===== */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(59,179,155,0.35); }
+        ::-webkit-scrollbar-track { background: transparent; }
+
+        /* ========== 追加：通用工具类 + 新 keyframes ========== */
+        @keyframes flowGradient { 0%{background-position:0% 50%;} 100%{background-position:200% 50%;} }
+        @keyframes pulseGlow { 0%,100%{box-shadow:0 0 0 0 rgba(59,179,155,0.5);} 50%{box-shadow:0 0 0 6px rgba(59,179,155,0);} }
+
+        .metric-number { color: var(--primary); font-family: var(--font-number); text-shadow: var(--glow-primary); }
+        .glass-card { background: rgba(22,28,36,0.55); backdrop-filter: blur(16px) saturate(140%);
+            border:1px solid rgba(255,255,255,0.08); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+        .hover-lift { transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out); }
+        .hover-lift:hover { transform: translateY(-4px); border-color: var(--border-glow); box-shadow: var(--shadow-hover); }
+        .status-dot { animation: pulseGlow 1.8s var(--ease-inout) infinite; }
+        .flow-bar { background: linear-gradient(90deg, var(--primary-deep), var(--primary), var(--accent-cyan), var(--primary)); background-size:200% 100%; animation: flowGradient 3s linear infinite; }
+
+        /* ========== 追加：A1 + Element Plus 深色覆盖（防御性，只加不删） ========== */
+        /* el-aside / el-menu */
+        .el-aside { background: var(--bg-elevated); }
+        .el-menu { --el-menu-bg-color: transparent; --el-menu-text-color: var(--text-secondary);
+            --el-menu-hover-bg-color: var(--bg-hover); --el-menu-active-color: var(--primary); border-right:none; }
+        .el-menu-item.is-active { background: linear-gradient(90deg, rgba(59,179,155,0.14), transparent);
+            box-shadow: inset 3px 0 0 var(--primary); }
+        .el-sub-menu__title:hover, .el-menu-item:hover { color: var(--text-primary); }
+
+        /* el-header */
+        .el-header { background: var(--bg-elevated); border-bottom:1px solid var(--border-light); }
+
+        /* el-card / box-card */
+        .el-card, .box-card { --el-card-bg-color: rgba(22,28,36,0.6);
+            border:1px solid var(--border-base); border-radius: var(--radius-lg);
+            backdrop-filter: blur(12px); box-shadow: var(--shadow-card); color: var(--text-regular); }
+        .el-card__header { border-bottom-color: var(--border-light); }
+
+        /* el-table */
+        .el-table { --el-table-bg-color: transparent; --el-table-tr-bg-color: transparent;
+            --el-table-header-bg-color: rgba(255,255,255,0.03); --el-table-header-text-color: var(--text-regular);
+            --el-table-row-hover-bg-color: rgba(59,179,155,0.06); --el-table-border-color: var(--border-light);
+            --el-table-text-color: var(--text-regular); }
+        .el-table__fixed, .el-table__fixed-right { background: var(--bg-card); }
+        .el-table__row--striped td { background: rgba(255,255,255,0.02); }
+
+        /* el-input / textarea / select */
+        .el-input__wrapper, .el-textarea__inner { background-color: var(--bg-fill);
+            box-shadow: 0 0 0 1px var(--border-base) inset; }
+        .el-input__wrapper.is-focus { box-shadow: 0 0 0 1px var(--primary) inset, 0 0 8px -2px var(--primary-glow); }
+        .el-input__inner { color: var(--text-primary); }
+        .el-select-dropdown { background: var(--bg-overlay); border-color: var(--border-base); }
+        .el-select-dropdown__item.is-hovering { background: rgba(59,179,155,0.08); }
+        .el-select-dropdown__item.is-selected { color: var(--primary); }
+
+        /* el-dropdown / popover / tooltip / popper */
+        .el-dropdown-menu, .el-popper { background: var(--bg-overlay) !important; border-color: var(--border-base) !important; }
+        .el-popper__arrow::before { background: var(--bg-overlay) !important; border-color: var(--border-base) !important; }
+        .el-dropdown-menu__item { color: var(--text-regular); }
+        .el-dropdown-menu__item:hover { background: rgba(59,179,155,0.08); color: var(--primary); }
+
+        /* el-dialog / drawer / overlay */
+        .el-dialog { --el-dialog-bg-color: var(--bg-overlay); border:1px solid var(--border-base);
+            box-shadow: var(--shadow-overlay); }
+        .el-dialog__title { color: var(--text-primary); }
+        .el-overlay { background: rgba(10,14,18,0.7); backdrop-filter: blur(2px); }
+
+        /* el-pagination */
+        .el-pagination { --el-pagination-bg-color: transparent;
+            --el-pagination-button-bg-color: rgba(255,255,255,0.04);
+            --el-pagination-text-color: var(--text-regular);
+            --el-pagination-hover-color: var(--primary); }
+        .el-pager li.is-active { color:#0A0E12; background: var(--primary); }
+
+        /* el-tag */
+        .el-tag { background: var(--info-bg); border-color: rgba(122,138,160,0.30); color: var(--text-regular); }
+        .el-tag--success { background: var(--success-bg); border-color: rgba(59,179,155,0.35); color:#33EBBB; }
+        .el-tag--warning { background: var(--warning-bg); border-color: rgba(255,176,32,0.35); color: var(--warning); }
+        .el-tag--danger  { background: var(--danger-bg);  border-color: rgba(255,92,114,0.35); color: var(--danger); }
+
+        /* el-button */
+        .el-button { --el-button-bg-color: rgba(255,255,255,0.04);
+            --el-button-border-color: var(--border-base); --el-button-text-color: var(--text-regular); }
+        .el-button--primary { --el-button-text-color:#0A0E12; --el-button-bg-color: var(--primary);
+            --el-button-border-color: var(--primary); box-shadow: 0 4px 16px rgba(59,179,155,0.28); }
+        .el-button--primary:hover { box-shadow: 0 6px 24px rgba(59,179,155,0.45); }
+
+        /* el-breadcrumb / el-switch / el-tabs / el-scrollbar / el-timeline / el-descriptions / el-empty */
+        .el-breadcrumb__inner, .el-breadcrumb__separator { color: var(--text-secondary); }
+        .el-switch.is-checked .el-switch__core { background: var(--primary); }
+        .el-tabs__active-bar { background: var(--primary); box-shadow: 0 0 8px var(--primary-glow); }
+        .el-tabs__item.is-active { color: var(--primary); }
+        .el-tabs__item { color: var(--text-secondary); }
+        .el-scrollbar__thumb { background: rgba(255,255,255,0.12); }
+        .el-timeline-item__node { background: var(--primary); box-shadow: 0 0 8px var(--primary-glow); }
+        .el-timeline-item__tail { border-left-color: var(--border-base); }
+        .el-timeline-item__timestamp { color: var(--text-secondary); }
+        .el-descriptions { --el-descriptions-item-bordered-label-background: rgba(255,255,255,0.03); }
+        .el-descriptions__body { background: transparent; color: var(--text-regular); }
+        .el-empty__description { color: var(--text-secondary); }
+        .el-radio-button__inner { background: var(--bg-fill); border-color: var(--border-base); color: var(--text-regular); }
+        .el-radio-button__original-radio:checked + .el-radio-button__inner { background: var(--primary); border-color: var(--primary); color: #0A0E12; box-shadow: -1px 0 0 0 var(--primary); }
+        .el-form-item__label { color: var(--text-regular); }
+        .el-avatar { background: var(--bg-fill); }
+    </style>
+</head>
+<body>
+    <div id="app" v-cloak>
+        <el-container class="layout-container">
+            <!-- 侧边栏 -->
+            <el-aside :width="isCollapse ? '64px' : '260px'">
+                <div class="aside-header">
+                    <div class="aside-logo">医</div>
+                    <span class="aside-title" v-show="!isCollapse">智慧医养平台</span>
+                </div>
+                <el-menu
+                    :default-active="activeTab"
+                    class="el-menu-vertical"
+                    :collapse="isCollapse"
+                    background-color="#1a2332"
+                    text-color="rgba(255,255,255,0.7)"
+                    active-text-color="#00b55a"
+                    @select="switchTab"
+                >
+                    <el-menu-item index="dashboard">
+                        <el-icon><document /></el-icon>
+                        <span>工作台</span>
+                    </el-menu-item>
+                    <el-menu-item index="elders">
+                        <el-icon><user /></el-icon>
+                        <span>老人档案</span>
+                    </el-menu-item>
+                    <el-menu-item index="warnings">
+                        <el-icon><bell /></el-icon>
+                        <span>预警中心</span>
+                    </el-menu-item>
+                    <el-menu-item index="followup">
+                        <el-icon><calendar /></el-icon>
+                        <span>随访计划</span>
+                    </el-menu-item>
+                    <el-menu-item index="intervention">
+                        <el-icon><edit-pen /></el-icon>
+                        <span>干预管理</span>
+                    </el-menu-item>
+                    <el-menu-item index="assessment">
+                        <el-icon><tickets /></el-icon>
+                        <span>评估记录</span>
+                    </el-menu-item>
+                    <el-menu-item index="referral">
+                        <el-icon><connection /></el-icon>
+                        <span>转诊协同</span>
+                    </el-menu-item>
+                    <el-menu-item index="vitals">
+                        <el-icon><monitor /></el-icon>
+                        <span>生命体征</span>
+                    </el-menu-item>
+                    <el-menu-item index="timeline">
+                        <el-icon><clock /></el-icon>
+                        <span>服务时间线</span>
+                    </el-menu-item>
+                    <el-menu-item index="keyPopulation">
+                        <el-icon><warning /></el-icon>
+                        <span>重点人群</span>
+                    </el-menu-item>
+                    <el-menu-item index="profile">
+                        <el-icon><setting /></el-icon>
+                        <span>个人中心</span>
+                    </el-menu-item>
+                </el-menu>
+            </el-aside>
+
+            <el-container>
+                <!-- 顶栏 -->
+                <el-header>
+                    <div class="header-left">
+                        <el-icon style="cursor: pointer; font-size: 20px" @click="isCollapse = !isCollapse">
+                            <fold v-if="!isCollapse" />
+                            <expand v-else />
+                        </el-icon>
+                        <el-breadcrumb separator="/">
+                            <el-breadcrumb-item>首页</el-breadcrumb-item>
+                            <el-breadcrumb-item>{{ currentTabLabel }}</el-breadcrumb-item>
+                        </el-breadcrumb>
+                    </div>
+                    <div class="header-right">
+                        <el-badge :value="profile.unreadCount" :hidden="profile.unreadCount === 0">
+                            <el-icon style="font-size: 20px; cursor: pointer" @click="switchTab('profile')"><bell /></el-icon>
+                        </el-badge>
+                        <el-dropdown @command="handleUserCommand">
+                            <div class="user-info">
+                                <el-avatar :size="32" src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png"></el-avatar>
+                                <span>{{ userDisplayName }}</span>
+                                <el-icon><arrow-down /></el-icon>
+                            </div>
+                            <template #dropdown>
+                                <el-dropdown-menu>
+                                    <el-dropdown-item command="profile">个人中心</el-dropdown-item>
+                                    <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+                                </el-dropdown-menu>
+                            </template>
+                        </el-dropdown>
+                    </div>
+                </el-header>
+
+                <!-- 主内容区 -->
+                <el-main class="main-content">
+                    <transition name="fade-transform" mode="out-in">
+                        <div :key="activeTab">
+                            <!-- 工作台 -->
+                            <div v-if="activeTab === 'dashboard'">
+                                <el-row :gutter="20">
+                                    <el-col :span="6" v-for="(stat, key) in dashboardStatsMap" :key="key">
+                                        <el-card shadow="hover" class="box-card stat-card" :style="{ borderTop: '4px solid ' + stat.color }">
+                                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                                <div style="text-align: left;">
+                                                    <div class="label" style="font-size: 14px; color: #909399; margin-bottom: 8px;">{{ stat.label }}</div>
+                                                    <div class="value" :style="{ fontSize: '28px', fontWeight: 'bold', color: stat.color }">{{ dashboard.stats[key] || 0 }}</div>
+                                                </div>
+                                                <el-icon :size="48" :color="stat.color" style="opacity: 0.2"><component :is="stat.icon" /></el-icon>
+                                            </div>
+                                        </el-card>
+                                    </el-col>
+                                </el-row>
+                                <!-- 重点人群卡片 -->
+                                <el-row :gutter="20" style="margin-top: 10px;">
+                                    <el-col :span="24">
+                                        <el-card class="box-card" shadow="hover">
+                                            <template #header>
+                                                <div class="card-header">
+                                                    <span style="font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                                                        <el-icon><Warning /></el-icon> 重点人群监控
+                                                    </span>
+                                                    <el-button link type="primary" @click="switchTab('keyPopulation')">查看详情</el-button>
+                                                </div>
+                                            </template>
+                                            <el-row :gutter="10">
+                                                <el-col :span="6">
+                                                    <div style="text-align: center; padding: 10px; background: #fef0f0; border-radius: 4px;">
+                                                        <div style="font-size: 12px; color: #909399; margin-bottom: 5px;">高危人群</div>
+                                                        <div style="font-size: 24px; font-weight: bold; color: #E06A6A;">{{ riskStats.highRisk || 0 }}</div>
+                                                        <div style="font-size: 12px; color: #E06A6A; margin-top: 5px;">需紧急关注</div>
+                                                    </div>
+                                                </el-col>
+                                                <el-col :span="6">
+                                                    <div style="text-align: center; padding: 10px; background: #fdf6ec; border-radius: 4px;">
+                                                        <div style="font-size: 12px; color: #909399; margin-bottom: 5px;">重点关注</div>
+                                                        <div style="font-size: 24px; font-weight: bold; color: #E0A44E;">{{ riskStats.key || 0 }}</div>
+                                                        <div style="font-size: 12px; color: #E0A44E; margin-top: 5px;">需定期随访</div>
+                                                    </div>
+                                                </el-col>
+                                                <el-col :span="6">
+                                                    <div style="text-align: center; padding: 10px; background: #e8f4f8; border-radius: 4px;">
+                                                        <div style="font-size: 12px; color: #909399; margin-bottom: 5px;">关注人群</div>
+                                                        <div style="font-size: 24px; font-weight: bold; color: #3BB39B;">{{ riskStats.attention || 0 }}</div>
+                                                        <div style="font-size: 12px; color: #3BB39B; margin-top: 5px;">需适度关注</div>
+                                                    </div>
+                                                </el-col>
+                                                <el-col :span="6">
+                                                    <div style="text-align: center; padding: 10px; background: #f0f9ff; border-radius: 4px;">
+                                                        <div style="font-size: 12px; color: #909399; margin-bottom: 5px;">今日随访任务</div>
+                                                        <div style="font-size: 24px; font-weight: bold; color: #67C23A;">{{ taskStats.today || 0 }}</div>
+                                                        <div style="font-size: 12px; color: #67C23A; margin-top: 5px;">待完成</div>
+                                                    </div>
+                                                </el-col>
+                                            </el-row>
+                                        </el-card>
+                                    </el-col>
+                                </el-row>
+                                <el-row :gutter="20" style="margin-top: 10px;">
+                                    <el-col :span="16">
+                                        <el-card class="box-card">
+                                            <template #header>
+                                                <div class="card-header">
+                                                    <span style="font-weight: bold; display: flex; align-items: center; gap: 8px;"><el-icon><DataLine /></el-icon> 数据概览</span>
+                                                    <el-radio-group v-model="chartType" size="small" @change="renderMainChart">
+                                                        <el-radio-button label="gender">性别分布</el-radio-button>
+                                                        <el-radio-button label="warning">预警趋势</el-radio-button>
+                                                        <el-radio-button label="follow">随访统计</el-radio-button>
+                                                    </el-radio-group>
+                                                </div>
+                                            </template>
+                                            <div id="mainChart" class="chart-box" style="height: 350px;"></div>
+                                        </el-card>
+                                    </el-col>
+                                    <el-col :span="8">
+                                        <el-card class="box-card" style="margin-bottom: 20px;">
+                                            <template #header>
+                                                <div class="card-header">
+                                                    <span style="font-weight: bold; display: flex; align-items: center; gap: 8px;"><el-icon><Lightning /></el-icon> 快捷操作</span>
+                                                </div>
+                                            </template>
+                                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                                <el-button type="primary" plain @click="openElderModal()" style="margin:0;"><el-icon style="margin-right: 5px;"><Plus /></el-icon>新增档案</el-button>
+                                                <el-button type="success" plain @click="switchTab('followup')" style="margin:0;"><el-icon style="margin-right: 5px;"><Calendar /></el-icon>今日随访</el-button>
+                                                <el-button type="warning" plain @click="switchTab('warnings')" style="margin:0;"><el-icon style="margin-right: 5px;"><Bell /></el-icon>预警处理</el-button>
+                                                <el-button type="danger" plain @click="switchTab('referral')" style="margin:0;"><el-icon style="margin-right: 5px;"><Connection /></el-icon>转诊申请</el-button>
+                                            </div>
+                                        </el-card>
+                                        <el-card class="box-card">
+                                            <template #header>
+                                                <div class="card-header">
+                                                    <span style="font-weight: bold; display: flex; align-items: center; gap: 8px;"><el-icon><Warning /></el-icon> 紧急预警</span>
+                                                    <el-button link type="primary" @click="switchTab('warnings')">查看全部</el-button>
+                                                </div>
+                                            </template>
+                                            <el-scrollbar height="170px">
+                                                <el-empty v-if="dashboard.latestWarnings.length === 0" description="暂无预警" :image-size="60"></el-empty>
+                                                <div v-for="item in dashboard.latestWarnings" :key="item.id" style="margin-bottom: 15px; border-bottom: 1px dashed #ebeef5; padding-bottom: 12px; cursor: pointer;" @click="handleWarning(item)">
+                                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                        <span style="font-weight: bold; font-size: 14px; color: #303133;">{{ item.warningTitle }}</span>
+                                                        <el-tag :type="warnLevelTag(item.warningLevel)" size="small" effect="dark">{{ warnLevelText(item.warningLevel) }}</el-tag>
+                                                    </div>
+                                                    <div style="color: #909399; font-size: 12px; margin-top: 8px; display: flex; justify-content: space-between;">
+                                                        <span>{{ warnTypeText(item.warningType) }}</span>
+                                                        <span>{{ dateTimeText(item.createTime) }}</span>
+                                                    </div>
+                                                </div>
+                                            </el-scrollbar>
+                                        </el-card>
+                                    </el-col>
+                                </el-row>
+                            </div>
+
+                            <!-- 老人档案 -->
+                            <div v-if="activeTab === 'elders'">
+                                <el-card class="box-card">
+                                    <el-form :inline="true" :model="elderFilter" class="demo-form-inline">
+                                        <el-form-item label="姓名">
+                                            <el-input v-model="elderFilter.name" placeholder="请输入姓名" clearable />
+                                        </el-form-item>
+                                        <el-form-item label="社区">
+                                            <el-input v-model="elderFilter.community" placeholder="请输入社区" clearable />
+                                        </el-form-item>
+                                        <el-form-item>
+                                            <el-button type="primary" @click="loadElders(1)">查询</el-button>
+                                            <el-button type="success" @click="openElderModal()">新增档案</el-button>
+                                        </el-form-item>
+                                    </el-form>
+                                    <el-table :data="elderPage.records" v-loading="loading" style="width: 100%" border stripe>
+                                        <el-table-column prop="name" label="姓名" width="100" fixed />
+                                        <el-table-column label="性别" width="80">
+                                            <template #default="scope">{{ genderText(scope.row.gender) }}</template>
+                                        </el-table-column>
+                                        <el-table-column prop="birthDate" label="出生日期" width="120" />
+                                        <el-table-column prop="phone" label="联系电话" width="130" />
+                                        <el-table-column prop="community" label="所属社区" />
+                                        <el-table-column label="状态" width="100">
+                                            <template #default="scope">
+                                                <el-tag :type="scope.row.accountStatus === 1 ? 'success' : 'info'">
+                                                    {{ scope.row.accountStatus === 1 ? '已启用' : '未启用' }}
+                                                </el-tag>
+                                            </template>
+                                        </el-table-column>
+                                        <el-table-column label="操作" width="220" fixed="right">
+                                            <template #default="scope">
+                                                <el-button link type="primary" @click="openHealthDetail(scope.row.id)">详情</el-button>
+                                                <el-button link type="primary" @click="openElderModal(scope.row)">编辑</el-button>
+                                                <el-popconfirm title="确定删除该档案吗？" @confirm="deleteElder(scope.row.id)">
+                                                    <template #reference>
+                                                        <el-button link type="danger">删除</el-button>
+                                                    </template>
+                                                </el-popconfirm>
+                                            </template>
+                                        </el-table-column>
+                                    </el-table>
+                                    <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+                                        <el-pagination
+                                            v-model:current-page="elderPage.pageNum"
+                                            :page-size="elderPage.pageSize"
+                                            :total="elderPage.total"
+                                            layout="total, prev, pager, next"
+                                            @current-change="loadElders"
+                                        />
+                                    </div>
+                                </el-card>
+                            </div>
+
+                            <!-- 预警中心 -->
+                            <div v-if="activeTab === 'warnings'">
+                                <el-card class="box-card">
+                                    <el-form :inline="true" :model="warningFilter" class="demo-form-inline">
+                                        <el-form-item label="状态">
+                                            <el-select v-model="warningFilter.status" placeholder="全部状态" clearable style="width: 120px;">
+                                                <el-option label="待处理" value="0" />
+                                                <el-option label="处理中" value="1" />
+                                                <el-option label="已处理" value="2" />
+                                                <el-option label="已关闭" value="3" />
+                                            </el-select>
+                                        </el-form-item>
+                                        <el-form-item label="等级">
+                                            <el-select v-model="warningFilter.warningLevel" placeholder="全部等级" clearable style="width: 120px;">
+                                                <el-option label="低" value="1" />
+                                                <el-option label="中" value="2" />
+                                                <el-option label="高" value="3" />
+                                            </el-select>
+                                        </el-form-item>
+                                        <el-form-item>
+                                            <el-button type="primary" @click="loadWarnings(1)">查询</el-button>
+                                        </el-form-item>
+                                    </el-form>
+                                    <el-table :data="warningPage.records" v-loading="loading" style="width: 100%" border stripe>
+                                        <el-table-column label="等级" width="80">
+                                            <template #default="scope">
+                                                <el-tag :type="warnLevelTag(scope.row.warningLevel)" size="small">
+                                                    {{ warnLevelText(scope.row.warningLevel) }}
+                                                </el-tag>
+                                            </template>
+                                        </el-table-column>
+                                        <el-table-column prop="warningTitle" label="预警标题" />
+                                        <el-table-column prop="elderId" label="老人ID" width="80" />
+                                        <el-table-column label="类型" width="120">
+                                            <template #default="scope">{{ warnTypeText(scope.row.warningType) }}</template>
+                                        </el-table-column>
+                                        <el-table-column prop="warningValue" label="预警值" width="100" />
+                                        <el-table-column label="状态" width="100">
+                                            <template #default="scope">
+                                                <el-tag :type="warningStatusTag(scope.row.status)" size="small">
+                                                    {{ warningStatusText(scope.row.status) }}
+                                                </el-tag>
+                                            </template>
+                                        </el-table-column>
+                                        <el-table-column prop="createTime" label="触发时间" width="160">
+                                            <template #default="scope">{{ dateTimeText(scope.row.createTime) }}</template>
+                                        </el-table-column>
+                                        <el-table-column label="操作" width="150" fixed="right">
+                                            <template #default="scope">
+                                                <el-button link type="primary" @click="handleWarning(scope.row)" v-if="scope.row.status === 0">处理</el-button>
+                                                <el-button link type="primary" @click="viewWarning(scope.row)">详情</el-button>
+                                            </template>
+                                        </el-table-column>
+                                    </el-table>
+                                    <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+                                        <el-pagination
+                                            v-model:current-page="warningPage.pageNum"
+                                            :page-size="warningPage.pageSize"
+                                            :total="warningPage.total"
+                                            layout="total, prev, pager, next"
+                                            @current-change="loadWarnings"
+                                        />
+                                    </div>
+                                </el-card>
+                            </div>
+
+                            <!-- 随访计划 -->
+                            <div v-if="activeTab === 'followup'">
+                                <el-card class="box-card">
+                                    <el-form :inline="true" :model="followupFilter" class="demo-form-inline">
+                                        <el-form-item label="状态">
+                                            <el-select v-model="followupFilter.status" placeholder="全部状态" clearable>
+                                                <el-option label="待执行" value="0" />
+                                                <el-option label="进行中" value="1" />
+                                                <el-option label="已完成" value="2" />
+                                                <el-option label="已关闭" value="3" />
+                                            </el-select>
+                                        </el-form-item>
+                                        <el-form-item>
+                                            <el-button type="primary" @click="loadFollowups(1)">查询</el-button>
+                                            <el-button type="success" @click="openPlanModal()">新增计划</el-button>
+                                        </el-form-item>
+                                    </el-form>
+                                    <el-table :data="followupPage.records" v-loading="loading" style="width: 100%" border stripe>
+                                        <el-table-column prop="planName" label="计划名称" />
+                                        <el-table-column prop="elderId" label="老人ID" width="80" />
+                                        <el-table-column label="频次" width="100">
+                                            <template #default="scope">{{ freqText(scope.row.frequencyType) }}</template>
+                                        </el-table-column>
+                                        <el-table-column prop="nextFollowDate" label="下次随访" width="120" />
+                                        <el-table-column label="进度" width="100">
+                                            <template #default="scope">
+                                                {{ scope.row.completedCount || 0 }} / {{ scope.row.totalCount || 0 }}
+                                            </template>
+                                        </el-table-column>
+                                        <el-table-column label="状态" width="100">
+                                            <template #default="scope">
+                                                <el-tag :type="planStatusTag(scope.row.status)">
+                                                    {{ planStatusText(scope.row.status) }}
+                                                </el-tag>
+                                            </template>
+                                        </el-table-column>
+                                        <el-table-column label="操作" width="150" fixed="right">
+                                            <template #default="scope">
+                                                <el-button link type="primary" @click="recordFollowup(scope.row)">记录</el-button>
+                                                <el-button link type="primary" @click="openPlanModal(scope.row)">编辑</el-button>
+                                            </template>
+                                        </el-table-column>
+                                    </el-table>
+                                    <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+                                        <el-pagination
+                                            v-model:current-page="followupPage.pageNum"
+                                            :page-size="followupPage.pageSize"
+                                            :total="followupPage.total"
+                                            layout="total, prev, pager, next"
+                                            @current-change="loadFollowups"
+                                        />
+                                    </div>
+                                </el-card>
+                            </div>
+
+                            <!-- 干预管理 -->
+                            <div v-if="activeTab === 'intervention'">
+                                <el-card class="box-card">
+                                    <el-form :inline="true" :model="interventionFilter" class="demo-form-inline">
+                                        <el-form-item label="干预类型">
+                                            <el-select v-model="interventionFilter.type" placeholder="全部类型" clearable>
+                                                <el-option label="健康宣教" value="1" />
+                                                <el-option label="用药指导" value="2" />
+                                                <el-option label="康复训练" value="3" />
+                                                <el-option label="心理干预" value="4" />
+                                            </el-select>
+                                        </el-form-item>
+                                        <el-form-item>
+                                            <el-button type="primary" @click="loadInterventions(1)">查询</el-button>
+                                        </el-form-item>
+                                    </el-form>
+                                    <el-table :data="interventionPage.records" v-loading="loading" style="width: 100%" border stripe>
+                                        <el-table-column prop="interventionTitle" label="干预标题" />
+                                        <el-table-column prop="elderId" label="老人ID" width="80" />
+                                        <el-table-column label="类型" width="120">
+                                            <template #default="scope">{{ interventionText(scope.row.interventionType) }}</template>
+                                        </el-table-column>
+                                        <el-table-column prop="interventionDate" label="干预日期" width="120" />
+                                        <el-table-column label="效果评价" width="120">
+                                            <template #default="scope">
+                                                <el-tag :type="effectTag(scope.row.effectEvaluation)">
+                                                    {{ effectText(scope.row.effectEvaluation) }}
+                                                </el-tag>
+                                            </template>
+                                        </el-table-column>
+                                        <el-table-column label="操作" width="150" fixed="right">
+                                            <template #default="scope">
+                                                <el-button link type="primary" @click="viewIntervention(scope.row)">详情</el-button>
+                                                <el-button link type="primary" @click="openInterventionModal(scope.row)">编辑</el-button>
+                                            </template>
+                                        </el-table-column>
+                                    </el-table>
+                                </el-card>
+                            </div>
+
+                            <!-- 评估记录 -->
+                            <div v-if="activeTab === 'assessment'">
+                                <el-card class="box-card">
+                                    <el-form :inline="true" :model="assessmentFilter" class="demo-form-inline">
+                                        <el-form-item label="评估类型">
+                                            <el-select v-model="assessmentFilter.assessType" placeholder="全部类型" clearable>
+                                                <el-option v-for="(val, key) in ASSESSMENT_TYPE_MAP" :key="key" :label="val" :value="key" />
+                                            </el-select>
+                                        </el-form-item>
+                                        <el-form-item>
+                                            <el-button type="primary" @click="loadAssessments(1)">查询</el-button>
+                                            <el-button type="success" @click="openAssessmentModal()">新增评估</el-button>
+                                        </el-form-item>
+                                    </el-form>
+                                    <el-table :data="assessmentPage.records" v-loading="loading" style="width: 100%" border stripe>
+                                        <el-table-column prop="elderId" label="老人ID" width="80" />
+                                        <el-table-column label="类型" width="150">
+                                            <template #default="scope">{{ assessmentTypeText(scope.row.assessType) }}</template>
+                                        </el-table-column>
+                                        <el-table-column prop="assessDate" label="评估日期" width="120" />
+                                        <el-table-column prop="score" label="评分" width="80" />
+                                        <el-table-column prop="level" label="等级" width="100" />
+                                        <el-table-column prop="result" label="评估结果" />
+                                        <el-table-column label="操作" width="150" fixed="right">
+                                            <template #default="scope">
+                                                <el-button link type="primary" @click="viewAssessment(scope.row)">详情</el-button>
+                                                <el-button link type="primary" @click="openAssessmentModal(scope.row)">编辑</el-button>
+                                            </template>
+                                        </el-table-column>
+                                    </el-table>
+                                </el-card>
+                            </div>
+
+                            <!-- 转诊协同 -->
+                            <div v-if="activeTab === 'referral'">
+                                <el-card class="box-card">
+                                    <el-form :inline="true" :model="referralFilter" class="demo-form-inline">
+                                        <el-form-item label="状态">
+                                            <el-select v-model="referralFilter.status" placeholder="全部状态" clearable>
+                                                <el-option v-for="(val, key) in REFERRAL_STATUS_MAP" :key="key" :label="val" :value="key" />
+                                            </el-select>
+                                        </el-form-item>
+                                        <el-form-item>
+                                            <el-button type="primary" @click="loadReferrals(1)">查询</el-button>
+                                            <el-button type="success" @click="openReferralModal()">申请转诊</el-button>
+                                        </el-form-item>
+                                    </el-form>
+                                    <el-table :data="referralPage.records" v-loading="loading" style="width: 100%" border stripe>
+                                        <el-table-column prop="referralNo" label="编号" width="120" />
+                                        <el-table-column prop="elderId" label="老人ID" width="80" />
+                                        <el-table-column label="类型" width="100">
+                                            <template #default="scope">{{ referralTypeText(scope.row.referralType) }}</template>
+                                        </el-table-column>
+                                        <el-table-column prop="fromOrg" label="转出机构" />
+                                        <el-table-column prop="toOrg" label="转入机构" />
+                                        <el-table-column label="状态" width="100">
+                                            <template #default="scope">
+                                                <el-tag :type="referralStatusTag(scope.row.status)">
+                                                    {{ referralStatusText(scope.row.status) }}
+                                                </el-tag>
+                                            </template>
+                                        </el-table-column>
+                                        <el-table-column label="紧急程度" width="100">
+                                            <template #default="scope">
+                                                <el-tag :type="urgencyTag(scope.row.urgencyLevel)">
+                                                    {{ urgencyText(scope.row.urgencyLevel) }}
+                                                </el-tag>
+                                            </template>
+                                        </el-table-column>
+                                        <el-table-column label="操作" width="180" fixed="right">
+                                            <template #default="scope">
+                                                <el-button link type="primary" @click="viewReferral(scope.row)">详情</el-button>
+                                                <el-button link type="success" v-if="scope.row.status === 1" @click="handleReferral(scope.row, 2)">接收</el-button>
+                                                <el-button link type="danger" v-if="scope.row.status === 1" @click="handleReferral(scope.row, 4)">退回</el-button>
+                                            </template>
+                                        </el-table-column>
+                                    </el-table>
+                                </el-card>
+                            </div>
+
+                            <!-- 生命体征 -->
+                            <div v-if="activeTab === 'vitals'">
+                                <el-card class="box-card">
+                                    <el-form :inline="true" :model="vitalsFilter" class="demo-form-inline">
+                                        <el-form-item label="老人ID">
+                                            <el-input v-model="vitalsFilter.elderId" placeholder="请输入老人ID" />
+                                        </el-form-item>
+                                        <el-form-item label="指标">
+                                            <el-select v-model="vitalsFilter.vitalType" placeholder="请选择">
+                                                <el-option v-for="(val, key) in VITAL_TYPE_MAP" :key="key" :label="val" :value="key" />
+                                            </el-select>
+                                        </el-form-item>
+                                        <el-form-item>
+                                            <el-button type="primary" @click="loadVitals()">查询</el-button>
+                                        </el-form-item>
+                                    </el-form>
+                                    <div id="vitalsChart" class="chart-box" style="height: 400px;"></div>
+                                </el-card>
+                            </div>
+
+                            <!-- 服务时间线 -->
+                            <div v-if="activeTab === 'timeline'">
+                                <el-card class="box-card">
+                                    <el-form :inline="true" :model="timelineFilter" class="demo-form-inline">
+                                        <el-form-item label="老人ID">
+                                            <el-input v-model="timelineFilter.elderId" placeholder="请输入老人ID" />
+                                        </el-form-item>
+                                        <el-form-item>
+                                            <el-button type="primary" @click="loadTimeline(1)">查询</el-button>
+                                        </el-form-item>
+                                    </el-form>
+                                    <el-timeline style="padding: 20px;">
+                                        <el-timeline-item
+                                            v-for="item in timelinePage.records"
+                                            :key="item.id"
+                                            :timestamp="dateTimeText(item.eventTime)"
+                                            :type="timelineTypeTag(item.eventType)"
+                                        >
+                                            <h4>{{ item.eventTitle }}</h4>
+                                            <p>{{ item.eventContent }}</p>
+                                        </el-timeline-item>
+                                    </el-timeline>
+                                </el-card>
+                            </div>
+
+                            <!-- 重点人群管理 -->
+                            <div v-if="activeTab === 'keyPopulation'">
+                                <el-row :gutter="20">
+                                    <el-col :span="6">
+                                        <el-card shadow="hover" class="box-card stat-card" style="borderTop: 4px solid #E06A6A">
+                                            <div class="stat-card">
+                                                <div class="label">高危人数</div>
+                                                <div class="value" style="color: #E06A6A">{{ riskStats.highRisk || 0 }}</div>
+                                            </div>
+                                        </el-card>
+                                    </el-col>
+                                    <el-col :span="6">
+                                        <el-card shadow="hover" class="box-card stat-card" style="borderTop: 4px solid #E0A44E">
+                                            <div class="stat-card">
+                                                <div class="label">重点人数</div>
+                                                <div class="value" style="color: #E0A44E">{{ riskStats.key || 0 }}</div>
+                                            </div>
+                                        </el-card>
+                                    </el-col>
+                                    <el-col :span="6">
+                                        <el-card shadow="hover" class="box-card stat-card" style="borderTop: 4px solid #3BB39B">
+                                            <div class="stat-card">
+                                                <div class="label">关注人数</div>
+                                                <div class="value" style="color: #3BB39B">{{ riskStats.attention || 0 }}</div>
+                                            </div>
+                                        </el-card>
+                                    </el-col>
+                                    <el-col :span="6">
+                                        <el-card shadow="hover" class="box-card stat-card" style="borderTop: 4px solid #7E9B96">
+                                            <div class="stat-card">
+                                                <div class="label">普通人数</div>
+                                                <div class="value" style="color: #7E9B96">{{ riskStats.normal || 0 }}</div>
+                                            </div>
+                                        </el-card>
+                                    </el-col>
+                                </el-row>
+                                <el-card class="box-card" style="margin-top: 20px">
+                                    <template #header>
+                                        <div class="card-header">
+                                            <span style="font-weight: bold">重点人群列表</span>
+                                        </div>
+                                    </template>
+                                    <el-form :inline="true" :model="riskFilter">
+                                        <el-form-item label="风险等级">
+                                            <el-select v-model="riskFilter.riskLevel" placeholder="全部等级" clearable>
+                                                <el-option label="高危" value="4" />
+                                                <el-option label="重点" value="3" />
+                                                <el-option label="关注" value="2" />
+                                                <el-option label="普通" value="1" />
+                                            </el-select>
+                                        </el-form-item>
+                                        <el-form-item>
+                                            <el-button type="primary" @click="loadKeyPopulation(1)">查询</el-button>
+                                            <el-button type="success" @click="generateFollowupPlans">自动生成随访计划</el-button>
+                                        </el-form-item>
+                                    </el-form>
+                                    <el-table :data="keyPopulationPage.records" v-loading="loading" border stripe>
+                                        <el-table-column prop="name" label="姓名" width="100" />
+                                        <el-table-column label="性别" width="80">
+                                            <template #default="scope">{{ genderText(scope.row.gender) }}</template>
+                                        </el-table-column>
+                                        <el-table-column prop="birthDate" label="出生日期" width="120" />
+                                        <el-table-column label="风险等级" width="100">
+                                            <template #default="scope">
+                                                <el-tag :type="riskLevelTag(scope.row.riskLevel)" effect="dark">
+                                                    {{ scope.row.riskLevelText }}
+                                                </el-tag>
+                                            </template>
+                                        </el-table-column>
+                                        <el-table-column prop="riskScore" label="风险评分" width="100" />
+                                        <el-table-column prop="riskTags" label="风险标签" />
+                                        <el-table-column prop="phone" label="联系电话" width="130" />
+                                        <el-table-column prop="community" label="所属社区" />
+                                        <el-table-column label="操作" width="180" fixed="right">
+                                            <template #default="scope">
+                                                <el-button link type="primary" @click="viewRiskDetail(scope.row)">风险详情</el-button>
+                                                <el-button link type="success" @click="createFollowupTask(scope.row)">创建任务</el-button>
+                                            </template>
+                                        </el-table-column>
+                                    </el-table>
+                                    <div style="margin-top: 20px; display: flex; justify-content: flex-end">
+                                        <el-pagination
+                                            v-model:current-page="keyPopulationPage.pageNum"
+                                            :page-size="keyPopulationPage.pageSize"
+                                            :total="keyPopulationPage.total"
+                                            layout="total, prev, pager, next"
+                                            @current-change="loadKeyPopulation"
+                                        />
+                                    </div>
+                                </el-card>
+                                <el-card class="box-card" style="margin-top: 20px">
+                                    <template #header>
+                                        <div class="card-header">
+                                            <span style="font-weight: bold">今日随访任务</span>
+                                            <el-button type="text" @click="switchTab('followup')">查看随访计划</el-button>
+                                        </div>
+                                    </template>
+                                    <el-table :data="todayTasks" v-loading="loading" border stripe max-height="300">
+                                        <el-table-column prop="name" label="老人姓名" width="100" />
+                                        <el-table-column label="任务类型" width="120">
+                                            <template #default="scope">{{ taskTypeText(scope.row.taskType) }}</template>
+                                        </el-table-column>
+                                        <el-table-column label="优先级" width="100">
+                                            <template #default="scope">
+                                                <el-tag :type="priorityTag(scope.row.priority)" size="small">
+                                                    {{ priorityText(scope.row.priority) }}
+                                                </el-tag>
+                                            </template>
+                                        </el-table-column>
+                                        <el-table-column prop="dueDate" label="截止日期" width="120" />
+                                        <el-table-column prop="taskReason" label="任务原因" />
+                                        <el-table-column label="操作" width="150" fixed="right">
+                                            <template #default="scope">
+                                                <el-button link type="success" @click="finishFollowupTask(scope.row)">完成</el-button>
+                                                <el-button link type="danger" @click="cancelFollowupTask(scope.row)">取消</el-button>
+                                            </template>
+                                        </el-table-column>
+                                    </el-table>
+                                </el-card>
+                            </div>
+
+                            <!-- 个人中心 -->
+                            <div v-if="activeTab === 'profile'">
+                                <el-row :gutter="20">
+                                    <el-col :span="8">
+                                        <el-card class="box-card">
+                                            <template #header><span>个人资料</span></template>
+                                            <div style="text-align: center; padding: 20px;">
+                                                <el-avatar :size="80" src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png"></el-avatar>
+                                                <h3>{{ userDisplayName }}</h3>
+                                                <p style="color: #909399;">{{ userRoleText }}</p>
+                                            </div>
+                                            <el-descriptions :column="1" border>
+                                                <el-descriptions-item label="用户名">{{ userInfo.username }}</el-descriptions-item>
+                                                <el-descriptions-item label="工号">{{ userInfo.userNo || '-' }}</el-descriptions-item>
+                                                <el-descriptions-item label="联系电话">{{ userInfo.phone || '-' }}</el-descriptions-item>
+                                            </el-descriptions>
+                                        </el-card>
+                                    </el-col>
+                                    <el-col :span="16">
+                                        <el-card class="box-card">
+                                            <template #header><span>操作日志</span></template>
+                                            <el-table :data="profile.logs" style="width: 100%" height="400">
+                                                <el-table-column prop="createTime" label="时间" width="160" />
+                                                <el-table-column prop="module" label="模块" width="120" />
+                                                <el-table-column prop="description" label="描述" />
+                                                <el-table-column prop="requestIp" label="IP" width="130" />
+                                            </el-table>
+                                        </el-card>
+                                    </el-col>
+                                </el-row>
+                            </div>
+                        </div>
+                    </transition>
+                </el-main>
+            </el-container>
+        </el-container>
+
+        <!-- 老人档案弹窗 -->
+        <el-dialog v-model="elderModal.show" :title="elderModal.isEdit ? '编辑老人档案' : '新增老人档案'" width="600px">
+            <el-form :model="elderModal.form" label-width="100px">
+                <el-row :gutter="20">
+                    <el-col :span="12">
+                        <el-form-item label="姓名" required>
+                            <el-input v-model="elderModal.form.name" />
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                        <el-form-item label="性别">
+                            <el-radio-group v-model="elderModal.form.gender">
+                                <el-radio :label="1">男</el-radio>
+                                <el-radio :label="2">女</el-radio>
+                            </el-radio-group>
+                        </el-form-item>
+                    </el-col>
+                </el-row>
+                <el-row :gutter="20">
+                    <el-col :span="12">
+                        <el-form-item label="出生日期">
+                            <el-date-picker v-model="elderModal.form.birthDate" type="date" value-format="YYYY-MM-DD" :editable="false" :clearable="false" style="width: 100%" />
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                        <el-form-item label="身份证号">
+                            <el-input v-model="elderModal.form.idCard" />
+                        </el-form-item>
+                    </el-col>
+                </el-row>
+                <el-form-item label="联系电话">
+                    <el-input v-model="elderModal.form.phone" />
+                </el-form-item>
+                <el-form-item label="所属社区">
+                    <el-input v-model="elderModal.form.community" />
+                </el-form-item>
+                <el-form-item label="家庭住址">
+                    <el-input v-model="elderModal.form.address" type="textarea" />
+                </el-form-item>
+                <!-- 风险信息展示区域（仅编辑模式显示） -->
+                <div v-if="elderModal.isEdit && elderModal.riskProfile" style="margin-top: 20px; border-top: 1px dashed #ddd; padding-top: 15px;">
+                    <el-divider content-position="left">
+                        <el-icon><Warning /></el-icon> 风险评估信息
+                    </el-divider>
+                    <el-row :gutter="20">
+                        <el-col :span="12">
+                            <div style="padding: 15px; background: #f5f7fa; border-radius: 4px;">
+                                <div style="font-size: 14px; color: #606266; margin-bottom: 10px;">风险等级</div>
+                                <el-tag :type="riskLevelTag(elderModal.riskProfile.riskLevel)" effect="dark" size="large">
+                                    {{ riskLevelText(elderModal.riskProfile.riskLevel) }}
+                                </el-tag>
+                                <div style="margin-top: 10px;">
+                                    <el-progress 
+                                        :percentage="(elderModal.riskProfile.riskScore / 120) * 100"
+                                        :color="getRiskColor(elderModal.riskProfile.riskLevel)"
+                                        :stroke-width="18"
+                                        style="width: 100%">
+                                    </el-progress>
+                                    <div style="font-size: 12px; color: #909399; margin-top: 5px;">
+                                        总评分: {{ elderModal.riskProfile.riskScore }}分
+                                    </div>
+                                </div>
+                            </div>
+                        </el-col>
+                        <el-col :span="12">
+                            <div style="padding: 15px; background: #f5f7fa; border-radius: 4px;">
+                                <div style="font-size: 14px; color: #606266; margin-bottom: 10px;">风险标签</div>
+                                <div>
+                                    <el-tag 
+                                        v-for="tag in (elderModal.riskProfile.riskTags || '').split(',').filter(t => t)" 
+                                        :key="tag"
+                                        style="margin-right: 8px; margin-bottom: 8px;"
+                                        size="small"
+                                        effect="plain">
+                                        {{ tag }}
+                                    </el-tag>
+                                </div>
+                                <div style="font-size: 12px; color: #909399; margin-top: 10px;">
+                                    上次计算: {{ dateTimeText(elderModal.riskProfile.lastCalculateTime) }}
+                                </div>
+                            </div>
+                        </el-col>
+                    </el-row>
+                    <div style="margin-top: 15px;" v-if="elderModal.riskDetails">
+                        <el-collapse>
+                            <el-collapse-item title="查看评分详情" name="details">
+                                <el-table :data="elderModal.riskDetails.scoreDetails" size="small" border>
+                                    <el-table-column prop="ruleName" label="评分项" />
+                                    <el-table-column prop="score" label="分值" width="80">
+                                        <template #default="scope">
+                                            <span style="color: #E06A6A; font-weight: bold;">+{{ scope.row.score }}</span>
+                                        </template>
+                                    </el-table-column>
+                                </el-table>
+                            </el-collapse-item>
+                        </el-collapse>
+                    </div>
+                </div>
+            </el-form>
+            <template #footer>
+                <el-button @click="elderModal.show = false">取消</el-button>
+                <el-button type="primary" @click="saveElder">确定</el-button>
+            </template>
+        </el-dialog>
+
+        <!-- 健康详情弹窗 -->
+        <el-dialog v-model="healthDetailModal.show" title="老人健康详情" width="800px">
+            <el-tabs v-model="healthDetailModal.activeTab">
+                <el-tab-pane label="既往史" name="history">
+                    <el-table :data="healthDetailModal.data.medicalHistory" border>
+                        <el-table-column prop="diseaseName" label="疾病名称" />
+                        <el-table-column prop="diagnoseDate" label="诊断日期" />
+                        <el-table-column prop="treatment" label="治疗情况" />
+                    </el-table>
+                </el-tab-pane>
+                <el-tab-pane label="用药情况" name="medication">
+                    <el-table :data="healthDetailModal.data.medications" border>
+                        <el-table-column prop="drugName" label="药物名称" />
+                        <el-table-column prop="dose" label="用法用量" />
+                        <el-table-column prop="status" label="状态" />
+                    </el-table>
+                </el-tab-pane>
+                <el-tab-pane label="过敏史" name="allergy">
+                    <el-table :data="healthDetailModal.data.allergies" border>
+                        <el-table-column prop="allergyName" label="过敏原" />
+                        <el-table-column prop="remark" label="描述" />
+                    </el-table>
+                </el-tab-pane>
+            </el-tabs>
+        </el-dialog>
+
+        <!-- 处理预警弹窗 -->
+        <el-dialog v-model="warningModal.show" title="处理预警" width="500px">
+            <el-form :model="warningModal.form" label-width="80px">
+                <el-form-item label="处理结果" required>
+                    <el-input v-model="warningModal.form.handleResult" type="textarea" :rows="4" placeholder="请输入处理意见..." />
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <el-button @click="warningModal.show = false">取消</el-button>
+                <el-button type="primary" @click="submitWarningHandle">提交</el-button>
+            </template>
+        </el-dialog>
+
+    </div>
+
+    <!-- 业务逻辑脚本 -->
+    <script src="./app.js"></script>
+</body>
+</html>
