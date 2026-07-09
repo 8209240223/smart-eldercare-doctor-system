@@ -470,7 +470,7 @@ createApp({
                         <h3>老人档案管理</h3>
                         <p>管理所有签约老人的基本信息、健康档案和联系方式，支持检索和筛选</p>
                     </div>
-                    <div class="actions"><button class="primary-btn" @click="openElderModal()">+ 新增老人档案</button></div>
+                    <div class="actions"><button v-if="!isAdmin && !isNurse" class="primary-btn" @click="openElderModal()">+ 新增老人档案</button></div>
                 </div>
                 <div class="filters">
                     <div class="field"><label>姓名</label><input v-model="elderFilter.name" placeholder="输入姓名搜索"></div>
@@ -495,8 +495,8 @@ createApp({
                             <td><div class="actions">
                                 <button class="link" @click="openHealthDetail(row.id)">查看健康详情</button>
                                 <button class="ok" @click="openUnifiedHealthReport(row.id)">📋 报告</button>
-                                <button class="ok" @click="openElderModal(row)">编辑</button>
-                                <button class="danger" @click="deleteElder(row.id)">删除</button>
+                                <button v-if="!isAdmin && !isNurse" class="ok" @click="openElderModal(row)">编辑</button>
+                                <button v-if="!isAdmin && !isNurse" class="danger" @click="deleteElder(row.id)">删除</button>
                             </div></td>
                         </tr>
                         </tbody>
@@ -515,7 +515,7 @@ createApp({
                         <p>基于高龄、慢病、预警、护理异常和随访逾期等因素识别重点管理对象，并自动生成随访计划</p>
                     </div>
                     <div class="actions">
-                        <button class="primary-btn" @click="generateFollowupPlans()">生成随访计划</button>
+                        <button v-if="!isAdmin && !isNurse" class="primary-btn" @click="generateFollowupPlans()">生成随访计划</button>
                     </div>
                 </div>
                 <div class="panel-grid" style="margin-bottom:14px;">
@@ -567,7 +567,7 @@ createApp({
                             <td>{{ dateTimeText(row.lastCalculateTime) }}</td>
                             <td><div class="actions">
                                 <button class="link" @click="viewRiskDetail(row)">查看画像</button>
-                                <button class="ok" @click="generateFollowupPlans(row)">生成计划</button>
+                                <button v-if="!isAdmin && !isNurse" class="ok" @click="generateFollowupPlans(row)">生成计划</button>
                             </div></td>
                         </tr>
                         </tbody>
@@ -605,7 +605,7 @@ createApp({
                         <span class="rt-badge" :class="sse.connected ? 'rt-on' : 'rt-off'">
                             <span class="rt-dot"></span>{{ sse.connected ? '实时监测中' : (sse.connecting ? '连接中…' : '未连接') }}
                         </span>
-                        <button class="primary-btn" @click="openWarningModal()">+ 新建预警</button>
+                        <button v-if="!isAdmin && !isNurse" class="primary-btn" @click="openWarningModal()">+ 新建预警</button>
                     </div>
                 </div>
                 <div class="rt-panel">
@@ -671,9 +671,9 @@ createApp({
                             <td><span class="tag" :class="warningStatusClass(row.status)">{{ warningStatusText(row.status) }}</span></td>
                             <td>{{ dateTimeText(row.createTime) }}</td>
                             <td><div class="actions">
-                                <button class="link" v-if="row.status===0" @click="markWarningProcessing(row)">处理中</button>
-                                <button class="link" v-if="row.status===0 || row.status===1" @click="openWarningHandle(row, 'handle')">处理</button>
-                                <button class="warn" v-if="row.status===0" @click="openWarningHandle(row, 'ignore')">忽略</button>
+                                <button class="link" v-if="row.status===0 && !isAdmin && !isNurse" @click="markWarningProcessing(row)">处理中</button>
+                                <button class="link" v-if="(row.status===0 || row.status===1) && !isAdmin && !isNurse" @click="openWarningHandle(row, 'handle')">处理</button>
+                                <button class="warn" v-if="row.status===0 && !isAdmin && !isNurse" @click="openWarningHandle(row, 'ignore')">忽略</button>
                                 <button class="ok" v-else @click="openWarningDetail(row.id)">查看详情</button>
                             </div></td>
                         </tr>
@@ -693,8 +693,8 @@ createApp({
                         <p>制定和执行老人随访计划，记录每次随访结果，确保慢病管理和健康跟踪不遗漏</p>
                     </div>
                     <div class="actions">
-                        <button class="danger" @click="deleteGeneratedFollowupPlans()">清理自动生成计划</button>
-                        <button class="primary-btn" @click="openPlanModal()">+ 新增随访计划</button>
+                        <button v-if="!isAdmin && !isNurse" class="danger" @click="deleteGeneratedFollowupPlans()">清理自动生成计划</button>
+                        <button v-if="!isAdmin && !isNurse" class="primary-btn" @click="openPlanModal()">+ 新增随访计划</button>
                     </div>
                 </div>
                 <div class="filters">
@@ -716,7 +716,12 @@ createApp({
                             <td>{{ row.nextFollowDate || '-' }}</td>
                             <td>{{ row.completedCount || 0 }}/{{ row.totalCount || 0 }}</td>
                             <td><select class="inline-select" :value="row.status" @change="changeFollowPlanStatus(row.id, $event.target.value)"><option value="0">待执行</option><option value="1">进行中</option><option value="2">已完成</option><option value="3">已终止</option></select></td>
-                            <td><div class="actions"><button class="link" @click="openFollowRecords(row)">查看记录</button><button class="link" @click="openRecordModal(row)">记录随访结果</button><button class="link" @click="openPlanModal(row)">编辑</button><button class="danger" @click="deletePlan(row.id)">删除</button></div></td>
+                            <td><div class="actions">
+                                <button class="link" @click="openFollowRecords(row)">查看记录</button>
+                                <button v-if="!isAdmin && !isNurse" class="link" @click="openRecordModal(row)">记录随访结果</button>
+                                <button v-if="!isAdmin && !isNurse" class="link" @click="openPlanModal(row)">编辑</button>
+                                <button v-if="!isAdmin && !isNurse" class="danger" @click="deletePlan(row.id)">删除</button>
+                            </div></td>
                         </tr>
                         </tbody>
                     </table>
@@ -733,7 +738,7 @@ createApp({
                         <h3>干预管理</h3>
                         <p>记录和执行健康干预措施，包括用药调整、生活指导、健康宣教和心理干预</p>
                     </div>
-                    <div class="actions"><button class="primary-btn" @click="openInterventionModal()">+ 新增干预记录</button></div>
+                    <div class="actions"><button v-if="!isAdmin && !isNurse" class="primary-btn" @click="openInterventionModal()">+ 新增干预记录</button></div>
                 </div>
                 <div class="filters">
                     <div class="field"><label>干预类型</label><select v-model="interventionFilter.type"><option value="">全部类型</option><option value="1">健康宣教</option><option value="2">用药指导</option><option value="3">康复训练</option><option value="4">心理干预</option></select></div>
@@ -754,8 +759,8 @@ createApp({
                             <td><span v-if="row.effectEvaluation" class="tag" :class="effectClass(row.effectEvaluation)">{{ effectText(row.effectEvaluation) }}</span><span v-else class="tag tag-default">未评价</span></td>
                             <td><div class="actions">
                                 <button class="link" @click="openInterventionDetail(row)">查看详情</button>
-                                <button class="ok" @click="openInterventionModal(row)">编辑</button>
-                                <button class="danger" @click="deleteIntervention(row.id)">删除</button>
+                                <button v-if="!isAdmin && !isNurse" class="ok" @click="openInterventionModal(row)">编辑</button>
+                                <button v-if="!isAdmin && !isNurse" class="danger" @click="deleteIntervention(row.id)">删除</button>
                             </div></td>
                         </tr>
                         </tbody>
@@ -856,7 +861,11 @@ createApp({
                         <h3>评估记录</h3>
                         <p>记录和管理老人的各类健康评估，包括ADL、慢病和心理评估，支持多维度评分和建议</p>
                     </div>
-                    <div class="actions"><button class="primary-btn" @click="openAssessmentModal()">+ 新增评估记录</button><button class="soft-btn" @click="openUnifiedHealthReport()">📋 综合健康报告</button><button class="soft-btn" @click="openAiReportList()">📂 查看AI评估记录</button></div>
+                    <div class="actions">
+                        <button v-if="!isAdmin && !isNurse" class="primary-btn" @click="openAssessmentModal()">+ 新增评估记录</button>
+                        <button v-if="!isAdmin && !isNurse" class="soft-btn" @click="openUnifiedHealthReport()">📋 综合健康报告</button>
+                        <button class="soft-btn" @click="openAiReportList()">📂 查看AI评估记录</button>
+                    </div>
                 </div>
                 <div class="panel-grid" style="margin-bottom:14px;">
                     <div class="card stat-card"><div class="stat-label">总评估数</div><div class="stat-value">{{ assessmentStats.total || 0 }}</div></div>
@@ -891,8 +900,8 @@ createApp({
                             <td>{{ row.id }}</td><td>{{ row.elderId }}</td><td>{{ assessmentTypeText(row.assessType) }}</td><td>{{ dateText(row.assessDate) }}</td><td>{{ row.score ?? '-' }}</td><td>{{ row.level || '-' }}</td><td>{{ row.result || '-' }}</td><td style="max-width:260px;">{{ row.suggestion || '-' }}</td>
                             <td><div class="actions">
                                 <button class="link" @click="openAssessmentDetail(row.id)">查看详情</button>
-                                <button class="ok" @click="openAssessmentModal(row)">编辑</button>
-                                <button class="danger" @click="deleteAssessment(row.id)">删除</button>
+                                <button v-if="!isAdmin && !isNurse" class="ok" @click="openAssessmentModal(row)">编辑</button>
+                                <button v-if="!isAdmin && !isNurse" class="danger" @click="deleteAssessment(row.id)">删除</button>
                             </div></td>
                         </tr>
                         </tbody>
@@ -950,7 +959,7 @@ createApp({
                         <h3>转诊协同</h3>
                         <p>实现上下级医疗机构间的双向转诊，支持紧急程度分级和床位预留管理</p>
                     </div>
-                    <div class="actions"><button class="primary-btn" @click="openReferralModal()">+ 新建转诊</button></div>
+                    <div class="actions"><button v-if="!isNurse" class="primary-btn" @click="openReferralModal()">+ 新建转诊</button></div>
                 </div>
                 <div class="panel-grid" style="margin-bottom:14px;">
                     <div class="card stat-card"><div class="stat-label">待接收</div><div class="stat-value">{{ referralStats.pending || 0 }}</div></div>
@@ -975,10 +984,10 @@ createApp({
                             <td>{{ urgencyText(row.urgencyLevel) }}</td><td>{{ dateTimeText(row.createTime) }}</td>
                             <td><div class="actions">
                                 <button class="link" @click="openReferralDetail(row.id)">查看详情</button>
-                                <button v-if="Number(row.status)===0" class="ok" @click="acceptReferral(row.id)">接收</button>
-                                <button v-if="[0,1].includes(Number(row.status))" class="warn" @click="openReferralAction(row,'reject')">拒绝</button>
-                                <button v-if="[1,2].includes(Number(row.status))" class="ok" @click="openReferralAction(row,'complete')">完成</button>
-                                <button v-if="[0,1].includes(Number(row.status))" class="danger" @click="cancelReferral(row.id)">取消</button>
+                                <button v-if="Number(row.status)===0 && !isNurse" class="ok" @click="acceptReferral(row.id)">接收</button>
+                                <button v-if="[0,1].includes(Number(row.status)) && !isNurse" class="warn" @click="openReferralAction(row,'reject')">拒绝</button>
+                                <button v-if="[1,2].includes(Number(row.status)) && !isNurse" class="ok" @click="openReferralAction(row,'complete')">完成</button>
+                                <button v-if="[0,1].includes(Number(row.status)) && !isNurse" class="danger" @click="cancelReferral(row.id)">取消</button>
                             </div></td>
                         </tr>
                         </tbody>
@@ -996,7 +1005,7 @@ createApp({
                         <h3>生命体征监测</h3>
                         <p>实时查看老人血压、血糖、体温、心率等体征数据，支持趋势图表和设备绑定管理</p>
                     </div>
-                    <div class="actions"><button class="primary-btn" @click="openDeviceModal()">+ 新增绑定设备</button></div>
+                    <div class="actions"><button v-if="!isAdmin" class="primary-btn" @click="openDeviceModal()">+ 新增绑定设备</button></div>
                 </div>
                 <div class="filters">
                     <div class="field"><label>老人ID</label><input v-model="vitalsState.elderId" type="number" min="1" placeholder="输入老人档案ID"></div>
@@ -1005,7 +1014,7 @@ createApp({
                     <div class="field"><label>结束日期</label><input class="calendar-input" inputmode="none" autocomplete="off" @keydown="blockDateTyping" @paste.prevent @drop.prevent @focus="openDatePicker" @click="openDatePicker" v-model="vitalsState.endDate" type="date"></div>
                     <div class="field"><label>模拟数据天数</label><input v-model.number="vitalsState.mockDays" type="number" min="1" max="365"></div>
                     <div class="field" style="align-self:end;"><button class="primary-btn" @click="loadVitals">查询</button></div>
-                    <div class="field" style="align-self:end;"><button class="soft-btn" @click="generateMockVitals">生成模拟数据</button></div>
+                    <div class="field" style="align-self:end;"><button v-if="!isAdmin" class="soft-btn" @click="generateMockVitals">生成模拟数据</button></div>
                 </div>
                 <div class="grid-2">
                     <div class="card list-card">
@@ -1040,7 +1049,7 @@ createApp({
                                 <td>{{ row.id }}</td><td>{{ row.deviceName || '-' }}</td><td>{{ deviceTypeText(row.deviceType) }}</td><td>{{ row.deviceSn || '-' }}</td>
                                 <td><span class="tag" :class="Number(row.bindStatus)===1?'tag-success':'tag-default'">{{ Number(row.bindStatus)===1 ? '已绑定' : '未绑定' }}</span></td>
                                 <td>{{ dateTimeText(row.bindTime) }}</td>
-                                <td><div class="actions"><button class="danger" v-if="Number(row.bindStatus)===1" @click="unbindDevice(row.id)">解绑</button></div></td>
+                                <td><div class="actions"><button class="danger" v-if="Number(row.bindStatus)===1 && !isAdmin" @click="unbindDevice(row.id)">解绑</button></div></td>
                             </tr>
                             </tbody>
                         </table>
@@ -1152,6 +1161,7 @@ createApp({
                 <div class="card list-card">
                     <div class="list-head">
                         <div><div class="list-title">业务模块累计数据</div><div class="hint">各业务模块累计生成的记录量</div></div>
+                        <button class="link" @click="switchTab('admin-ai-config')">⚙️ AI 配置入口</button>
                     </div>
                     <div id="adminBizChart" class="chart-box" style="height:300px;"></div>
                 </div>
@@ -1277,7 +1287,7 @@ createApp({
                         <h3>护理记录管理</h3>
                         <p>记录和管理老人的日常护理信息，支持异常情况上报给医生处理</p>
                     </div>
-                    <div class="actions"><button class="primary-btn" @click="openNurseRecordModal()">+ 新增护理记录</button></div>
+                    <div class="actions"><button v-if="!isAdmin" class="primary-btn" @click="openNurseRecordModal()">+ 新增护理记录</button></div>
                 </div>
                 <div class="panel-grid" style="margin-bottom:14px;">
                     <div class="card stat-card"><div class="stat-label">总记录</div><div class="stat-value">{{ nurseRecordStats.total || 0 }}</div></div>
@@ -1329,7 +1339,7 @@ createApp({
                         <h3>护理计划管理</h3>
                         <p>制定和执行老人的个性化护理计划，跟踪护理进度和效果评价</p>
                     </div>
-                    <div class="actions"><button class="primary-btn" @click="openNursePlanModal()">+ 新增护理计划</button></div>
+                    <div class="actions"><button v-if="!isAdmin" class="primary-btn" @click="openNursePlanModal()">+ 新增护理计划</button></div>
                 </div>
                 <div class="panel-grid" style="margin-bottom:14px;">
                     <div class="card stat-card"><div class="stat-label">总计划</div><div class="stat-value">{{ nursePlanStats.total || 0 }}</div></div>
@@ -1378,7 +1388,7 @@ createApp({
             <section v-if="activeTab==='exam'" class="card section">
                 <div class="section-head">
                     <div><h3>体检管理</h3><p>管理老人的体检记录，查看各指标变化趋势和异常标记</p></div>
-                    <div class="actions"><button class="primary-btn" @click="openExamModal()">+ 新增体检记录</button></div>
+                    <div class="actions"><button v-if="!isAdmin && !isNurse" class="primary-btn" @click="openExamModal()">+ 新增体检记录</button></div>
                 </div>
                 <div class="panel-grid" style="margin-bottom:14px;">
                     <div class="card stat-card"><div class="stat-label">总记录</div><div class="stat-value">{{ examStats.total || 0 }}</div></div>
@@ -1408,8 +1418,8 @@ createApp({
                             <td><span class="tag" :class="row.abnormalFlag===1?'tag-danger':'tag-success'">{{ row.abnormalFlag===1?'异常':'正常' }}</span></td>
                             <td><div class="actions">
                                 <button class="link" @click="openExamDetail(row)">详情</button>
-                                <button class="ok" @click="openExamModal(row)">编辑</button>
-                                <button class="danger" @click="deleteExam(row.id)">删除</button>
+                                <button v-if="!isAdmin" class="ok" @click="openExamModal(row)">编辑</button>
+                                <button v-if="!isAdmin && !isNurse" class="danger" @click="deleteExam(row.id)">删除</button>
                             </div></td>
                         </tr>
                         </tbody>
@@ -1452,8 +1462,8 @@ createApp({
                             <td>{{ dateTimeText(row.createTime) }}</td>
                             <td><div class="actions">
                                 <button class="link" @click="openReviewRecordDetail(row)">查看</button>
-                                <button class="ok" @click="approveReviewRecord(row.id)">通过</button>
-                                <button class="danger" @click="rejectReviewRecord(row.id)">驳回</button>
+                                <button v-if="!isAdmin && !isNurse" class="ok" @click="approveReviewRecord(row.id)">通过</button>
+                                <button v-if="!isAdmin && !isNurse" class="danger" @click="rejectReviewRecord(row.id)">驳回</button>
                             </div></td>
                         </tr>
                         </tbody>
@@ -1478,8 +1488,8 @@ createApp({
                             <td style="max-width:260px;">{{ row.nursingGoal || '-' }}</td>
                             <td><div class="actions">
                                 <button class="link" @click="openReviewPlanDetail(row)">查看</button>
-                                <button class="ok" @click="approveReviewPlan(row.id)">通过</button>
-                                <button class="danger" @click="rejectReviewPlan(row.id)">驳回</button>
+                                <button v-if="!isAdmin && !isNurse" class="ok" @click="approveReviewPlan(row.id)">通过</button>
+                                <button v-if="!isAdmin && !isNurse" class="danger" @click="rejectReviewPlan(row.id)">驳回</button>
                             </div></td>
                         </tr>
                         </tbody>

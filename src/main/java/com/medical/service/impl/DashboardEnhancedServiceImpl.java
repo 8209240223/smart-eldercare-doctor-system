@@ -7,6 +7,7 @@ import com.medical.service.DashboardEnhancedService;
 import com.medical.service.FollowupTaskService;
 import com.medical.service.RiskProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -95,6 +96,7 @@ public class DashboardEnhancedServiceImpl implements DashboardEnhancedService {
     }
 
     @Override
+    @Cacheable(value = "dashboard:review-counts", key = "'global'", unless = "#result == null")
     public Map<String, Object> getReviewCounts() {
         Map<String, Object> counts = new HashMap<>();
 
@@ -118,6 +120,7 @@ public class DashboardEnhancedServiceImpl implements DashboardEnhancedService {
     }
 
     @Override
+    @Cacheable(value = "dashboard:chronic-overview", key = "'global'", unless = "#result == null")
     public Map<String, Object> getChronicOverview() {
         Map<String, Object> overview = new HashMap<>();
 

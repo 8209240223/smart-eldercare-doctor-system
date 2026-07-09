@@ -1,8 +1,11 @@
 package com.medical.controller;
 
 import com.medical.common.annotation.OperationLog;
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.result.R;
 import com.medical.service.AiConfigService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,10 +17,16 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/ai/config")
+@RequireRole({1})
 public class AiConfigController {
+
+    private static final Logger log = LoggerFactory.getLogger(AiConfigController.class);
 
     @Autowired
     private AiConfigService configService;
+
+    private static final int MAX_KEY_LENGTH = 64;
+    private static final int MAX_VALUE_LENGTH = 1024;
 
     /**
      * 获取所有配置
@@ -34,10 +43,19 @@ public class AiConfigController {
     @OperationLog(module = "AI配置", type = "更新配置", desc = "修改AI配置项")
     public R<?> update(@PathVariable String key, @RequestBody Map<String, String> body,
                        HttpServletRequest request) {
+        if (key == null || key.length() > MAX_KEY_LENGTH) {
+            return R.fail(400, "配置key不合法或超过最大长度");
+        }
         String value = body.get("value");
         String desc = body.get("desc");
         if (value == null || value.isEmpty()) {
-            return R.fail("配置值不能为空");
+            return R.fail(400, "配置值不能为空");
+        }
+        if (value.length() > MAX_VALUE_LENGTH) {
+            return R.fail(400, "配置值超过最大长度（" + MAX_VALUE_LENGTH + "）");
+        }
+        if (desc != null && desc.length() > 256) {
+            return R.fail(400, "配置描述超过最大长度（256）");
         }
         configService.set(key, value, desc);
         configService.reload();
@@ -56,16 +74,19 @@ public class AiConfigController {
                 for (Map.Entry<String, Map<String, String>> entry : body.entrySet()) {
                     String key = entry.getKey();
                     Map<String, String> item = entry.getValue();
-                    if (item == null) continue;
+                    if (item == null || key == null || key.length() > MAX_KEY_LENGTH) continue;
                     String value = item.get("value");
                     String desc = item.get("desc");
+                    if (value != null && value.length() > MAX_VALUE_LENGTH) {
+                        return R.fail(400, "配置项[" + key + "]值超过最大长度");
+                    }
                     configService.set(key, value != null ? value : "", desc);
                 }
                 configService.reload();
             }
             return R.ok("配置已更新");
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("批量更新AI配置失败", e);
             return R.fail(500, "保存配置失败: " + e.getMessage());
         }
     }

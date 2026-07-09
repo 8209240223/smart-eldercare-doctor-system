@@ -1,6 +1,7 @@
 package com.medical.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.result.R;
 import com.medical.service.RiskProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,15 +14,17 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/risk")
+@RequireRole({1, 2, 3})
 public class RiskProfileController {
 
     @Autowired
     private RiskProfileService riskProfileService;
 
     /**
-     * 手动触发全量风险计算
+     * 手动触发全量风险计算（仅医生）
      */
     @PostMapping("/elders/calculate")
+    @RequireRole({2})
     public R<Integer> calculateAllRisk() {
         int count = riskProfileService.calculateAllRisk();
         return R.ok("完成风险计算，共计算" + count + "位老人", count);
@@ -61,9 +64,10 @@ public class RiskProfileController {
     }
 
     /**
-     * 单个老人风险计算(测试用)
+     * 单个老人风险计算（仅医生）
      */
     @PostMapping("/elders/{elderId}/calculate")
+    @RequireRole({2})
     public R<Map<String, Object>> calculateRisk(@PathVariable Long elderId) {
         Map<String, Object> result = riskProfileService.getRiskProfileDetail(elderId);
         return R.ok("风险评分计算完成", result);

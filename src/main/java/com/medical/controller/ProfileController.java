@@ -3,6 +3,7 @@ package com.medical.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.annotation.OperationLog;
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.utils.AccountSecurityValidator;
 import com.medical.common.utils.ProfileInputValidator;
 import com.medical.common.result.R;
@@ -34,6 +35,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/profile")
+@RequireRole({1, 2, 3})
 public class ProfileController {
 
     @Autowired
@@ -178,9 +180,18 @@ public class ProfileController {
     }
 
     @PutMapping("/messages/{id}/read")
-    public R<?> markRead(@PathVariable Long id) {
+    public R<?> markRead(@PathVariable Long id, HttpServletRequest request) {
+        Long currentUserId = (Long) request.getAttribute("currentUserId");
+        Integer currentUserType = (Integer) request.getAttribute("currentUserType");
         SysMessage msg = sysMessageMapper.selectById(id);
-        if (msg != null) {
+        if (msg == null) {
+            return R.fail(404, "消息不存在");
+        }
+        if (currentUserId != null && !msg.getUserId().equals(currentUserId)
+                && (currentUserType == null || currentUserType != 1)) {
+            return R.fail(403, "无权操作他人消息");
+        }
+        if (msg.getIsRead() == null || msg.getIsRead() != 1) {
             msg.setIsRead(1);
             sysMessageMapper.updateById(msg);
         }
@@ -188,9 +199,17 @@ public class ProfileController {
     }
 
     @PutMapping("/messages/read-all")
-    public R<?> markAllRead(@RequestParam(required = false) Long userId) {
+    public R<?> markAllRead(HttpServletRequest request) {
+        Long currentUserId = (Long) request.getAttribute("currentUserId");
+        Integer currentUserType = (Integer) request.getAttribute("currentUserType");
+        if (currentUserId == null) {
+            return R.fail(401, "未登录或Token无效");
+        }
+        boolean isAdmin = currentUserType != null && currentUserType == 1;
+        if (!isAdmin) {
+            return R.fail(403, "仅管理员可批量标记所有消息已读");
+        }
         LambdaQueryWrapper<SysMessage> wrapper = new LambdaQueryWrapper<>();
-        if (userId != null) wrapper.eq(SysMessage::getUserId, userId);
         wrapper.eq(SysMessage::getIsRead, 0);
         SysMessage update = new SysMessage();
         update.setIsRead(1);

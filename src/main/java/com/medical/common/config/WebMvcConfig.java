@@ -21,6 +21,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Autowired
     private JwtInterceptor jwtInterceptor;
 
+    @Autowired
+    private com.medical.common.interceptor.RoleInterceptor roleInterceptor;
+
     @Value("${file.upload-path:./upload}")
     private String uploadPath;
 
@@ -36,23 +39,29 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        String[] excludes = {
+                "/api/auth/login",
+                "/api/auth/register",
+                "/api/auth/captcha",
+                "/api/auth/resetPassword",
+                "/api/warnings/stream",
+                "/",
+                "/index.html",
+                "/static/**",
+                "/pages/**",
+                "/css/**",
+                "/js/**",
+                "/img/**",
+                "/lib/**"
+        };
         registry.addInterceptor(jwtInterceptor)
                 .addPathPatterns("/api/**")
-                .excludePathPatterns(
-                        "/api/auth/login",
-                        "/api/auth/register",
-                        "/api/auth/captcha",
-                        "/api/auth/resetPassword",
-                        "/api/warnings/stream",
-                        "/",
-                        "/index.html",
-                        "/static/**",
-                        "/pages/**",
-                        "/css/**",
-                        "/js/**",
-                        "/img/**",
-                        "/lib/**"
-                );
+                .excludePathPatterns(excludes)
+                .order(1);
+        registry.addInterceptor(roleInterceptor)
+                .addPathPatterns("/api/**")
+                .excludePathPatterns(excludes)
+                .order(2);
     }
 
     @Override
