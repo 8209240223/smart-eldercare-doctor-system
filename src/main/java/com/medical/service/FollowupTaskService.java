@@ -2,6 +2,7 @@ package com.medical.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.entity.FollowupTask;
+import com.medical.dto.FollowupTaskGenerationResult;
 
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,11 @@ public interface FollowupTaskService {
     int generateAutoTasks();
 
     /**
+     * 为指定老人和随访计划生成任务；已有待执行任务时直接复用。
+     */
+    FollowupTaskGenerationResult generateForElder(Long elderId, Long doctorId, Long planId);
+
+    /**
      * 查询今日待执行任务
      * @return 今日任务列表
      */
@@ -32,7 +38,7 @@ public interface FollowupTaskService {
      * @param status 任务状态
      * @return 分页结果
      */
-    Page<Map<String, Object>> getTaskList(Integer pageNum, Integer pageSize, Long doctorId, Integer status);
+    Page<Map<String, Object>> getTaskList(Integer pageNum, Integer pageSize, Long doctorId, Long elderId, Integer status);
 
     /**
      * 完成随访任务

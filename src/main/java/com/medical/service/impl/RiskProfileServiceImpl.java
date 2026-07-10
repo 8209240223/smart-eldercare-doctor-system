@@ -228,6 +228,8 @@ public class RiskProfileServiceImpl implements RiskProfileService {
         planWrapper.isNotNull("next_follow_date");
         planWrapper.lt("next_follow_date", LocalDate.now());
         planWrapper.eq("deleted", 0);
+        planWrapper.orderByAsc("next_follow_date");
+        planWrapper.last("LIMIT 1");
         FollowPlan overduePlan = followPlanMapper.selectOne(planWrapper);
         if (overduePlan != null && overduePlan.getNextFollowDate() != null) {
             int overdueDays = (int) ChronoUnit.DAYS.between(overduePlan.getNextFollowDate(), LocalDate.now());

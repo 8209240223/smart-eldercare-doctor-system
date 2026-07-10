@@ -22,7 +22,7 @@ public class AssessmentRecord implements Serializable {
 
     private Long doctorId;
 
-    /** 评估类型: 1日常生活能力 2认知功能 3情绪/心理 4营养 5跌倒风险 6综合 */
+    /** 评估类型: 1日常生活能力 2认知功能 3情绪/心理 4营养 5跌倒风险 6压疮风险 7疼痛 8社会功能 9综合 */
     private Integer assessType;
 
     private LocalDate assessDate;

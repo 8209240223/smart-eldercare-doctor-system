@@ -8,6 +8,7 @@ import com.medical.entity.TimelineEvent;
 import com.medical.entity.WarningEventLog;
 import com.medical.mapper.HealthWarningMapper;
 import com.medical.mapper.WarningEventLogMapper;
+import com.medical.service.ElderReferenceService;
 import com.medical.service.SseService;
 import com.medical.service.TimelineService;
 import com.medical.service.WarningService;
@@ -41,6 +42,9 @@ public class WarningServiceImpl implements WarningService {
     @Autowired
     private TimelineService timelineService;
 
+    @Autowired
+    private ElderReferenceService elderReferenceService;
+
     @Override
     public Page<HealthWarning> list(Integer pageNum, Integer pageSize, Integer status, Integer warningLevel, Long elderId) {
         Page<HealthWarning> page = new Page<>(pageNum, pageSize);
@@ -69,6 +73,7 @@ public class WarningServiceImpl implements WarningService {
         if (entity == null) {
             throw new BusinessException(404, "预警不存在");
         }
+        elderReferenceService.requireActive(entity.getElderId());
         entity.setStatus(2);
         entity.setHandleTime(LocalDateTime.now());
         entity.setHandleResult(handleResult);
@@ -92,6 +97,7 @@ public class WarningServiceImpl implements WarningService {
         if (entity == null) {
             throw new BusinessException(404, "预警不存在");
         }
+        elderReferenceService.requireActive(entity.getElderId());
         entity.setStatus(3);
         entity.setHandleTime(LocalDateTime.now());
         entity.setHandleResult(handleResult);
@@ -112,6 +118,7 @@ public class WarningServiceImpl implements WarningService {
         if (entity == null) {
             throw new BusinessException(404, "预警不存在");
         }
+        elderReferenceService.requireActive(entity.getElderId());
         if (entity.getStatus() != null && entity.getStatus() != 0 && entity.getStatus() != 1) {
             throw new BusinessException(400, "只有待处理或处理中的预警可以标记为处理中");
         }
@@ -131,6 +138,10 @@ public class WarningServiceImpl implements WarningService {
     @Override
     @Transactional
     public Long create(HealthWarning warning) {
+        if (warning == null) {
+            throw new BusinessException(400, "预警信息不能为空");
+        }
+        elderReferenceService.requireActive(warning.getElderId());
         warning.setStatus(0);
         healthWarningMapper.insert(warning);
         Long warningId = warning.getId();
@@ -182,6 +193,11 @@ public class WarningServiceImpl implements WarningService {
     @Override
     @Transactional
     public void markAsRead(Long id, Long doctorId) {
+        HealthWarning warning = healthWarningMapper.selectById(id);
+        if (warning == null) {
+            throw new BusinessException(404, "预警不存在");
+        }
+        elderReferenceService.requireActive(warning.getElderId());
         // 标记已读（不改变状态，只是记录已读事件）
         WarningEventLog eventLog = new WarningEventLog();
         eventLog.setWarningId(id);
@@ -297,6 +313,7 @@ public class WarningServiceImpl implements WarningService {
     @Override
     @Transactional
     public Long autoDetectAndCreate(Long elderId, Integer dataType, String dataValue) {
+        elderReferenceService.requireActive(elderId);
         // 根据数据类型和值自动判断预警等级
         HealthWarning warning = new HealthWarning();
         warning.setElderId(elderId);

@@ -15,9 +15,11 @@ import com.medical.mapper.ElderRiskProfileMapper;
 import com.medical.mapper.FollowPlanMapper;
 import com.medical.mapper.FollowRecordMapper;
 import com.medical.service.FollowUpService;
+import com.medical.service.ElderReferenceService;
 import com.medical.service.TimelineService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
@@ -48,6 +50,9 @@ public class FollowUpServiceImpl implements FollowUpService {
     @Autowired
     private TimelineService timelineService;
 
+    @Autowired
+    private ElderReferenceService elderReferenceService;
+
     @Override
     public Page<FollowPlan> listPlans(Integer pageNum, Integer pageSize, Integer status, Integer diseaseType, Long elderId) {
         Page<FollowPlan> page = new Page<>(pageNum, pageSize);
@@ -63,6 +68,10 @@ public class FollowUpServiceImpl implements FollowUpService {
     @Override
     public Long createPlan(FollowPlan plan) {
         validatePlan(plan);
+        ElderInfo elder = elderReferenceService.requireActive(plan.getElderId());
+        if (plan.getDoctorId() == null) {
+            plan.setDoctorId(elder.getDoctorId());
+        }
         if (!StringUtils.hasText(plan.getPlanName())) {
             throw new BusinessException(400, "计划名称不能为空");
         }
@@ -87,15 +96,17 @@ public class FollowUpServiceImpl implements FollowUpService {
     }
 
     @Override
+    @Transactional
     public Map<String, Object> generateRiskFollowPlans(Long doctorId, Long elderId) {
         LambdaQueryWrapper<ElderRiskProfile> riskWrapper = new LambdaQueryWrapper<>();
-        riskWrapper.ge(ElderRiskProfile::getRiskLevel, 3)
-                .eq(elderId != null, ElderRiskProfile::getElderId, elderId)
+        riskWrapper.eq(elderId != null, ElderRiskProfile::getElderId, elderId)
+                .ge(elderId == null, ElderRiskProfile::getRiskLevel, 3)
                 .orderByDesc(ElderRiskProfile::getRiskLevel)
                 .orderByDesc(ElderRiskProfile::getRiskScore);
         List<ElderRiskProfile> profiles = elderRiskProfileMapper.selectList(riskWrapper);
 
         List<Map<String, Object>> createdPlans = new ArrayList<>();
+        List<Map<String, Object>> reusedPlans = new ArrayList<>();
         List<String> skippedReasons = new ArrayList<>();
         for (ElderRiskProfile profile : profiles) {
             ElderInfo elder = elderInfoMapper.selectById(profile.getElderId());
@@ -107,12 +118,9 @@ public class FollowUpServiceImpl implements FollowUpService {
                 skippedReasons.add(elder.getName() + " 不属于当前医生，已跳过");
                 continue;
             }
-            long existing = followPlanMapper.selectCount(new LambdaQueryWrapper<FollowPlan>()
-                    .eq(FollowPlan::getElderId, profile.getElderId())
-                    .in(FollowPlan::getStatus, 0, 1)
-                    .likeRight(FollowPlan::getRemark, AUTO_RISK_MARK));
-            if (existing > 0) {
-                skippedReasons.add(elder.getName() + " 已存在自动生成的进行中随访计划");
+            FollowPlan existing = followPlanMapper.selectLatestActiveByElderForUpdate(profile.getElderId());
+            if (existing != null) {
+                reusedPlans.add(toGeneratedPlanView(existing, profile, elder));
                 continue;
             }
 
@@ -124,11 +132,12 @@ public class FollowUpServiceImpl implements FollowUpService {
         Map<String, Object> result = new HashMap<>();
         result.put("createdCount", createdPlans.size());
         result.put("createdPlans", createdPlans);
+        result.put("reusedCount", reusedPlans.size());
+        result.put("reusedPlans", reusedPlans);
         result.put("skippedCount", skippedReasons.size());
         result.put("skippedReasons", skippedReasons);
-        result.put("message", createdPlans.isEmpty()
-                ? "没有生成新的随访计划：符合条件的老人可能已经存在自动生成计划，或当前筛选下没有高危/重点老人"
-                : "已生成 " + createdPlans.size() + " 条随访计划");
+        result.put("message", "已生成 " + createdPlans.size() + " 条随访计划，复用 "
+                + reusedPlans.size() + " 条活动计划");
         return result;
     }
 
@@ -145,6 +154,9 @@ public class FollowUpServiceImpl implements FollowUpService {
             throw new BusinessException(404, "计划不存在");
         }
         validatePlan(plan);
+        if (plan.getElderId() != null) {
+            elderReferenceService.requireActive(plan.getElderId());
+        }
         BeanUtil.copyProperties(plan, existing, CopyOptions.create()
                 .ignoreNullValue()
                 .setIgnoreProperties("id", "createTime", "updateTime", "completedCount"));
@@ -183,11 +195,34 @@ public class FollowUpServiceImpl implements FollowUpService {
     }
 
     @Override
-    public Long createRecord(FollowRecord record) {
+    @Transactional(rollbackFor = Exception.class)
+    public synchronized Long createRecord(FollowRecord record) {
         validateRecord(record);
         FollowPlan plan = followPlanMapper.selectById(record.getPlanId());
         if (plan == null) {
             throw new BusinessException(404, "随访计划不存在");
+        }
+        ElderInfo elder = elderReferenceService.requireActive(plan.getElderId());
+        if (!plan.getElderId().equals(record.getElderId())) {
+            throw new BusinessException(400, "随访记录老人必须与随访计划中的老人一致");
+        }
+        if (record.getDoctorId() != null && plan.getDoctorId() != null
+                && !record.getDoctorId().equals(plan.getDoctorId())) {
+            throw new BusinessException(400, "随访记录医生必须与随访计划中的责任医生一致");
+        }
+        record.setElderId(plan.getElderId());
+        record.setDoctorId(plan.getDoctorId() != null ? plan.getDoctorId() : elder.getDoctorId());
+        if (plan.getStatus() != null && (plan.getStatus() == 2 || plan.getStatus() == 3)) {
+            throw new BusinessException(400, "已完成或已终止的随访计划不能新增记录");
+        }
+
+        int completedCount = plan.getCompletedCount() == null ? 0 : plan.getCompletedCount();
+        int totalCount = plan.getTotalCount() == null ? 0 : plan.getTotalCount();
+        if (totalCount <= 0) {
+            throw new BusinessException(400, "随访计划总次数配置无效");
+        }
+        if (completedCount >= totalCount) {
+            throw new BusinessException(400, "随访计划次数已完成，不能继续新增记录");
         }
 
         if (record.getFollowDate() == null) {
@@ -195,6 +230,8 @@ public class FollowUpServiceImpl implements FollowUpService {
         }
         if (record.getNextFollowDate() == null) {
             record.setNextFollowDate(calculateNextDate(record.getFollowDate().toLocalDate(), plan.getFrequencyType()));
+        } else if (!record.getNextFollowDate().isAfter(record.getFollowDate().toLocalDate())) {
+            throw new BusinessException(400, "下次随访日期必须晚于本次随访日期");
         }
         if (plan.getNextFollowDate() != null) {
             record.setIsOverdue(record.getFollowDate().toLocalDate().isAfter(plan.getNextFollowDate()) ? 1 : 0);
@@ -204,9 +241,9 @@ public class FollowUpServiceImpl implements FollowUpService {
 
         followRecordMapper.insert(record);
 
-        plan.setCompletedCount((plan.getCompletedCount() == null ? 0 : plan.getCompletedCount()) + 1);
+        plan.setCompletedCount(completedCount + 1);
         plan.setNextFollowDate(record.getNextFollowDate());
-        if (plan.getCompletedCount() >= (plan.getTotalCount() == null ? 0 : plan.getTotalCount())) {
+        if (plan.getCompletedCount() >= totalCount) {
             plan.setStatus(2);
         }
         followPlanMapper.updateById(plan);
@@ -224,6 +261,8 @@ public class FollowUpServiceImpl implements FollowUpService {
         Map<String, Object> stats = new HashMap<>();
         long activePlans = followPlanMapper.selectCount(
                 new LambdaQueryWrapper<FollowPlan>().eq(FollowPlan::getStatus, 1));
+        long completedPlans = followPlanMapper.selectCount(
+                new LambdaQueryWrapper<FollowPlan>().eq(FollowPlan::getStatus, 2));
         long overdueCount = followPlanMapper.selectCount(
                 new LambdaQueryWrapper<FollowPlan>()
                         .eq(FollowPlan::getStatus, 1)
@@ -240,7 +279,7 @@ public class FollowUpServiceImpl implements FollowUpService {
         stats.put("totalRecords", totalRecords);
         stats.put("overdueCount", overdueCount);
         stats.put("dueTodayCount", dueToday);
-        stats.put("completionRate", totalPlans == 0 ? 0 : Math.round(activePlans * 100.0 / totalPlans));
+        stats.put("completionRate", totalPlans == 0 ? 0 : Math.round(completedPlans * 100.0 / totalPlans));
         return stats;
     }
 
@@ -277,17 +316,17 @@ public class FollowUpServiceImpl implements FollowUpService {
     }
 
     private FollowPlan buildRiskFollowPlan(ElderRiskProfile profile, ElderInfo elder, Long requestDoctorId) {
-        Integer riskLevel = profile.getRiskLevel() == null ? 3 : profile.getRiskLevel();
+        Integer riskLevel = profile.getRiskLevel() == null ? 1 : profile.getRiskLevel();
         LocalDate startDate = LocalDate.now();
         FollowPlan plan = new FollowPlan();
         plan.setElderId(profile.getElderId());
         plan.setDoctorId(elder.getDoctorId() != null ? elder.getDoctorId() : requestDoctorId);
         plan.setPlanName(getRiskLevelText(riskLevel) + "风险随访计划-" + elder.getName());
         plan.setDiseaseType(inferDiseaseType(profile.getRiskTags()));
-        plan.setFrequencyType(riskLevel >= 4 ? 2 : 3);
+        plan.setFrequencyType(frequencyForRiskLevel(riskLevel));
         plan.setStartDate(startDate);
-        plan.setNextFollowDate(startDate.plusDays(riskLevel >= 4 ? 3 : 7));
-        plan.setTotalCount(riskLevel >= 4 ? 12 : 8);
+        plan.setNextFollowDate(startDate.plusDays(initialDueDaysForRiskLevel(riskLevel)));
+        plan.setTotalCount(totalCountForRiskLevel(riskLevel));
         plan.setCompletedCount(0);
         plan.setStatus(1);
         plan.setEndDate(calculateEndDate(plan.getStartDate(), plan.getFrequencyType(), plan.getTotalCount()));
@@ -314,11 +353,38 @@ public class FollowUpServiceImpl implements FollowUpService {
     private Integer inferDiseaseType(String riskTags) {
         String tags = riskTags == null ? "" : riskTags;
         if (tags.contains("糖尿病")) return 2;
-        if (tags.contains("冠心病")) return 3;
-        if (tags.contains("脑卒中")) return 4;
-        if (tags.contains("慢阻肺")) return 5;
-        if (tags.contains("阿尔茨海默")) return 6;
-        return 1;
+        if (tags.contains("精神") || tags.contains("抑郁") || tags.contains("认知")) return 3;
+        if (tags.contains("冠心病")) return 4;
+        if (tags.contains("脑卒中")) return 5;
+        if (tags.contains("高血压")) return 1;
+        return 6;
+    }
+
+    private int frequencyForRiskLevel(int riskLevel) {
+        switch (riskLevel) {
+            case 4: return 1;
+            case 3: return 2;
+            case 2: return 3;
+            default: return 4;
+        }
+    }
+
+    private int initialDueDaysForRiskLevel(int riskLevel) {
+        switch (riskLevel) {
+            case 4: return 3;
+            case 3: return 7;
+            case 2: return 14;
+            default: return 30;
+        }
+    }
+
+    private int totalCountForRiskLevel(int riskLevel) {
+        switch (riskLevel) {
+            case 4: return 12;
+            case 3: return 12;
+            case 2: return 4;
+            default: return 2;
+        }
     }
 
     private String getRiskLevelText(Integer riskLevel) {

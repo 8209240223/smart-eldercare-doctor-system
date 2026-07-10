@@ -1,0 +1,233 @@
+.rana-pet-button {
+  position: fixed;
+  z-index: 70;
+  width: 112px;
+  height: 122px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  filter: drop-shadow(0 10px 14px rgb(15 118 110 / 18%));
+  transition: transform 180ms ease, filter 180ms ease;
+}
+
+.rana-pet-button:hover {
+  transform: translateY(-4px) scale(1.03);
+  filter: drop-shadow(0 14px 18px rgb(14 116 144 / 24%));
+}
+
+.rana-pet-button[data-pet-action="runningLeft"] {
+  animation: rana-patrol-left 1050ms ease-in-out;
+}
+
+.rana-pet-button[data-pet-action="runningRight"] {
+  animation: rana-patrol-right 1050ms ease-in-out;
+}
+
+.rana-pet-button:focus-visible {
+  outline: 3px solid rgb(14 165 164 / 35%);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.rana-pet-halo {
+  position: absolute;
+  left: 16px;
+  right: 12px;
+  bottom: 2px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgb(45 212 191 / 20%);
+  filter: blur(7px);
+}
+
+.rana-assistant-pet-sprite {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 108px;
+  height: 117px;
+  background-image: url("/pets/rana-kaname-cat/spritesheet.webp");
+  background-repeat: no-repeat;
+  background-size: 864px 1053px;
+  image-rendering: auto;
+}
+
+.rana-pet-online {
+  position: absolute;
+  right: 7px;
+  bottom: 10px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgb(34 197 94 / 16%);
+}
+
+.rana-assistant-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgb(15 23 42 / 18%);
+  backdrop-filter: blur(2px);
+  animation: rana-overlay-in 160ms ease-out;
+}
+
+.rana-assistant-dialog {
+  position: fixed;
+  right: 28px;
+  bottom: 136px;
+  z-index: 81;
+  display: grid;
+  grid-template-rows: auto minmax(250px, 1fr) auto;
+  width: min(430px, calc(100vw - 40px));
+  height: min(620px, calc(100vh - 172px));
+  min-height: 440px;
+  overflow: hidden;
+  border: 1px solid rgb(203 213 225 / 78%);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgb(15 23 42 / 24%);
+  animation: rana-dialog-in 190ms ease-out;
+}
+
+.rana-assistant-header {
+  display: flex;
+  min-height: 74px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 14px 18px;
+  background: linear-gradient(115deg, #0f9f9b 0%, #1388a3 58%, #2878b8 100%);
+}
+
+.rana-icon-button,
+.rana-composer-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.rana-icon-button {
+  color: white;
+  background: rgb(255 255 255 / 12%);
+}
+
+.rana-icon-button:hover {
+  background: rgb(255 255 255 / 22%);
+}
+
+.rana-icon-button svg,
+.rana-composer-button svg {
+  width: 17px;
+  height: 17px;
+}
+
+.rana-composer-button {
+  border-color: rgb(226 232 240);
+}
+
+.rana-composer-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.rana-icon-button:focus-visible {
+  outline: 2px solid rgb(255 255 255 / 72%);
+  outline-offset: 2px;
+}
+
+.rana-composer-button:focus-visible {
+  outline: 2px solid rgb(13 148 136 / 48%);
+  outline-offset: 2px;
+}
+
+.rana-icon-button:disabled,
+.rana-composer-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.rana-message-list {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 13px;
+  overflow-y: auto;
+  padding: 18px;
+  background: #f6fafb;
+  scrollbar-width: thin;
+  scrollbar-color: #b8d9dc transparent;
+}
+
+.rana-quick-list {
+  scrollbar-width: none;
+}
+
+.rana-quick-list::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes rana-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes rana-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes rana-patrol-left {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-34px); }
+}
+
+@keyframes rana-patrol-right {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(18px); }
+}
+
+@media (max-width: 640px) {
+  .rana-pet-button {
+    transform-origin: center;
+  }
+
+  .rana-pet-button:hover {
+    transform: translateY(-3px) scale(1.01);
+  }
+
+  .rana-assistant-overlay {
+    background: rgb(15 23 42 / 26%);
+  }
+
+  .rana-assistant-dialog {
+    right: 8px;
+    bottom: 8px;
+    width: calc(100vw - 16px);
+    height: min(680px, calc(100dvh - 16px));
+    min-height: 420px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rana-pet-button,
+  .rana-assistant-dialog,
+  .rana-assistant-overlay {
+    animation: none;
+    transition: none;
+  }
+}

@@ -16,6 +16,17 @@ Redis-8.8.0-Windows-x64-cygwin-with-Service/*.log
 *.log
 *.tmp
 upload/
+.codex-runtime/
+output/
+test-results/
+frontend/test-results/
+frontend/debug-*.png
+
+# Local credentials and machine-specific environment values
+.env
+.env.local
+frontend/.env
+frontend/.env.local
 
 # ===== IDE =====
 .idea/

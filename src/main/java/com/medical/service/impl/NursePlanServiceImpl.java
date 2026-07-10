@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.exception.BusinessException;
 import com.medical.entity.NursingPlan;
 import com.medical.mapper.NursingPlanMapper;
+import com.medical.service.ElderReferenceService;
 import com.medical.service.NursePlanService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,9 @@ public class NursePlanServiceImpl implements NursePlanService {
 
     @Autowired
     private NursingPlanMapper nursingPlanMapper;
+
+    @Autowired
+    private ElderReferenceService elderReferenceService;
 
     @Override
     public Page<NursingPlan> list(Integer pageNum, Integer pageSize, Long elderId, Long nurseId,
@@ -56,6 +60,7 @@ public class NursePlanServiceImpl implements NursePlanService {
     @Override
     public Long create(NursingPlan plan) {
         validateRequired(plan);
+        elderReferenceService.requireActive(plan.getElderId());
         if (plan.getDeleted() == null) {
             plan.setDeleted(0);
         }
@@ -80,6 +85,7 @@ public class NursePlanServiceImpl implements NursePlanService {
             throw new BusinessException(400, "已完成或已终止的计划不能修改");
         }
         validateRequired(plan);
+        elderReferenceService.requireActive(plan.getElderId());
         BeanUtil.copyProperties(plan, existing, CopyOptions.create()
                 .ignoreNullValue()
                 .setIgnoreProperties("id", "createTime", "updateTime", "deleted", "completedCount"));
@@ -101,6 +107,7 @@ public class NursePlanServiceImpl implements NursePlanService {
     @Override
     public void updateStatus(Long id, Integer status) {
         NursingPlan existing = getById(id);
+        elderReferenceService.requireActive(existing.getElderId());
         validateStatus(status);
         if (status == 2 && existing.getStatus() != null && existing.getStatus() == 1) {
             // 已完成 -> 设置完成的次数
@@ -113,6 +120,7 @@ public class NursePlanServiceImpl implements NursePlanService {
     @Override
     public void incrementCompleted(Long id) {
         NursingPlan existing = getById(id);
+        elderReferenceService.requireActive(existing.getElderId());
         if (existing.getStatus() == null || existing.getStatus() != 1) {
             throw new BusinessException(400, "只有进行中的计划才能增加完成次数");
         }

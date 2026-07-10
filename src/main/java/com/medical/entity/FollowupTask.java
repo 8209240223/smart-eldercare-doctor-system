@@ -23,6 +23,11 @@ public class FollowupTask implements Serializable {
     private Long elderId;
 
     /**
+     * 关联随访计划ID
+     */
+    private Long planId;
+
+    /**
      * 负责医生ID
      */
     private Long doctorId;

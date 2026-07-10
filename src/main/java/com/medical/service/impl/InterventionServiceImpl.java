@@ -6,8 +6,11 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.exception.BusinessException;
 import com.medical.entity.InterventionRecord;
+import com.medical.entity.FollowRecord;
 import com.medical.entity.TimelineEvent;
+import com.medical.mapper.FollowRecordMapper;
 import com.medical.mapper.InterventionRecordMapper;
+import com.medical.service.ElderReferenceService;
 import com.medical.service.InterventionService;
 import com.medical.service.TimelineService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +29,12 @@ public class InterventionServiceImpl implements InterventionService {
 
     @Autowired
     private TimelineService timelineService;
+
+    @Autowired
+    private FollowRecordMapper followRecordMapper;
+
+    @Autowired
+    private ElderReferenceService elderReferenceService;
 
     @Override
     public Page<InterventionRecord> list(Integer pageNum, Integer pageSize, Long elderId, Long followRecordId, Integer type) {
@@ -52,6 +61,7 @@ public class InterventionServiceImpl implements InterventionService {
     @Override
     public Long create(InterventionRecord record) {
         validateRequired(record);
+        validateReferences(record);
         if (record.getStatus() == null) {
             record.setStatus(1);
         }
@@ -73,6 +83,7 @@ public class InterventionServiceImpl implements InterventionService {
         BeanUtil.copyProperties(record, existing, CopyOptions.create()
                 .ignoreNullValue()
                 .setIgnoreProperties("id", "createTime", "updateTime", "deleted"));
+        validateReferences(existing);
         interventionRecordMapper.updateById(existing);
         addInterventionTimeline(existing);
     }
@@ -127,11 +138,25 @@ public class InterventionServiceImpl implements InterventionService {
         }
     }
 
+    private void validateReferences(InterventionRecord record) {
+        elderReferenceService.requireActive(record.getElderId());
+        if (record.getFollowRecordId() == null) {
+            return;
+        }
+        FollowRecord followRecord = followRecordMapper.selectById(record.getFollowRecordId());
+        if (followRecord == null) {
+            throw new BusinessException(404, "关联的随访记录不存在");
+        }
+        if (!record.getElderId().equals(followRecord.getElderId())) {
+            throw new BusinessException(400, "干预记录与关联随访记录不属于同一位老人");
+        }
+    }
+
     private void addInterventionTimeline(InterventionRecord record) {
         TimelineEvent event = new TimelineEvent();
         event.setElderId(record.getElderId());
         event.setDoctorId(record.getDoctorId());
-        event.setEventType(6);
+        event.setEventType(11);
         event.setEventTitle("干预记录：" + record.getInterventionTitle());
         event.setEventContent(record.getInterventionContent());
         event.setSourceType("intervention_record");

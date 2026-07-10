@@ -148,10 +148,12 @@ public class ProfileController {
     @GetMapping("/logs")
     public R<?> operationLogs(@RequestParam(defaultValue = "1") Integer pageNum,
                               @RequestParam(defaultValue = "20") Integer pageSize,
-                              @RequestParam(required = false) Long userId) {
+                              HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) return R.fail(401, "未登录或Token无效");
         Page<SysOperationLog> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<SysOperationLog> wrapper = new LambdaQueryWrapper<>();
-        if (userId != null) wrapper.eq(SysOperationLog::getUserId, userId);
+        wrapper.eq(SysOperationLog::getUserId, userId);
         wrapper.orderByDesc(SysOperationLog::getCreateTime);
         return R.ok(sysOperationLogMapper.selectPage(page, wrapper));
     }
@@ -159,38 +161,45 @@ public class ProfileController {
     @GetMapping("/messages")
     public R<?> messages(@RequestParam(defaultValue = "1") Integer pageNum,
                          @RequestParam(defaultValue = "20") Integer pageSize,
-                         @RequestParam(required = false) Long userId,
-                         @RequestParam(required = false) Integer isRead) {
+                         @RequestParam(required = false) Integer isRead,
+                         HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) return R.fail(401, "未登录或Token无效");
         Page<SysMessage> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<SysMessage> wrapper = new LambdaQueryWrapper<>();
-        if (userId != null) wrapper.eq(SysMessage::getUserId, userId);
+        wrapper.eq(SysMessage::getUserId, userId);
         if (isRead != null) wrapper.eq(SysMessage::getIsRead, isRead);
         wrapper.orderByDesc(SysMessage::getCreateTime);
         return R.ok(sysMessageMapper.selectPage(page, wrapper));
     }
 
     @GetMapping("/messages/unread-count")
-    public R<?> unreadCount(@RequestParam(required = false) Long userId) {
+    public R<?> unreadCount(HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) return R.fail(401, "未登录或Token无效");
         LambdaQueryWrapper<SysMessage> wrapper = new LambdaQueryWrapper<>();
-        if (userId != null) wrapper.eq(SysMessage::getUserId, userId);
+        wrapper.eq(SysMessage::getUserId, userId);
         wrapper.eq(SysMessage::getIsRead, 0);
         return R.ok(sysMessageMapper.selectCount(wrapper));
     }
 
     @PutMapping("/messages/{id}/read")
-    public R<?> markRead(@PathVariable Long id) {
+    public R<?> markRead(@PathVariable Long id, HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) return R.fail(401, "未登录或Token无效");
         SysMessage msg = sysMessageMapper.selectById(id);
-        if (msg != null) {
-            msg.setIsRead(1);
-            sysMessageMapper.updateById(msg);
-        }
+        if (msg == null || !userId.equals(msg.getUserId())) return R.fail(404, "消息不存在");
+        msg.setIsRead(1);
+        sysMessageMapper.updateById(msg);
         return R.ok("已读");
     }
 
     @PutMapping("/messages/read-all")
-    public R<?> markAllRead(@RequestParam(required = false) Long userId) {
+    public R<?> markAllRead(HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) return R.fail(401, "未登录或Token无效");
         LambdaQueryWrapper<SysMessage> wrapper = new LambdaQueryWrapper<>();
-        if (userId != null) wrapper.eq(SysMessage::getUserId, userId);
+        wrapper.eq(SysMessage::getUserId, userId);
         wrapper.eq(SysMessage::getIsRead, 0);
         SysMessage update = new SysMessage();
         update.setIsRead(1);

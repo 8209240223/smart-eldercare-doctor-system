@@ -5,6 +5,7 @@ import com.medical.entity.ElderInfo;
 import com.medical.entity.HealthRecord;
 
 import java.util.Map;
+import java.util.List;
 
 /**
  * 老人档案服务接口
@@ -26,4 +27,6 @@ public interface ElderService {
     void saveHealthRecord(Long elderId, HealthRecord record);
 
     Map<String, Object> getStats();
+
+    List<Map<String, Object>> listActiveDoctorOptions();
 }

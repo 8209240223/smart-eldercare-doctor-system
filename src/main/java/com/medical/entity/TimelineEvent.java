@@ -18,7 +18,7 @@ public class TimelineEvent implements Serializable {
 
     private Long elderId;
 
-    /** 事件类型: 1就诊 2检查 3用药变更 4预警 5随访 6评估 7转诊 8住院 9出院 */
+    /** 事件类型: 1就诊 2检查 3用药变更 4预警 5随访 6评估 7转诊 8住院 9出院 10风险分层 11干预 12AI报告 */
     private Integer eventType;
 
     private String eventTitle;

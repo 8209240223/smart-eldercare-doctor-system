@@ -4,7 +4,10 @@ import com.medical.common.annotation.OperationLog;
 import com.medical.common.result.R;
 import com.medical.entity.ElderInfo;
 import com.medical.entity.HealthRecord;
+import com.medical.dto.ElderOnboardRequest;
+import com.medical.dto.ElderOnboardResult;
 import com.medical.service.ElderService;
+import com.medical.service.ElderOnboardingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,6 +26,9 @@ public class ElderController {
     @Autowired
     private ElderService elderService;
 
+    @Autowired
+    private ElderOnboardingService elderOnboardingService;
+
     @GetMapping
     public R<?> list(@RequestParam(defaultValue = "1") Integer pageNum,
                      @RequestParam(defaultValue = "10") Integer pageSize,
@@ -31,6 +37,21 @@ public class ElderController {
                      @RequestParam(required = false) Long doctorId,
                      @RequestParam(required = false) Integer diseaseType) {
         return R.ok(elderService.listElders(pageNum, pageSize, name, community, doctorId, diseaseType));
+    }
+
+    @GetMapping("/options/doctors")
+    public R<?> doctorOptions() {
+        return R.ok(elderService.listActiveDoctorOptions());
+    }
+
+    @PostMapping("/onboard")
+    @OperationLog(module = "老人档案", type = "统一建档", desc = "创建老人及健康管理全流程")
+    public R<ElderOnboardResult> onboard(@Valid @RequestBody ElderOnboardRequest request,
+                                         HttpServletRequest httpRequest) {
+        return R.ok("统一建档成功", elderOnboardingService.onboard(
+                request,
+                (Long) httpRequest.getAttribute("currentUserId"),
+                (Integer) httpRequest.getAttribute("currentUserType")));
     }
 
     @GetMapping("/{id}")

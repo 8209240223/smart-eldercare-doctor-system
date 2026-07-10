@@ -42,6 +42,14 @@ public class AiHealthReportService {
      */
     @Transactional
     public AiHealthReport generateByRule(Long elderId, Long doctorId) {
+        return generateOrRefreshByRule(elderId, doctorId);
+    }
+
+    /**
+     * 生成或刷新规则引擎草稿。同一老人只保留一个活动中的规则草稿。
+     */
+    @Transactional
+    public AiHealthReport generateOrRefreshByRule(Long elderId, Long doctorId) {
         // 1. 聚合上下文
         Map<String, Object> ctx = aggregator.gather(elderId);
         if (ctx.containsKey("error")) {
@@ -60,7 +68,14 @@ public class AiHealthReportService {
         String riskLevel = reportObj.getStr("riskLevel", "LOW");
 
         // 5. 存库
-        AiHealthReport report = new AiHealthReport();
+        AiHealthReport report = reportMapper.selectRuleDraftForUpdate(elderId);
+        boolean refresh = report != null;
+        if (!refresh) {
+            report = new AiHealthReport();
+            report.setElderId(elderId);
+            report.setSource(1);
+            report.setStatus(0);
+        }
         report.setElderId(elderId);
         report.setDoctorId(doctorId);
         report.setSource(1);  // 规则引擎
@@ -71,9 +86,29 @@ public class AiHealthReportService {
         report.setModelName("rule-engine");
         report.setPromptVersion("v1.0");
         report.setCreateTime(LocalDateTime.now());
-        reportMapper.insert(report);
+        if (refresh) {
+            reportMapper.updateById(report);
+        } else {
+            reportMapper.insert(report);
+        }
 
         return report;
+    }
+
+    public AiHealthReport findRuleDraft(Long elderId) {
+        return reportMapper.selectOne(new LambdaQueryWrapper<AiHealthReport>()
+                .eq(AiHealthReport::getElderId, elderId)
+                .eq(AiHealthReport::getSource, 1)
+                .eq(AiHealthReport::getStatus, 0)
+                .orderByDesc(AiHealthReport::getCreateTime)
+                .last("LIMIT 1"));
+    }
+
+    public AiHealthReport getLatestByElder(Long elderId) {
+        return reportMapper.selectOne(new LambdaQueryWrapper<AiHealthReport>()
+                .eq(AiHealthReport::getElderId, elderId)
+                .orderByDesc(AiHealthReport::getCreateTime)
+                .last("LIMIT 1"));
     }
 
     /**
@@ -110,7 +145,7 @@ public class AiHealthReportService {
         }
 
         // 合并 AI 结果到原报告
-        JSONObject merged = JSONUtil.parseObj(aiResultJson);
+        JSONObject merged = JSONUtil.parseObj(cleanAiJsonPayload(aiResultJson));
         // 用 AI 的风险评分覆盖（如果 AI 返回了不同的评分）
         if (merged.containsKey("riskScore")) {
             existingReport.set("riskScore", merged.getInt("riskScore"));
@@ -154,26 +189,42 @@ public class AiHealthReportService {
     public void confirm(Long id, Long doctorId, String editedJson) {
         AiHealthReport report = reportMapper.selectById(id);
         if (report == null) throw new BusinessException(404, "报告不存在");
-        if (report.getStatus() == 1) throw new BusinessException(400, "报告已确认，无需重复操作");
+        if (Integer.valueOf(1).equals(report.getStatus())) {
+            throw new BusinessException(400, "报告已确认，无需重复操作");
+        }
 
+        JSONObject finalReport;
+        try {
+            finalReport = JSONUtil.parseObj(report.getReportJson());
+        } catch (Exception e) {
+            throw new BusinessException(500, "原始报告JSON格式错误，无法确认");
+        }
+        if (editedJson != null && !editedJson.trim().isEmpty()) {
+            try {
+                JSONObject edited = JSONUtil.parseObj(editedJson);
+                finalReport.putAll(edited);
+                report.setEditedReportJson(edited.toString());
+            } catch (Exception e) {
+                throw new BusinessException(400, "编辑后的报告必须是合法JSON对象");
+            }
+        }
+        report.setReportJson(finalReport.toString());
+        if (finalReport.containsKey("riskScore")) {
+            report.setRiskScore(finalReport.getInt("riskScore"));
+        }
+        if (finalReport.containsKey("riskLevel")) {
+            String riskLevel = finalReport.getStr("riskLevel");
+            report.setRiskLevel(riskLevel == null ? null : riskLevel.trim().toUpperCase());
+        }
         report.setStatus(1);
         report.setConfirmTime(LocalDateTime.now());
-        if (editedJson != null && !editedJson.isEmpty()) {
-            report.setEditedReportJson(editedJson);
-            try {
-                JSONObject original = JSONUtil.parseObj(report.getReportJson());
-                JSONObject edited = JSONUtil.parseObj(editedJson);
-                original.putAll(edited);
-                report.setReportJson(original.toString());
-            } catch (Exception ignored) {}
-        }
         reportMapper.updateById(report);
 
         // 写入时间轴
         try {
             com.medical.entity.TimelineEvent event = new com.medical.entity.TimelineEvent();
             event.setElderId(report.getElderId());
-            event.setEventType(7);  // 7=报告
+            event.setEventType(12);  // 12=AI健康报告
             event.setEventTitle("AI健康评估报告（已确认）");
             String riskLevel = report.getRiskLevel();
             event.setEventContent("风险等级: " + (riskLevel != null ? riskLevel : "-")
@@ -333,8 +384,9 @@ public class AiHealthReportService {
 
                 if (status == 200) {
                     JSONObject respObj = JSONUtil.parseObj(respBody);
-                    return respObj.getJSONArray("choices").getJSONObject(0)
+                    String content = respObj.getJSONArray("choices").getJSONObject(0)
                             .getJSONObject("message").getStr("content");
+                    return cleanAiJsonPayload(content);
                 } else {
                     lastError = new BusinessException(500, "AI API 返回错误: " + status + " " + respBody);
                 }
@@ -347,6 +399,26 @@ public class AiHealthReportService {
         }
         throw new BusinessException(500, "AI 服务暂时不可用: " +
                 (lastError != null ? lastError.getMessage() : "未知错误"));
+    }
+
+    static String cleanAiJsonPayload(String content) {
+        if (content == null) {
+            return null;
+        }
+        String cleaned = content.trim();
+        if (!cleaned.startsWith("```")) {
+            return cleaned;
+        }
+        int firstLineEnd = cleaned.indexOf('\n');
+        if (firstLineEnd >= 0) {
+            cleaned = cleaned.substring(firstLineEnd + 1).trim();
+        } else {
+            cleaned = cleaned.substring(3).trim();
+        }
+        if (cleaned.endsWith("```")) {
+            cleaned = cleaned.substring(0, cleaned.length() - 3).trim();
+        }
+        return cleaned;
     }
 
     private String systemPrompt() {
