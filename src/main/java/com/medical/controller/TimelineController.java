@@ -1,5 +1,6 @@
 package com.medical.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.annotation.OperationLog;
 import com.medical.common.result.R;
 import com.medical.service.TimelineService;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api/timeline")
+@RequireRole({1, 2, 3})
 public class TimelineController {
 
     @Autowired

@@ -1,5 +1,6 @@
 package com.medical.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.annotation.OperationLog;
 import com.medical.common.result.R;
 import com.medical.service.ReviewService;
@@ -14,6 +15,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/review")
+@RequireRole({1, 2})
 public class ReviewController {
 
     @Autowired
@@ -27,6 +29,7 @@ public class ReviewController {
         return R.ok(reviewService.listPendingRecords(pageNum, pageSize));
     }
 
+    @RequireRole({2})
     @PostMapping("/records/{id}/approve")
     @OperationLog(module = "护士审核", type = "审核通过", desc = "审核通过护理记录")
     public R<?> approveRecord(@PathVariable Long id,
@@ -38,6 +41,7 @@ public class ReviewController {
         return R.ok("审核通过，已处理该异常记录");
     }
 
+    @RequireRole({2})
     @PostMapping("/records/{id}/reject")
     @OperationLog(module = "护士审核", type = "驳回", desc = "驳回护理记录")
     public R<?> rejectRecord(@PathVariable Long id,
@@ -57,6 +61,7 @@ public class ReviewController {
         return R.ok(reviewService.listPendingPlans(pageNum, pageSize));
     }
 
+    @RequireRole({2})
     @PostMapping("/plans/{id}/approve")
     @OperationLog(module = "护士审核", type = "审核通过", desc = "审核通过护理计划")
     public R<?> approvePlan(@PathVariable Long id, HttpServletRequest request) {
@@ -65,6 +70,7 @@ public class ReviewController {
         return R.ok("审核通过，护理计划已生效");
     }
 
+    @RequireRole({2})
     @PostMapping("/plans/{id}/reject")
     @OperationLog(module = "护士审核", type = "驳回", desc = "驳回护理计划")
     public R<?> rejectPlan(@PathVariable Long id, HttpServletRequest request) {

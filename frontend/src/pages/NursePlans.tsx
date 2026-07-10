@@ -45,7 +45,7 @@ import {
   useUpdateNursePlan,
   type NursingPlan,
 } from "@/hooks/useApi";
-import { useAuthStore } from "@/store/auth";
+import { getUserRole, useAuthStore } from "@/store/auth";
 
 const emptyPlan: NursingPlan = {
   elderId: 0,
@@ -74,6 +74,7 @@ function statusClass(status?: number) {
 
 export default function NursePlans() {
   const userInfo = useAuthStore((state) => state.userInfo);
+  const canManageNursingPlans = getUserRole(userInfo) === "nurse";
   const currentNurseId = Number(userInfo?.userId || userInfo?.id || 0);
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedElderId = searchParams.get("elderId") || "";
@@ -298,20 +299,12 @@ export default function NursePlans() {
             >
               查询
             </Button>
-            <Button
-              onClick={() => {
-                setForm({
-                  ...emptyPlan,
-                  elderId: elderId ? Number(elderId) : 0,
-                  nurseId: currentNurseId || undefined,
-                });
-                setFormOpen(true);
-              }}
-              className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              新增护理计划
-            </Button>
+            {canManageNursingPlans && (
+              <Button onClick={() => { setForm({ ...emptyPlan, elderId: elderId ? Number(elderId) : 0, nurseId: currentNurseId || undefined }); setFormOpen(true); }} className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white">
+                <Plus className="mr-2 h-4 w-4" />
+                新增护理计划
+              </Button>
+            )}
           </CardContent>
         </Card>
         <Card className="border-border/40 bg-white/80 shadow-card backdrop-blur-sm">
@@ -369,7 +362,7 @@ export default function NursePlans() {
                           <Eye className="mr-1 h-4 w-4" />
                           详情
                         </Button>
-                        {(plan.status === 0 || plan.status === 1) && (
+                        {canManageNursingPlans && (plan.status === 0 || plan.status === 1) && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -382,7 +375,7 @@ export default function NursePlans() {
                             编辑
                           </Button>
                         )}
-                        {plan.status === 0 && (
+                        {canManageNursingPlans && plan.status === 0 && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -391,7 +384,7 @@ export default function NursePlans() {
                             开始执行
                           </Button>
                         )}
-                        {plan.status === 1 && (
+                        {canManageNursingPlans && plan.status === 1 && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -400,7 +393,7 @@ export default function NursePlans() {
                             完成一次
                           </Button>
                         )}
-                        {plan.status === 1 && (
+                        {canManageNursingPlans && plan.status === 1 && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -409,7 +402,7 @@ export default function NursePlans() {
                             完成计划
                           </Button>
                         )}
-                        {(plan.status === 0 || plan.status === 1) && (
+                        {canManageNursingPlans && (plan.status === 0 || plan.status === 1) && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -419,7 +412,7 @@ export default function NursePlans() {
                             终止
                           </Button>
                         )}
-                        {(plan.status === 0 || plan.status === 1) && (
+                        {canManageNursingPlans && (plan.status === 0 || plan.status === 1) && (
                           <Button
                             size="sm"
                             variant="outline"

@@ -1,5 +1,6 @@
 package com.medical.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.annotation.OperationLog;
 import com.medical.common.result.R;
 import com.medical.entity.ElderInfo;
@@ -21,6 +22,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/elders")
+@RequireRole({1, 2, 3})
 public class ElderController {
 
     @Autowired
@@ -44,6 +46,7 @@ public class ElderController {
         return R.ok(elderService.listActiveDoctorOptions());
     }
 
+    @RequireRole({2})
     @PostMapping("/onboard")
     @OperationLog(module = "老人档案", type = "统一建档", desc = "创建老人及健康管理全流程")
     public R<ElderOnboardResult> onboard(@Valid @RequestBody ElderOnboardRequest request,
@@ -59,12 +62,14 @@ public class ElderController {
         return R.ok(elderService.getDetail(id));
     }
 
+    @RequireRole({2})
     @PostMapping
     @OperationLog(module = "老人档案", type = "新增", desc = "新增老人信息")
     public R<?> create(@Valid @RequestBody ElderInfo elderInfo) {
         return R.ok("新增成功", elderService.create(elderInfo));
     }
 
+    @RequireRole({2})
     @PutMapping("/{id}")
     @OperationLog(module = "老人档案", type = "修改", desc = "修改老人信息")
     public R<?> update(@PathVariable Long id, @Valid @RequestBody ElderInfo elderInfo) {
@@ -72,6 +77,7 @@ public class ElderController {
         return R.ok("修改成功");
     }
 
+    @RequireRole({2})
     @DeleteMapping("/{id}")
     @OperationLog(module = "老人档案", type = "删除", desc = "删除老人信息")
     public R<?> delete(@PathVariable Long id) {
@@ -84,6 +90,7 @@ public class ElderController {
         return R.ok(elderService.getHealthRecord(id));
     }
 
+    @RequireRole({2})
     @PostMapping("/{id}/record")
     public R<?> saveRecord(@PathVariable Long id, @RequestBody HealthRecord record) {
         elderService.saveHealthRecord(id, record);

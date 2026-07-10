@@ -1,5 +1,6 @@
 package com.medical.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.annotation.OperationLog;
 import com.medical.common.result.R;
 import com.medical.entity.AiHealthReport;
@@ -15,6 +16,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/ai/health-report")
+@RequireRole({1, 2, 3})
 public class AiHealthReportController {
 
     @Autowired
@@ -23,6 +25,7 @@ public class AiHealthReportController {
     /**
      * 生成规则引擎评估报告
      */
+    @RequireRole({2})
     @PostMapping("/generate/{elderId}")
     @OperationLog(module = "AI健康评估", type = "生成报告", desc = "生成规则引擎健康评估报告")
     public R<?> generate(@PathVariable Long elderId, HttpServletRequest request) {
@@ -34,6 +37,7 @@ public class AiHealthReportController {
     /**
      * AI 深度分析
      */
+    @RequireRole({2})
     @PostMapping("/{id}/deep-analysis")
     @OperationLog(module = "AI健康评估", type = "AI分析", desc = "启动AI深度分析")
     public R<?> deepAnalysis(@PathVariable Long id, HttpServletRequest request) {
@@ -53,6 +57,7 @@ public class AiHealthReportController {
     /**
      * 确认报告
      */
+    @RequireRole({2})
     @PutMapping("/{id}/confirm")
     @OperationLog(module = "AI健康评估", type = "确认报告", desc = "确认AI健康评估报告")
     public R<?> confirm(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> body,
@@ -70,6 +75,7 @@ public class AiHealthReportController {
     /**
      * 驳回报告
      */
+    @RequireRole({2})
     @PutMapping("/{id}/reject")
     @OperationLog(module = "AI健康评估", type = "驳回报告", desc = "驳回AI健康评估报告")
     public R<?> reject(@PathVariable Long id, @RequestBody Map<String, String> body,

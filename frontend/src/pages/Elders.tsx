@@ -81,7 +81,7 @@ export default function Elders() {
   const queryClient = useQueryClient();
   const userInfo = useAuthStore((state) => state.userInfo);
   const role = getUserRole(userInfo);
-  const canManage = role === "admin" || role === "doctor";
+  const canManage = role === "doctor";
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [name, setName] = useState("");

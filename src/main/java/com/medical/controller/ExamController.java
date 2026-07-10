@@ -1,5 +1,6 @@
 package com.medical.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.annotation.OperationLog;
 import com.medical.common.result.R;
 import com.medical.entity.PhysicalExam;
@@ -14,6 +15,7 @@ import javax.servlet.http.HttpServletRequest;
  */
 @RestController
 @RequestMapping("/api/exams")
+@RequireRole({1, 2, 3})
 public class ExamController {
 
     @Autowired
@@ -33,6 +35,7 @@ public class ExamController {
         return R.ok(examService.getById(id));
     }
 
+    @RequireRole({2, 3})
     @PostMapping
     @OperationLog(module = "体检管理", type = "新增", desc = "新增体检记录")
     public R<?> create(@RequestBody PhysicalExam exam, HttpServletRequest request) {
@@ -43,6 +46,7 @@ public class ExamController {
         return R.ok("新增成功", examService.create(exam));
     }
 
+    @RequireRole({2, 3})
     @PutMapping("/{id}")
     @OperationLog(module = "体检管理", type = "修改", desc = "修改体检记录")
     public R<?> update(@PathVariable Long id, @RequestBody PhysicalExam exam) {
@@ -50,6 +54,7 @@ public class ExamController {
         return R.ok("修改成功");
     }
 
+    @RequireRole({2})
     @DeleteMapping("/{id}")
     @OperationLog(module = "体检管理", type = "删除", desc = "删除体检记录")
     public R<?> delete(@PathVariable Long id) {

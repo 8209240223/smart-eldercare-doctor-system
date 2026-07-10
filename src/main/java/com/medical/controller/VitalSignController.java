@@ -1,5 +1,6 @@
 package com.medical.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.annotation.OperationLog;
 import com.medical.common.result.R;
 import com.medical.entity.VitalSignData;
@@ -15,6 +16,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/vitals")
+@RequireRole({1, 2, 3})
 public class VitalSignController {
 
     @Autowired
@@ -27,12 +29,14 @@ public class VitalSignController {
         return R.ok(vitalSignService.listDevices(elderId));
     }
 
+    @RequireRole({2, 3})
     @PostMapping("/devices")
     @OperationLog(module = "体征监测", type = "绑定", desc = "绑定设备")
     public R<?> bindDevice(@RequestBody WearableDevice device) {
         return R.ok("绑定成功", vitalSignService.bindDevice(device));
     }
 
+    @RequireRole({2, 3})
     @PutMapping("/devices/{id}/unbind")
     @OperationLog(module = "体征监测", type = "解绑", desc = "解绑设备")
     public R<?> unbindDevice(@PathVariable Long id) {
@@ -42,6 +46,7 @@ public class VitalSignController {
 
     // ========== 数据上传与查询 ==========
 
+    @RequireRole({2, 3})
     @PostMapping("/upload")
     public R<?> uploadData(@RequestBody List<VitalSignData> dataList) {
         vitalSignService.uploadData(dataList);
@@ -63,12 +68,14 @@ public class VitalSignController {
 
     // ========== 模拟数据 ==========
 
+    @RequireRole({1})
     @PostMapping("/mock/{elderId}")
     public R<?> generateMockData(@PathVariable Long elderId, @RequestParam(defaultValue = "30") Integer days) {
         vitalSignService.generateMockData(elderId, days);
         return R.ok("已生成" + days + "天模拟数据");
     }
 
+    @RequireRole({1})
     @PostMapping("/mock/{elderId}/abnormal")
     @OperationLog(module = "体征监测", type = "模拟", desc = "生成模拟异常体征数据（测试预警推送）")
     public R<?> generateAbnormalMockData(@PathVariable Long elderId,

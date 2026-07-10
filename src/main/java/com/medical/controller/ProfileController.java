@@ -1,5 +1,6 @@
 package com.medical.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.annotation.OperationLog;
@@ -34,6 +35,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/profile")
+@RequireRole({1, 2, 3})
 public class ProfileController {
 
     @Autowired

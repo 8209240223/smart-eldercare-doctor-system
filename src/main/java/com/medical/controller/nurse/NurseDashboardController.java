@@ -1,5 +1,6 @@
 package com.medical.controller.nurse;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.result.R;
 import com.medical.service.NurseDashboardService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,20 +14,23 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/nurse/dashboard")
+@RequireRole({1, 2, 3})
 public class NurseDashboardController {
 
     @Autowired
     private NurseDashboardService nurseDashboardService;
 
     @GetMapping("/stats")
-    public R<?> getStats(@RequestAttribute(required = false) Long currentUserId) {
-        Long nurseId = currentUserId != null ? currentUserId : 5L; // 默认护士ID
+    public R<?> getStats(@RequestAttribute Long currentUserId,
+                         @RequestAttribute Integer currentUserType) {
+        Long nurseId = Integer.valueOf(3).equals(currentUserType) ? currentUserId : null;
         return R.ok(nurseDashboardService.getStats(nurseId));
     }
 
     @GetMapping("/tasks")
-    public R<?> getTodayTasks(@RequestAttribute(required = false) Long currentUserId) {
-        Long nurseId = currentUserId != null ? currentUserId : 5L;
+    public R<?> getTodayTasks(@RequestAttribute Long currentUserId,
+                              @RequestAttribute Integer currentUserType) {
+        Long nurseId = Integer.valueOf(3).equals(currentUserType) ? currentUserId : null;
         return R.ok(nurseDashboardService.getTodayTasks(nurseId));
     }
 }

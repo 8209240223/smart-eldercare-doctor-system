@@ -1,5 +1,6 @@
 package com.medical.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.annotation.OperationLog;
 import com.medical.common.result.R;
 import com.medical.common.utils.JwtUtils;
@@ -17,6 +18,7 @@ import javax.servlet.http.HttpServletRequest;
  */
 @RestController
 @RequestMapping("/api/warnings")
+@RequireRole({1, 2, 3})
 public class WarningController {
 
     @Autowired
@@ -39,48 +41,47 @@ public class WarningController {
 
     @GetMapping("/{id}")
     public R<?> detail(@PathVariable Long id, HttpServletRequest request) {
-        // 获取当前医生ID（可选）
-        try {
-            String token = getTokenFromRequest(request);
-            if (token != null) {
-                Long doctorId = jwtUtils.getUserIdFromToken(token);
-                if (doctorId != null) {
-                    warningService.markAsRead(id, doctorId);
-                }
-            }
-        } catch (Exception ignored) {}
+        Integer userType = (Integer) request.getAttribute("currentUserType");
+        Long currentUserId = (Long) request.getAttribute("currentUserId");
+        if (Integer.valueOf(2).equals(userType) && currentUserId != null) {
+            warningService.markAsRead(id, currentUserId);
+        }
         return R.ok(warningService.getDetail(id));
     }
 
+    @RequireRole({2})
     @PutMapping("/{id}/handle")
     @OperationLog(module = "健康预警", type = "处理", desc = "处理健康预警")
-    public R<?> handle(@PathVariable Long id, @RequestBody HealthWarning warning) {
-        warningService.handle(id, warning.getHandleResult(), warning.getDoctorId());
+    public R<?> handle(@PathVariable Long id, @RequestBody HealthWarning warning,
+                       HttpServletRequest request) {
+        warningService.handle(id, warning.getHandleResult(), currentUserId(request));
         return R.ok("处理成功");
     }
 
+    @RequireRole({2})
     @PutMapping("/{id}/ignore")
     public R<?> ignore(@PathVariable Long id, @RequestBody HealthWarning warning) {
         warningService.ignore(id, warning.getHandleResult());
         return R.ok("已忽略");
     }
 
+    @RequireRole({2})
     @PutMapping("/{id}/processing")
     @OperationLog(module = "健康预警", type = "处理中", desc = "将健康预警标记为处理中")
-    public R<?> markProcessing(@PathVariable Long id, @RequestBody(required = false) HealthWarning warning) {
-        Long doctorId = warning != null ? warning.getDoctorId() : null;
-        warningService.markProcessing(id, doctorId);
+    public R<?> markProcessing(@PathVariable Long id, HttpServletRequest request) {
+        warningService.markProcessing(id, currentUserId(request));
         return R.ok("已标记为处理中");
     }
 
+    @RequireRole({2})
     @PutMapping("/{id}/read")
     @OperationLog(module = "健康预警", type = "已读", desc = "标记预警已读")
-    public R<?> markAsRead(@PathVariable Long id, @RequestBody(required = false) HealthWarning warning) {
-        Long doctorId = warning != null ? warning.getDoctorId() : null;
-        warningService.markAsRead(id, doctorId);
+    public R<?> markAsRead(@PathVariable Long id, HttpServletRequest request) {
+        warningService.markAsRead(id, currentUserId(request));
         return R.ok("已标记已读");
     }
 
+    @RequireRole({2})
     @PostMapping
     @OperationLog(module = "健康预警", type = "新增", desc = "手动添加预警")
     public R<?> create(@RequestBody HealthWarning warning) {
@@ -128,14 +129,7 @@ public class WarningController {
         return sseService.connect(doctorId, token);
     }
 
-    /**
-     * 从请求中提取 Token
-     */
-    private String getTokenFromRequest(HttpServletRequest request) {
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            return authHeader.substring(7);
-        }
-        return null;
+    private Long currentUserId(HttpServletRequest request) {
+        return (Long) request.getAttribute("currentUserId");
     }
 }

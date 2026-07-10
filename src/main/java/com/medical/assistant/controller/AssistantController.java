@@ -1,5 +1,6 @@
 package com.medical.assistant.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.assistant.dto.AssistantChatRequest;
 import com.medical.assistant.dto.AssistantChatResponse;
 import com.medical.assistant.dto.AssistantStatusResponse;
@@ -17,6 +18,7 @@ import javax.validation.Valid;
 @Validated
 @RestController
 @RequestMapping("/api/assistant")
+@RequireRole({1, 2, 3})
 public class AssistantController {
     private final KimiAssistantService assistantService;
 

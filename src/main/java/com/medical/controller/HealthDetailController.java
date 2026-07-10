@@ -1,5 +1,6 @@
 package com.medical.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.annotation.OperationLog;
 import com.medical.common.result.R;
 import com.medical.entity.*;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api/health-detail")
+@RequireRole({1, 2, 3})
 public class HealthDetailController {
 
     @Autowired
@@ -26,12 +28,14 @@ public class HealthDetailController {
     }
 
     // ===== 病史 CRUD =====
+    @RequireRole({2})
     @PostMapping("/medical-history")
     @OperationLog(module = "健康档案", type = "新增", desc = "添加病史记录")
     public R<?> addMedicalHistory(@RequestBody MedicalHistory record) {
         return R.ok("添加成功", healthDetailService.addMedicalHistory(record));
     }
 
+    @RequireRole({2})
     @DeleteMapping("/medical-history/{id}")
     public R<?> deleteMedicalHistory(@PathVariable Long id) {
         healthDetailService.deleteMedicalHistory(id);
@@ -39,18 +43,21 @@ public class HealthDetailController {
     }
 
     // ===== 用药记录 CRUD =====
+    @RequireRole({2})
     @PostMapping("/medication")
     @OperationLog(module = "健康档案", type = "新增", desc = "添加用药记录")
     public R<?> addMedication(@RequestBody MedicationRecord record) {
         return R.ok("添加成功", healthDetailService.addMedication(record));
     }
 
+    @RequireRole({2})
     @PutMapping("/medication/{id}")
     public R<?> updateMedication(@PathVariable Long id, @RequestBody MedicationRecord record) {
         healthDetailService.updateMedication(id, record);
         return R.ok("修改成功");
     }
 
+    @RequireRole({2})
     @DeleteMapping("/medication/{id}")
     public R<?> deleteMedication(@PathVariable Long id) {
         healthDetailService.deleteMedication(id);
@@ -58,12 +65,14 @@ public class HealthDetailController {
     }
 
     // ===== 过敏记录 CRUD =====
+    @RequireRole({2})
     @PostMapping("/allergy")
     @OperationLog(module = "健康档案", type = "新增", desc = "添加过敏记录")
     public R<?> addAllergy(@RequestBody AllergyRecord record) {
         return R.ok("添加成功", healthDetailService.addAllergy(record));
     }
 
+    @RequireRole({2})
     @DeleteMapping("/allergy/{id}")
     public R<?> deleteAllergy(@PathVariable Long id) {
         healthDetailService.deleteAllergy(id);
@@ -71,12 +80,14 @@ public class HealthDetailController {
     }
 
     // ===== 家族病史 CRUD =====
+    @RequireRole({2})
     @PostMapping("/family-history")
     @OperationLog(module = "健康档案", type = "新增", desc = "添加家族病史")
     public R<?> addFamilyHistory(@RequestBody FamilyHistory record) {
         return R.ok("添加成功", healthDetailService.addFamilyHistory(record));
     }
 
+    @RequireRole({2})
     @DeleteMapping("/family-history/{id}")
     public R<?> deleteFamilyHistory(@PathVariable Long id) {
         healthDetailService.deleteFamilyHistory(id);

@@ -1,5 +1,6 @@
 package com.medical.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.annotation.OperationLog;
 import com.medical.common.result.R;
 import com.medical.entity.FollowPlan;
@@ -15,6 +16,7 @@ import javax.validation.Valid;
  */
 @RestController
 @RequestMapping("/api/followup")
+@RequireRole({1, 2, 3})
 public class FollowUpController {
 
     @Autowired
@@ -29,12 +31,14 @@ public class FollowUpController {
         return R.ok(followUpService.listPlans(pageNum, pageSize, status, diseaseType, elderId));
     }
 
+    @RequireRole({2})
     @PostMapping("/plans")
     @OperationLog(module = "随访管理", type = "新增", desc = "创建随访计划")
     public R<?> createPlan(@Valid @RequestBody FollowPlan plan) {
         return R.ok("创建成功", followUpService.createPlan(plan));
     }
 
+    @RequireRole({2})
     @PostMapping("/plans/generate-risk")
     @OperationLog(module = "随访管理", type = "生成", desc = "根据风险分层生成随访计划")
     public R<?> generateRiskPlans(@RequestParam(required = false) Long doctorId,
@@ -42,12 +46,14 @@ public class FollowUpController {
         return R.ok("生成成功", followUpService.generateRiskFollowPlans(doctorId, elderId));
     }
 
+    @RequireRole({2})
     @DeleteMapping("/plans/generated")
     @OperationLog(module = "随访管理", type = "删除", desc = "清理自动生成的风险随访计划")
     public R<?> deleteGeneratedPlans() {
         return R.ok("清理成功", followUpService.deleteGeneratedRiskFollowPlans());
     }
 
+    @RequireRole({2})
     @PutMapping("/plans/{id}")
     @OperationLog(module = "随访管理", type = "修改", desc = "修改随访计划")
     public R<?> updatePlan(@PathVariable Long id, @Valid @RequestBody FollowPlan plan) {
@@ -55,12 +61,14 @@ public class FollowUpController {
         return R.ok("修改成功");
     }
 
+    @RequireRole({2})
     @PutMapping("/plans/{id}/status")
     public R<?> changePlanStatus(@PathVariable Long id, @RequestParam Integer status) {
         followUpService.changePlanStatus(id, status);
         return R.ok("操作成功");
     }
 
+    @RequireRole({2})
     @DeleteMapping("/plans/{id}")
     @OperationLog(module = "随访管理", type = "删除", desc = "删除随访计划")
     public R<?> deletePlan(@PathVariable Long id) {
@@ -76,6 +84,7 @@ public class FollowUpController {
         return R.ok(followUpService.listRecords(pageNum, pageSize, planId, elderId));
     }
 
+    @RequireRole({2})
     @PostMapping("/records")
     @OperationLog(module = "随访管理", type = "新增", desc = "新增随访记录")
     public R<?> createRecord(@Valid @RequestBody FollowRecord record) {

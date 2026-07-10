@@ -21,6 +21,7 @@ import {
   useWarningRules,
   type WarningRule,
 } from "@/hooks/useApi";
+import { getUserRole, useAuthStore } from "@/store/auth";
 
 const emptyRule: WarningRule = {
   ruleName: "",
@@ -62,6 +63,7 @@ function levelClass(level?: number) {
 }
 
 export default function WarningRules() {
+  const canManageRules = getUserRole(useAuthStore((state) => state.userInfo)) === "doctor";
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<WarningRule>(emptyRule);
   const [deleteTarget, setDeleteTarget] = useState<WarningRule | null>(null);
@@ -183,10 +185,10 @@ export default function WarningRules() {
         <Card className="border-border/40 bg-white/80 shadow-card backdrop-blur-sm">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base font-bold">规则列表</CardTitle>
-            <div className="flex gap-2">
+            {canManageRules && <div className="flex gap-2">
               <Button variant="outline" onClick={() => setEvaluateOpen(true)} className="rounded-xl"><Activity className="mr-2 h-4 w-4" />手动评估</Button>
               <Button onClick={openCreate} className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white"><Plus className="mr-2 h-4 w-4" />新增规则</Button>
-            </div>
+            </div>}
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -214,7 +216,7 @@ export default function WarningRules() {
                         <p className="mt-2 text-sm text-muted-foreground">指标：{rule.metricCode || "-"} · 条件：{rule.conditionExpr || "-"}</p>
                         <p className="mt-2 text-sm text-muted-foreground">{rule.warningTemplate || "暂无预警消息模板"}</p>
                       </div>
-                      <div className="flex flex-wrap gap-2">
+                      {canManageRules && <div className="flex flex-wrap gap-2">
                         <Button size="sm" variant="outline" className="rounded-lg" onClick={() => openEdit(rule)}>编辑</Button>
                         <Button size="sm" variant="outline" className="rounded-lg" onClick={() => handleToggle(rule)}>
                           {rule.enabled === 0 ? "启用" : "停用"}
@@ -223,7 +225,7 @@ export default function WarningRules() {
                           <Trash2 className="mr-1 h-4 w-4" />
                           删除
                         </Button>
-                      </div>
+                      </div>}
                     </div>
                   </div>
                 ))}

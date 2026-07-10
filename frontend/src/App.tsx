@@ -98,7 +98,7 @@ function AppRoutes() {
         <Route
           path="/nurse-dashboard"
           element={
-            <ProtectedRoute roles={["nurse"]}>
+            <ProtectedRoute roles={["admin", "doctor", "nurse"]}>
               <NurseDashboard />
             </ProtectedRoute>
           }
@@ -138,7 +138,7 @@ function AppRoutes() {
         <Route
           path="/followup-tasks"
           element={
-            <ProtectedRoute roles={["admin", "doctor", "nurse"]}>
+            <ProtectedRoute roles={["admin", "doctor"]}>
               <FollowupTasks />
             </ProtectedRoute>
           }
@@ -146,7 +146,7 @@ function AppRoutes() {
         <Route
           path="/key-population"
           element={
-            <ProtectedRoute roles={["admin", "doctor"]}>
+            <ProtectedRoute roles={["admin", "doctor", "nurse"]}>
               <KeyPopulation />
             </ProtectedRoute>
           }
@@ -154,7 +154,7 @@ function AppRoutes() {
         <Route
           path="/interventions"
           element={
-            <ProtectedRoute roles={["admin", "doctor"]}>
+            <ProtectedRoute roles={["admin", "doctor", "nurse"]}>
               <Interventions />
             </ProtectedRoute>
           }
@@ -186,7 +186,7 @@ function AppRoutes() {
         <Route
           path="/exams"
           element={
-            <ProtectedRoute roles={["admin", "doctor"]}>
+            <ProtectedRoute roles={["admin", "doctor", "nurse"]}>
               <Exams />
             </ProtectedRoute>
           }
@@ -210,7 +210,7 @@ function AppRoutes() {
         <Route
           path="/nurse-records"
           element={
-            <ProtectedRoute roles={["nurse", "admin"]}>
+            <ProtectedRoute roles={["admin", "doctor", "nurse"]}>
               <NurseRecords />
             </ProtectedRoute>
           }
@@ -218,7 +218,7 @@ function AppRoutes() {
         <Route
           path="/nurse-plans"
           element={
-            <ProtectedRoute roles={["nurse", "admin"]}>
+            <ProtectedRoute roles={["admin", "doctor", "nurse"]}>
               <NursePlans />
             </ProtectedRoute>
           }
@@ -242,7 +242,7 @@ function AppRoutes() {
         <Route
           path="/warning-rules"
           element={
-            <ProtectedRoute roles={["admin"]}>
+            <ProtectedRoute roles={["admin", "doctor"]}>
               <WarningRules />
             </ProtectedRoute>
           }

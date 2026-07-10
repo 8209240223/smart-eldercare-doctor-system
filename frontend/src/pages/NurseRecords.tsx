@@ -43,7 +43,7 @@ import {
   useUpdateNurseRecord,
   type NursingRecord,
 } from "@/hooks/useApi";
-import { useAuthStore } from "@/store/auth";
+import { getUserRole, useAuthStore } from "@/store/auth";
 
 const emptyRecord: NursingRecord = {
   elderId: 0,
@@ -70,6 +70,7 @@ const reportLabels = ["未上报", "已上报", "已处理"];
 
 export default function NurseRecords() {
   const userInfo = useAuthStore((state) => state.userInfo);
+  const canManageNursingRecords = getUserRole(userInfo) === "nurse";
   const currentNurseId = Number(userInfo?.userId || userInfo?.id || 0);
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedElderId = searchParams.get("elderId") || "";
@@ -314,20 +315,12 @@ export default function NurseRecords() {
             >
               查询
             </Button>
-            <Button
-              onClick={() => {
-                setForm({
-                  ...emptyRecord,
-                  elderId: elderId ? Number(elderId) : 0,
-                  nurseId: currentNurseId || undefined,
-                });
-                setFormOpen(true);
-              }}
-              className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              新增护理记录
-            </Button>
+            {canManageNursingRecords && (
+              <Button onClick={() => { setForm({ ...emptyRecord, elderId: elderId ? Number(elderId) : 0, nurseId: currentNurseId || undefined }); setFormOpen(true); }} className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white">
+                <Plus className="mr-2 h-4 w-4" />
+                新增护理记录
+              </Button>
+            )}
           </CardContent>
         </Card>
         <Card className="border-border/40 bg-white/80 shadow-card backdrop-blur-sm">
@@ -383,7 +376,7 @@ export default function NurseRecords() {
                           <Eye className="mr-1 h-4 w-4" />
                           详情
                         </Button>
-                        {Number(record.reportStatus) === 0 && (
+                        {canManageNursingRecords && Number(record.reportStatus) === 0 && (
                           <>
                             <Button
                               size="sm"

@@ -40,7 +40,7 @@ import {
   useWarningStats,
   type HealthWarning,
 } from "@/hooks/useApi";
-import { useAuthStore } from "@/store/auth";
+import { getUserRole, useAuthStore } from "@/store/auth";
 
 function levelMeta(level: number) {
   if (level === 3)
@@ -62,6 +62,7 @@ function statusMeta(status: number) {
 
 export default function Warnings() {
   const userInfo = useAuthStore((state) => state.userInfo);
+  const canManageWarnings = getUserRole(userInfo) === "doctor";
   const currentDoctorId =
     Number(userInfo?.userId || userInfo?.id || 0) || undefined;
   const [searchParams, setSearchParams] = useSearchParams();
@@ -293,13 +294,15 @@ export default function Warnings() {
             >
               查询
             </Button>
-            <Button
-              onClick={() => setCreateOpen(true)}
-              className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              新建预警
-            </Button>
+            {canManageWarnings && (
+              <Button
+                onClick={() => setCreateOpen(true)}
+                className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                新建预警
+              </Button>
+            )}
           </CardContent>
         </Card>
 
@@ -372,46 +375,30 @@ export default function Warnings() {
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {warning.status === 0 && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setProcessing(warning.id)}
-                              disabled={isMutating}
-                            >
-                              处理中
-                            </Button>
+                          {canManageWarnings && (
+                            <>
+                              {warning.status === 0 && (
+                                <Button size="sm" variant="outline" onClick={() => setProcessing(warning.id)} disabled={isMutating}>
+                                  处理中
+                                </Button>
+                              )}
+                              {(warning.status === 0 || warning.status === 1) && (
+                                <Button size="sm" onClick={() => setHandleTarget(warning)} disabled={isMutating} className="bg-gradient-to-r from-medical-400 to-medical-600 text-white">
+                                  处理
+                                </Button>
+                              )}
+                              {warning.status === 0 && (
+                                <Button size="sm" variant="outline" onClick={() => setIgnoreTarget(warning)} disabled={isMutating}>
+                                  <XCircle className="mr-1 h-4 w-4" />
+                                  忽略
+                                </Button>
+                              )}
+                              <Button size="sm" variant="outline" onClick={() => read(warning.id)} disabled={isMutating}>
+                                <MailOpen className="mr-1 h-4 w-4" />
+                                已读
+                              </Button>
+                            </>
                           )}
-                          {(warning.status === 0 || warning.status === 1) && (
-                            <Button
-                              size="sm"
-                              onClick={() => setHandleTarget(warning)}
-                              disabled={isMutating}
-                              className="bg-gradient-to-r from-medical-400 to-medical-600 text-white"
-                            >
-                              处理
-                            </Button>
-                          )}
-                          {warning.status === 0 && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setIgnoreTarget(warning)}
-                              disabled={isMutating}
-                            >
-                              <XCircle className="mr-1 h-4 w-4" />
-                              忽略
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => read(warning.id)}
-                            disabled={isMutating}
-                          >
-                            <MailOpen className="mr-1 h-4 w-4" />
-                            已读
-                          </Button>
                           <Button
                             size="sm"
                             variant="outline"

@@ -38,6 +38,7 @@ import {
   useTodayFollowupTasks,
   type FollowupTask,
 } from "@/hooks/useApi";
+import { getUserRole, useAuthStore } from "@/store/auth";
 
 function statusText(status?: number) {
   if (status === 1) return "执行中";
@@ -54,6 +55,7 @@ function statusClass(status?: number) {
 }
 
 export default function FollowupTasks() {
+  const canManageTasks = getUserRole(useAuthStore((state) => state.userInfo)) === "doctor";
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedElderId = Number(searchParams.get("elderId") || 0) || undefined;
   const [page, setPage] = useState(1);
@@ -310,13 +312,11 @@ export default function FollowupTasks() {
               <RefreshCw className="mr-2 h-4 w-4" />
               查询
             </Button>
-            <Button
-              onClick={generate}
-              disabled={generateTasks.isPending}
-              className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white"
-            >
-              自动生成任务
-            </Button>
+            {canManageTasks && (
+              <Button onClick={generate} disabled={generateTasks.isPending} className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white">
+                自动生成任务
+              </Button>
+            )}
           </CardContent>
         </Card>
 
@@ -375,7 +375,7 @@ export default function FollowupTasks() {
                           {task.dueDate || "-"}
                         </p>
                       </div>
-                      {task.status === 0 && (
+                      {canManageTasks && task.status === 0 && (
                         <div className="flex flex-wrap gap-2">
                           <Button
                             size="sm"

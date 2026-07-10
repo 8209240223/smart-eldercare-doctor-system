@@ -35,7 +35,7 @@ import {
   useRiskStats,
   type RiskProfile,
 } from "@/hooks/useApi";
-import { useAuthStore } from "@/store/auth";
+import { getUserRole, useAuthStore } from "@/store/auth";
 
 function riskText(level?: number) {
   if (level === 4) return "高危";
@@ -57,6 +57,7 @@ export default function KeyPopulation() {
   const requestedElderId =
     Number(searchParams.get("elderId") || 0) || undefined;
   const userInfo = useAuthStore((state) => state.userInfo);
+  const canManageRisk = getUserRole(userInfo) === "doctor";
   const currentDoctorId =
     Number(userInfo?.userId || userInfo?.id || 0) || undefined;
   const [page, setPage] = useState(1);
@@ -254,23 +255,18 @@ export default function KeyPopulation() {
                 <option value="1">正常</option>
               </select>
             </div>
-            <Button
-              onClick={handleCalculateAll}
-              disabled={calculateAll.isPending}
-              className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white"
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              全量计算
-            </Button>
-            <Button
-              onClick={() => handleGeneratePlan()}
-              disabled={generatePlans.isPending}
-              variant="outline"
-              className="rounded-xl"
-            >
-              <CalendarPlus className="mr-2 h-4 w-4" />
-              生成随访计划
-            </Button>
+            {canManageRisk && (
+              <>
+                <Button onClick={handleCalculateAll} disabled={calculateAll.isPending} className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white">
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  全量计算
+                </Button>
+                <Button onClick={() => handleGeneratePlan()} disabled={generatePlans.isPending} variant="outline" className="rounded-xl">
+                  <CalendarPlus className="mr-2 h-4 w-4" />
+                  生成随访计划
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -334,21 +330,16 @@ export default function KeyPopulation() {
                       >
                         查看画像
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleCalculateOne(item.elderId)}
-                        className="rounded-lg"
-                      >
-                        重新计算
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => handleGeneratePlan(item.elderId)}
-                        className="rounded-lg bg-gradient-to-r from-medical-400 to-medical-600 text-white"
-                      >
-                        生成计划
-                      </Button>
+                      {canManageRisk && (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => handleCalculateOne(item.elderId)} className="rounded-lg">
+                            重新计算
+                          </Button>
+                          <Button size="sm" onClick={() => handleGeneratePlan(item.elderId)} className="rounded-lg bg-gradient-to-r from-medical-400 to-medical-600 text-white">
+                            生成计划
+                          </Button>
+                        </>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"

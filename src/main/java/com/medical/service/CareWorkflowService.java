@@ -121,8 +121,8 @@ public class CareWorkflowService {
         if (currentUserId == null || currentUserType == null) {
             throw new BusinessException(401, "未获取到当前登录用户");
         }
-        if (!Integer.valueOf(1).equals(currentUserType) && !Integer.valueOf(2).equals(currentUserType)) {
-            throw new BusinessException(403, "只有管理员或医生可以生成健康管理流程");
+        if (!Integer.valueOf(2).equals(currentUserType)) {
+            throw new BusinessException(403, "只有医生可以生成健康管理流程");
         }
     }
 
