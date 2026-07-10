@@ -1,0 +1,128 @@
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { BellRing, Siren } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useElderDetail } from "@/hooks/useApi";
+import { resolveElderName } from "@/lib/elderName";
+import { useAuthStore } from "@/store/auth";
+
+interface RealtimeWarning {
+  id?: number;
+  warningId?: number;
+  elderId?: number;
+  elderName?: string;
+  warningLevel?: number;
+  warningTitle?: string;
+  warningContent?: string;
+  warningValue?: string | number;
+  thresholdValue?: string | number;
+  createTime?: string;
+  [key: string]: unknown;
+}
+
+function levelLabel(level = 1) {
+  if (level >= 3) return "高危";
+  if (level === 2) return "中危";
+  return "低危";
+}
+
+function playWarningTone(level = 1) {
+  try {
+    const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = level >= 3 ? "square" : "sine";
+    oscillator.frequency.value = level >= 3 ? 880 : level === 2 ? 660 : 520;
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.12, context.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.32);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.34);
+    oscillator.onended = () => context.close().catch(() => undefined);
+  } catch {
+    // 浏览器可能在用户首次交互前禁止播放声音，弹窗仍会正常显示。
+  }
+}
+
+export default function RealtimeWarningBridge() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { token, isAuthenticated } = useAuthStore();
+  const [warning, setWarning] = useState<RealtimeWarning | null>(null);
+  const { data: warningElder } = useElderDetail(warning?.elderId);
+  const seenIds = useRef(new Set<string>());
+  const closeTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated || !token || typeof EventSource === "undefined") return;
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+    const source = new EventSource(`${baseUrl}/api/warnings/stream?token=${encodeURIComponent(token)}`);
+
+    const receiveWarning = (event: MessageEvent) => {
+      try {
+        let payload: unknown = JSON.parse(event.data);
+        if (typeof payload === "string") payload = JSON.parse(payload);
+        const next = payload as RealtimeWarning;
+        if (!next || (!next.id && !next.warningId && !next.warningTitle && !next.elderId)) return;
+        const key = String(next.id || next.warningId || `${next.elderId}-${next.warningTitle}-${next.warningValue}`);
+        if (seenIds.current.has(key)) return;
+        seenIds.current.add(key);
+        if (seenIds.current.size > 500) seenIds.current = new Set(Array.from(seenIds.current).slice(-300));
+
+        setWarning(next);
+        playWarningTone(Number(next.warningLevel || 1));
+        toast.warning(`${levelLabel(Number(next.warningLevel || 1))}预警：${next.warningTitle || "健康指标异常"}`);
+        queryClient.invalidateQueries({ queryKey: ["warnings"] });
+        if (closeTimer.current) window.clearTimeout(closeTimer.current);
+        closeTimer.current = window.setTimeout(() => setWarning(null), 10000);
+      } catch {
+        // 忽略无法解析的心跳或非预警事件。
+      }
+    };
+
+    source.addEventListener("warning", receiveWarning as EventListener);
+    return () => {
+      source.removeEventListener("warning", receiveWarning as EventListener);
+      source.close();
+      if (closeTimer.current) window.clearTimeout(closeTimer.current);
+    };
+  }, [isAuthenticated, queryClient, token]);
+
+  const viewNow = () => {
+    const warningId = warning?.id || warning?.warningId;
+    setWarning(null);
+    navigate(warningId ? `/warnings?handle=${warningId}` : "/warnings");
+  };
+
+  return (
+    <Dialog open={!!warning} onOpenChange={(open) => !open && setWarning(null)}>
+      <DialogContent className="max-w-md rounded-2xl border-red-200 bg-white/96 shadow-2xl backdrop-blur-xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-red-700"><Siren className="h-5 w-5" />收到实时健康预警</DialogTitle>
+        </DialogHeader>
+        <div className="rounded-xl border border-red-100 bg-red-50/70 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">{levelLabel(Number(warning?.warningLevel || 1))}</span>
+            <BellRing className="h-5 w-5 text-red-500" />
+          </div>
+          <h3 className="mt-3 font-semibold text-foreground">{warning?.warningTitle || "健康指标异常"}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">老人：{resolveElderName(warning?.elderName || warningElder?.name, warning?.elderId)}</p>
+          {warning?.warningContent && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground/80">{warning.warningContent}</p>}
+          {(warning?.warningValue !== undefined || warning?.thresholdValue !== undefined) && <p className="mt-2 text-xs text-muted-foreground">预警值：{String(warning?.warningValue ?? "-")} · 阈值：{String(warning?.thresholdValue ?? "-")}</p>}
+          {warning?.createTime && <p className="mt-1 text-xs text-muted-foreground">发生时间：{warning.createTime}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setWarning(null)}>稍后处理</Button>
+          <Button onClick={viewNow} className="bg-red-500 text-white hover:bg-red-600">立即查看</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

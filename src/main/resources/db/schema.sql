@@ -255,7 +255,7 @@ CREATE TABLE IF NOT EXISTS assessment_record (
 CREATE TABLE IF NOT EXISTS timeline_event (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     elder_id BIGINT NOT NULL COMMENT '老人ID',
-    event_type TINYINT DEFAULT NULL COMMENT '事件类型:1就诊 2检查 3用药变更 4预警 5随访 6评估 7转诊 8住院 9出院',
+    event_type TINYINT DEFAULT NULL COMMENT '事件类型:1就诊 2检查 3用药变更 4预警 5随访 6评估 7转诊 8住院 9出院 10风险分层 11干预 12AI报告',
     event_title VARCHAR(200) DEFAULT NULL COMMENT '事件标题',
     event_content VARCHAR(2000) DEFAULT NULL COMMENT '事件内容',
     event_data VARCHAR(2000) DEFAULT NULL COMMENT '结构化数据JSON',
@@ -269,6 +269,10 @@ CREATE TABLE IF NOT EXISTS timeline_event (
     KEY idx_event_type (event_type),
     KEY idx_event_time (event_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='患者时间轴事件表';
+
+-- 兼容旧版本曾把干预写成评估(6)、AI报告写成转诊(7)的历史数据。
+UPDATE timeline_event SET event_type = 11 WHERE source_type = 'intervention_record' AND event_type = 6;
+UPDATE timeline_event SET event_type = 12 WHERE source_type = 'ai_health_report' AND event_type = 7;
 
 -- 预警规则配置表（可自定义阈值的规则引擎）
 CREATE TABLE IF NOT EXISTS warning_rule (
@@ -736,6 +740,7 @@ CREATE TABLE IF NOT EXISTS elder_risk_profile (
 CREATE TABLE IF NOT EXISTS followup_task (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     elder_id BIGINT NOT NULL COMMENT '老人ID',
+    plan_id BIGINT DEFAULT NULL COMMENT '关联随访计划ID',
     doctor_id BIGINT DEFAULT NULL COMMENT '负责医生ID',
     task_type TINYINT NOT NULL DEFAULT 1 COMMENT '任务类型:1风险随访 2逾期随访 3预约随访',
     priority TINYINT NOT NULL DEFAULT 1 COMMENT '优先级:1低 2中 3高 4紧急',
@@ -749,11 +754,39 @@ CREATE TABLE IF NOT EXISTS followup_task (
     remark VARCHAR(500) DEFAULT NULL COMMENT '备注',
     PRIMARY KEY (id),
     KEY idx_elder_id (elder_id),
+    KEY idx_plan_id (plan_id),
     KEY idx_doctor_id (doctor_id),
     KEY idx_status (status),
     KEY idx_due_date (due_date),
     KEY idx_source (source)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='随访任务表';
+
+-- 给旧库随访任务表补充随访计划关联字段
+SET @col_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'followup_task'
+      AND COLUMN_NAME = 'plan_id'
+);
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE followup_task ADD COLUMN plan_id BIGINT DEFAULT NULL COMMENT ''关联随访计划ID'' AFTER elder_id',
+    'SELECT ''followup_task.plan_id exists''');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @index_exists := (
+    SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'followup_task'
+      AND INDEX_NAME = 'idx_plan_id'
+);
+SET @sql := IF(@index_exists = 0,
+    'ALTER TABLE followup_task ADD INDEX idx_plan_id (plan_id)',
+    'SELECT ''followup_task.idx_plan_id exists''');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- 风险评分规则配置表
 CREATE TABLE IF NOT EXISTS risk_rule_config (

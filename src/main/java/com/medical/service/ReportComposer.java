@@ -48,6 +48,7 @@ public class ReportComposer {
      */
     public String compose(List<RuleEngineService.TriggeredRule> triggered, Map<String, Object> ctx) {
         Map<String, Object> report = new LinkedHashMap<>();
+        report.put("schemaVersion", "2.0");
 
         // ===== 风险评分 =====
         int riskScore = 0;
@@ -129,6 +130,9 @@ public class ReportComposer {
 
         // ===== 元数据 =====
         report.put("triggeredRuleCount", triggered.size());
+        report.put("dataCompleteness", ctx.get("dataCompleteness"));
+        report.put("dataCompletenessScore", ctx.get("dataCompletenessScore"));
+        report.put("missingData", ctx.getOrDefault("missingData", Collections.emptyList()));
         report.put("generatedAt", java.time.LocalDateTime.now().toString());
 
         try {

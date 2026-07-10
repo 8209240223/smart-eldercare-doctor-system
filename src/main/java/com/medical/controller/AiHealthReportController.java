@@ -27,8 +27,8 @@ public class AiHealthReportController {
     @OperationLog(module = "AI健康评估", type = "生成报告", desc = "生成规则引擎健康评估报告")
     public R<?> generate(@PathVariable Long elderId, HttpServletRequest request) {
         Long doctorId = (Long) request.getAttribute("currentUserId");
-        AiHealthReport report = reportService.generateByRule(elderId, doctorId);
-        return R.ok("评估报告已生成", report);
+        AiHealthReport report = reportService.generateOrRefreshByRule(elderId, doctorId);
+        return R.ok("评估报告已生成或刷新", report);
     }
 
     /**
@@ -58,8 +58,11 @@ public class AiHealthReportController {
     public R<?> confirm(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> body,
                         HttpServletRequest request) {
         Long doctorId = (Long) request.getAttribute("currentUserId");
-        String editedJson = body != null && body.containsKey("editedJson") ?
-                body.get("editedJson").toString() : null;
+        Object editedValue = body == null ? null : body.get("editedReportJson");
+        if (editedValue == null && body != null) {
+            editedValue = body.get("editedJson");
+        }
+        String editedJson = editedValue == null ? null : editedValue.toString();
         reportService.confirm(id, doctorId, editedJson);
         return R.ok("报告已确认");
     }

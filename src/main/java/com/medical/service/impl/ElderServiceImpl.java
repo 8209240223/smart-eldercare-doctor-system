@@ -21,6 +21,7 @@ import org.springframework.util.StringUtils;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -151,6 +152,24 @@ public class ElderServiceImpl implements ElderService {
         stats.put("doctorCount", doctorCount);
         stats.put("nurseCount", nurseCount);
         return stats;
+    }
+
+    @Override
+    public List<Map<String, Object>> listActiveDoctorOptions() {
+        return sysUserMapper.selectList(new LambdaQueryWrapper<SysUser>()
+                        .eq(SysUser::getUserType, 2)
+                        .eq(SysUser::getStatus, 1)
+                        .orderByAsc(SysUser::getRealName)
+                        .orderByAsc(SysUser::getUsername))
+                .stream()
+                .map(user -> {
+                    Map<String, Object> option = new LinkedHashMap<>();
+                    option.put("id", user.getId());
+                    option.put("realName", user.getRealName());
+                    option.put("username", user.getUsername());
+                    return option;
+                })
+                .collect(Collectors.toList());
     }
 
     private void validateElder(ElderInfo elderInfo, Long currentId) {

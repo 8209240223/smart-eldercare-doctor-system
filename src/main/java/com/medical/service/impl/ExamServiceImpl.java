@@ -8,6 +8,7 @@ import com.medical.common.exception.BusinessException;
 import com.medical.entity.PhysicalExam;
 import com.medical.entity.TimelineEvent;
 import com.medical.mapper.PhysicalExamMapper;
+import com.medical.service.ElderReferenceService;
 import com.medical.service.ExamService;
 import com.medical.service.TimelineService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +32,9 @@ public class ExamServiceImpl implements ExamService {
 
     @Autowired
     private TimelineService timelineService;
+
+    @Autowired
+    private ElderReferenceService elderReferenceService;
 
     @Override
     public Page<PhysicalExam> list(Integer pageNum, Integer pageSize, Long elderId, String startDate, String endDate) {
@@ -61,9 +65,7 @@ public class ExamServiceImpl implements ExamService {
     @Override
     public Long create(PhysicalExam exam) {
         validateExam(exam);
-        if (exam.getElderId() == null) {
-            throw new BusinessException(400, "老人ID不能为空");
-        }
+        elderReferenceService.requireActive(exam.getElderId());
         if (exam.getExamDate() == null) {
             exam.setExamDate(LocalDate.now());
         }
@@ -83,6 +85,7 @@ public class ExamServiceImpl implements ExamService {
         BeanUtil.copyProperties(exam, existing, CopyOptions.create()
                 .ignoreNullValue()
                 .setIgnoreProperties("id", "createTime", "updateTime", "deleted"));
+        elderReferenceService.requireActive(existing.getElderId());
         recalculateDerivedFields(existing);
         physicalExamMapper.updateById(existing);
         addExamTimeline(existing);

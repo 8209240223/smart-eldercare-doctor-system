@@ -5,6 +5,8 @@ import com.medical.entity.VitalSignData;
 import com.medical.entity.WearableDevice;
 import com.medical.mapper.VitalSignDataMapper;
 import com.medical.mapper.WearableDeviceMapper;
+import com.medical.common.exception.BusinessException;
+import com.medical.service.ElderReferenceService;
 import com.medical.service.VitalSignService;
 import com.medical.service.WarningRuleService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,8 +29,15 @@ public class VitalSignServiceImpl implements VitalSignService {
     @Autowired
     private WarningRuleService warningRuleService;
 
+    @Autowired
+    private ElderReferenceService elderReferenceService;
+
     @Override
     public WearableDevice bindDevice(WearableDevice device) {
+        if (device == null) {
+            throw new BusinessException(400, "设备信息不能为空");
+        }
+        elderReferenceService.requireActive(device.getElderId());
         device.setBindStatus(1);
         device.setBindTime(LocalDateTime.now());
         device.setCreateTime(LocalDateTime.now());
@@ -38,6 +47,11 @@ public class VitalSignServiceImpl implements VitalSignService {
 
     @Override
     public void unbindDevice(Long id) {
+        WearableDevice existing = wearableDeviceMapper.selectById(id);
+        if (existing == null) {
+            throw new BusinessException(404, "设备不存在");
+        }
+        elderReferenceService.requireActive(existing.getElderId());
         WearableDevice device = new WearableDevice();
         device.setId(id);
         device.setBindStatus(0);
@@ -56,7 +70,18 @@ public class VitalSignServiceImpl implements VitalSignService {
     public void uploadData(List<VitalSignData> dataList) {
         if (dataList == null || dataList.isEmpty()) return;
 
-        Long elderId = dataList.get(0).getElderId();
+        Set<Long> elderIds = new HashSet<>();
+        for (VitalSignData data : dataList) {
+            if (data == null) {
+                throw new BusinessException(400, "生命体征数据不能为空");
+            }
+            elderReferenceService.requireActive(data.getElderId());
+            elderIds.add(data.getElderId());
+        }
+        if (elderIds.size() != 1) {
+            throw new BusinessException(400, "一次只能上传同一位老人的生命体征数据");
+        }
+        Long elderId = elderIds.iterator().next();
         Map<String, BigDecimal> vitalMap = new HashMap<>();
 
         for (VitalSignData data : dataList) {
@@ -114,6 +139,7 @@ public class VitalSignServiceImpl implements VitalSignService {
 
     @Override
     public void generateMockData(Long elderId, Integer days) {
+        elderReferenceService.requireActive(elderId);
         if (days == null) days = 30;
         ThreadLocalRandom random = ThreadLocalRandom.current();
         LocalDateTime now = LocalDateTime.now();
@@ -138,6 +164,7 @@ public class VitalSignServiceImpl implements VitalSignService {
 
     @Override
     public void generateAbnormalMockData(Long elderId, Integer dataType) {
+        elderReferenceService.requireActive(elderId);
         ThreadLocalRandom random = ThreadLocalRandom.current();
         LocalDateTime now = LocalDateTime.now();
 

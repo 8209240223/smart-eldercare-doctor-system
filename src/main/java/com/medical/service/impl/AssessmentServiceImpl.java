@@ -1,11 +1,13 @@
 package com.medical.service.impl;
 
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.exception.BusinessException;
 import com.medical.entity.*;
 import com.medical.mapper.*;
 import com.medical.service.AssessmentService;
+import com.medical.service.ElderReferenceService;
 import com.medical.service.TimelineService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,9 +26,6 @@ public class AssessmentServiceImpl implements AssessmentService {
     private AssessmentRecordMapper assessmentRecordMapper;
 
     @Autowired
-    private ElderInfoMapper elderInfoMapper;
-
-    @Autowired
     private HealthRecordMapper healthRecordMapper;
 
     @Autowired
@@ -43,6 +42,9 @@ public class AssessmentServiceImpl implements AssessmentService {
 
     @Autowired
     private TimelineService timelineService;
+
+    @Autowired
+    private ElderReferenceService elderReferenceService;
 
 
     @Override
@@ -67,6 +69,7 @@ public class AssessmentServiceImpl implements AssessmentService {
     @Override
     public Long create(AssessmentRecord record) {
         validateRecord(record);
+        elderReferenceService.requireActive(record.getElderId());
         // 自动评级
         autoGrade(record);
         assessmentRecordMapper.insert(record);
@@ -78,6 +81,7 @@ public class AssessmentServiceImpl implements AssessmentService {
     public void update(Long id, AssessmentRecord record) {
         record.setId(id);
         validateRecord(record);
+        elderReferenceService.requireActive(record.getElderId());
         autoGrade(record);
         assessmentRecordMapper.updateById(record);
         addAssessmentTimeline(record);
@@ -98,7 +102,7 @@ public class AssessmentServiceImpl implements AssessmentService {
         stats.put("total", assessmentRecordMapper.selectCount(wrapper));
 
         // 各类型统计
-        for (int i = 1; i <= 6; i++) {
+        for (int i = 1; i <= 9; i++) {
             LambdaQueryWrapper<AssessmentRecord> typeWrapper = new LambdaQueryWrapper<>();
             typeWrapper.eq(AssessmentRecord::getAssessType, i);
             if (elderId != null) typeWrapper.eq(AssessmentRecord::getElderId, elderId);
@@ -112,10 +116,7 @@ public class AssessmentServiceImpl implements AssessmentService {
         Map<String, Object> report = new LinkedHashMap<>();
 
         // 1. 老人基本信息
-        ElderInfo elder = elderInfoMapper.selectById(elderId);
-        if (elder == null) {
-            throw new BusinessException(404, "老人信息不存在");
-        }
+        ElderInfo elder = elderReferenceService.requireActive(elderId);
         Map<String, Object> basicInfo = new LinkedHashMap<>();
         basicInfo.put("name", elder.getName());
         basicInfo.put("gender", elder.getGender() != null && elder.getGender() == 1 ? "男" : "女");
@@ -163,7 +164,7 @@ public class AssessmentServiceImpl implements AssessmentService {
 
         // 评估综合评分（取最近一次综合评估）
         AssessmentRecord latestComprehensive = assessments.stream()
-                .filter(a -> a.getAssessType() != null && a.getAssessType() == 6)
+                .filter(a -> a.getAssessType() != null && a.getAssessType() == 9)
                 .findFirst().orElse(null);
         if (latestComprehensive != null) {
             report.put("overallScore", latestComprehensive.getScore());
@@ -213,18 +214,13 @@ public class AssessmentServiceImpl implements AssessmentService {
                  .orderByDesc(AiHealthReport::getCreateTime)
                  .last("LIMIT 5");
         List<AiHealthReport> aiReports = aiHealthReportMapper.selectList(aiWrapper);
-        report.put("aiReports", aiReports);
+        List<Map<String, Object>> aiReportSummaries = aiReports.stream()
+                .map(this::toAiReportSummary)
+                .collect(Collectors.toList());
+        report.put("aiReports", aiReportSummaries);
         report.put("aiReportCount", aiReports.size());
-        AiHealthReport latestAiReport = aiReports.isEmpty() ? null : aiReports.get(0);
-        if (latestAiReport != null) {
-            Map<String, Object> aiSummary = new LinkedHashMap<>();
-            aiSummary.put("id", latestAiReport.getId());
-            aiSummary.put("source", latestAiReport.getSource());
-            aiSummary.put("riskScore", latestAiReport.getRiskScore());
-            aiSummary.put("riskLevel", latestAiReport.getRiskLevel());
-            aiSummary.put("status", latestAiReport.getStatus());
-            aiSummary.put("createTime", latestAiReport.getCreateTime());
-            report.put("latestAiReport", aiSummary);
+        if (!aiReportSummaries.isEmpty()) {
+            report.put("latestAiReport", aiReportSummaries.get(0));
         }
 
         // 8. 报告元信息
@@ -280,7 +276,7 @@ public class AssessmentServiceImpl implements AssessmentService {
                 else if (score <= 50) { level = "中风险"; suggestion = "建议改善居家环境，安装扶手，穿防滑鞋。"; }
                 else { level = "高风险"; suggestion = "跌倒风险高，建议使用助行器，家中消除障碍物，必要时安排陪护。"; }
                 break;
-            case 6: // 综合评估 (满分100)
+            case 9: // 综合评估 (满分100)
                 if (score >= 80) { level = "优"; suggestion = "整体健康状况优良，保持现有生活方式。"; }
                 else if (score >= 60) { level = "良"; suggestion = "健康状况良好，部分指标可改善。"; }
                 else if (score >= 40) { level = "中"; suggestion = "健康状况一般，建议全面体检并制定健康管理方案。"; }
@@ -320,6 +316,33 @@ public class AssessmentServiceImpl implements AssessmentService {
         timelineService.addEvent(event);
     }
 
+    private Map<String, Object> toAiReportSummary(AiHealthReport aiReport) {
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("id", aiReport.getId());
+        summary.put("riskScore", aiReport.getRiskScore());
+        summary.put("riskLevel", aiReport.getRiskLevel());
+        summary.put("status", aiReport.getStatus());
+        summary.put("source", aiReport.getSource());
+        summary.put("createTime", aiReport.getCreateTime());
+        summary.put("reportText", extractReportText(aiReport));
+        return summary;
+    }
+
+    private String extractReportText(AiHealthReport aiReport) {
+        String reportJson = aiReport.getEditedReportJson();
+        if (reportJson == null || reportJson.trim().isEmpty()) {
+            reportJson = aiReport.getReportJson();
+        }
+        if (reportJson == null || reportJson.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return JSONUtil.parseObj(reportJson).getStr("reportText");
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
     private String getAssessmentTypeText(Integer type) {
         if (type == null) return "未知";
         switch (type) {
@@ -328,7 +351,10 @@ public class AssessmentServiceImpl implements AssessmentService {
             case 3: return "情绪心理";
             case 4: return "营养";
             case 5: return "跌倒风险";
-            case 6: return "综合评估";
+            case 6: return "压疮风险";
+            case 7: return "疼痛";
+            case 8: return "社会功能";
+            case 9: return "综合评估";
             default: return "未知";
         }
     }

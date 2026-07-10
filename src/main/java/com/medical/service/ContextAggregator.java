@@ -20,7 +20,6 @@ import java.util.stream.Collectors;
 @Service
 public class ContextAggregator {
 
-    @Autowired private ElderInfoMapper elderInfoMapper;
     @Autowired private HealthRecordMapper healthRecordMapper;
     @Autowired private PhysicalExamMapper physicalExamMapper;
     @Autowired private VitalSignDataMapper vitalSignDataMapper;
@@ -37,6 +36,7 @@ public class ContextAggregator {
     @Autowired private NursingPlanMapper nursingPlanMapper;
     @Autowired private ReferralOrderMapper referralOrderMapper;
     @Autowired private WearableDeviceMapper wearableDeviceMapper;
+    @Autowired private ElderReferenceService elderReferenceService;
 
     /**
      * 聚合老人全量评估数据
@@ -44,20 +44,17 @@ public class ContextAggregator {
      */
     public Map<String, Object> gather(Long elderId) {
         Map<String, Object> ctx = new LinkedHashMap<>();
+        List<String> missingData = new ArrayList<>();
         ctx.put("elderId", elderId);
 
         // ===== 1. 老人基本信息 =====
-        ElderInfo elder = elderInfoMapper.selectById(elderId);
-        if (elder == null) {
-            ctx.put("error", "老人不存在");
-            return ctx;
-        }
+        ElderInfo elder = elderReferenceService.requireActive(elderId);
         ctx.put("elder", elder);
         ctx.put("gender", elder.getGender());        // 1男 2女
         if (elder.getBirthDate() != null) {
             ctx.put("age", Period.between(elder.getBirthDate(), LocalDate.now()).getYears());
         } else {
-            ctx.put("age", 0);
+            missingData.add("出生日期");
         }
 
         // ===== 2. 健康档案 =====
@@ -65,6 +62,7 @@ public class ContextAggregator {
                 new LambdaQueryWrapper<HealthRecord>().eq(HealthRecord::getElderId, elderId));
         ctx.put("healthRecord", record);
         if (record != null) {
+            ctx.put("hasHealthRecord", 1);
             ctx.put("smokingStatus", record.getSmokingStatus());      // 0不吸烟 1吸烟 2已戒烟
             ctx.put("drinkingStatus", record.getDrinkingStatus());    // 0不饮酒 1偶尔 2经常
             ctx.put("exerciseFrequency", record.getExerciseFrequency());// 0无 1偶尔 2规律
@@ -75,11 +73,8 @@ public class ContextAggregator {
             if (record.getHeight() != null) ctx.put("height", record.getHeight());
             if (record.getWeight() != null) ctx.put("weight", record.getWeight());
         } else {
-            ctx.put("smokingStatus", 0);
-            ctx.put("drinkingStatus", 0);
-            ctx.put("exerciseFrequency", 0);
-            ctx.put("livingAbility", 5);
-            ctx.put("hasDisability", 0);
+            ctx.put("hasHealthRecord", 0);
+            missingData.add("健康档案");
         }
 
         // ===== 3. 最近一次体检 =====
@@ -139,6 +134,9 @@ public class ContextAggregator {
             }
         }
         ctx.put("vitalSigns", latestVitals);
+        if (exam == null && latestVitals.isEmpty()) {
+            missingData.add("体检或生命体征");
+        }
         // 最近设备异常数量
         long abnormalVitalCount = latestVitals.stream().filter(v -> v.getIsAbnormal() != null && v.getIsAbnormal() == 1).count();
         ctx.put("abnormalVitalCount", (int) abnormalVitalCount);
@@ -227,14 +225,21 @@ public class ContextAggregator {
                         .eq(FollowPlan::getStatus, 1));  // 进行中
         ctx.put("activeFollowPlans", activePlans);
         // 最近的随访逾期检查
-        boolean overdue = activePlans.stream().anyMatch(p ->
-                p.getNextFollowDate() != null && p.getNextFollowDate().isBefore(LocalDate.now()));
-        ctx.put("followupOverdue", overdue ? 1 : 0);
+        int overdueDays = activePlans.stream()
+                .map(FollowPlan::getNextFollowDate)
+                .filter(Objects::nonNull)
+                .filter(date -> date.isBefore(LocalDate.now()))
+                .mapToInt(date -> (int) ChronoUnit.DAYS.between(date, LocalDate.now()))
+                .max()
+                .orElse(0);
+        ctx.put("followupOverdue", overdueDays > 0 ? 1 : 0);
+        ctx.put("followupOverdueDays", overdueDays);
+        ctx.put("days", overdueDays);
         // 最近一次随访日期
         Optional<LocalDate> latestFollowDate = activePlans.stream()
                 .map(FollowPlan::getNextFollowDate)
                 .filter(Objects::nonNull)
-                .max(LocalDate::compareTo);
+                .min(LocalDate::compareTo);
         if (latestFollowDate.isPresent()) {
             long daysToFollow = ChronoUnit.DAYS.between(LocalDate.now(), latestFollowDate.get());
             ctx.put("followupDays", (int) daysToFollow);
@@ -250,10 +255,13 @@ public class ContextAggregator {
         ctx.put("latestFollowRecord", recentFollowRecords.isEmpty() ? null : recentFollowRecords.get(0));
         if (!recentFollowRecords.isEmpty()) {
             FollowRecord fr = recentFollowRecords.get(0);
-            ctx.put("medCompliance", fr.getMedicationCompliance() != null ? fr.getMedicationCompliance() : 5);
-            ctx.put("followupOverdueDays", fr.getIsOverdue() != null && fr.getIsOverdue() == 1 ? 1 : 0);
+            if (fr.getMedicationCompliance() != null) {
+                ctx.put("medCompliance", fr.getMedicationCompliance());
+            } else {
+                missingData.add("随访用药依从性");
+            }
         } else {
-            ctx.put("medCompliance", 5);
+            missingData.add("随访记录");
         }
 
         // ===== 12. 最近干预记录 =====
@@ -284,6 +292,7 @@ public class ContextAggregator {
             ctx.put("daysSinceAssessment", (int) daysSince);
         } else {
             ctx.put("daysSinceAssessment", 999);   // 从未评估
+            missingData.add("健康评估");
         }
 
         // ===== 14. 护理异常记录 =====
@@ -317,9 +326,10 @@ public class ContextAggregator {
         }
         ctx.put("activeNursingPlans", activeNursingPlans);
         // 生活能力下降但无护理计划
-        Integer livingAbility = (Integer) ctx.getOrDefault("livingAbility", 5);
-        if (livingAbility == null) livingAbility = 5;
-        ctx.put("nursingGap", (livingAbility <= 2 && activeNursingPlans.isEmpty()) ? 1 : 0);
+        Integer livingAbility = (Integer) ctx.get("livingAbility");
+        if (livingAbility != null) {
+            ctx.put("nursingGap", (livingAbility <= 2 && activeNursingPlans.isEmpty()) ? 1 : 0);
+        }
 
         // ===== 16. 转诊（进行中的） =====
         List<ReferralOrder> activeReferrals = referralOrderMapper.selectList(
@@ -348,10 +358,29 @@ public class ContextAggregator {
         ctx.put("deviceGap", (abnormalCount > 0 && devices.isEmpty()) ? 1 : 0);
 
         // ===== 18. 计算跌倒风险 =====
-        int age = ctx.get("age") != null ? ((Number) ctx.get("age")).intValue() : 0;
+        Integer age = ctx.get("age") instanceof Number ? ((Number) ctx.get("age")).intValue() : null;
         Object livingObj = ctx.get("livingAbility");
-        int living = livingObj != null ? ((Number) livingObj).intValue() : 5;
-        ctx.put("fallRisk", (age >= 75 && living <= 2) ? 1 : 0);
+        Integer living = livingObj instanceof Number ? ((Number) livingObj).intValue() : null;
+        if (age != null && living != null) {
+            ctx.put("fallRisk", (age >= 75 && living <= 2) ? 1 : 0);
+        }
+
+        LinkedHashSet<String> uniqueMissingData = new LinkedHashSet<>(missingData);
+        int totalSections = 5;
+        int completedSections = 0;
+        if (elder.getBirthDate() != null) completedSections++;
+        if (record != null) completedSections++;
+        if (exam != null || !latestVitals.isEmpty()) completedSections++;
+        if (!recentFollowRecords.isEmpty()) completedSections++;
+        if (!assessments.isEmpty()) completedSections++;
+        int completenessScore = completedSections * 100 / totalSections;
+        Map<String, Object> completeness = new LinkedHashMap<>();
+        completeness.put("score", completenessScore);
+        completeness.put("completedSections", completedSections);
+        completeness.put("totalSections", totalSections);
+        ctx.put("dataCompleteness", completeness);
+        ctx.put("dataCompletenessScore", completenessScore);
+        ctx.put("missingData", new ArrayList<>(uniqueMissingData));
 
         return ctx;
     }

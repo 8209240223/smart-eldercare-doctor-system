@@ -1,0 +1,1 @@
+import{c as e,n as t,r as n}from"./vanilla-znHNM2lY.js";var r=e(n(),1);t();var i=r.createContext(void 0);function a(e){let t=r.useContext(i);return e||t||`ltr`}export{a as t};

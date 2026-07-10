@@ -41,7 +41,8 @@ spring:
     init:
       mode: always
       schema-locations: classpath:db/schema.sql
-      data-locations: classpath:db/data.sql
+      # 启动时只补齐系统账号、规则和配置；老人演示数据由显式脚本维护。
+      data-locations: classpath:db/system-data.sql
       continue-on-error: true
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
@@ -111,3 +112,11 @@ logging:
   level:
     com.medical: debug
     com.medical.mapper: debug
+
+assistant:
+  kimi:
+    api-key: ${KIMI_API_KEY:}
+    base-url: ${KIMI_API_BASE_URL:https://api.kimi.com/coding/v1}
+    model: ${KIMI_MODEL:kimi-for-coding}
+    connect-timeout: ${KIMI_CONNECT_TIMEOUT:10s}
+    read-timeout: ${KIMI_READ_TIMEOUT:60s}

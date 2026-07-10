@@ -6,6 +6,7 @@ import com.medical.common.exception.BusinessException;
 import com.medical.entity.ReferralOrder;
 import com.medical.entity.TimelineEvent;
 import com.medical.mapper.ReferralOrderMapper;
+import com.medical.service.ElderReferenceService;
 import com.medical.service.ReferralService;
 import com.medical.service.TimelineService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,8 +26,15 @@ public class ReferralServiceImpl implements ReferralService {
     @Autowired
     private TimelineService timelineService;
 
+    @Autowired
+    private ElderReferenceService elderReferenceService;
+
     @Override
     public ReferralOrder createReferral(ReferralOrder order) {
+        if (order == null) {
+            throw new BusinessException(400, "转诊单不能为空");
+        }
+        elderReferenceService.requireActive(order.getElderId());
         // 生成转诊编号
         String no = "REF" + System.currentTimeMillis();
         order.setReferralNo(no);
@@ -114,6 +122,7 @@ public class ReferralServiceImpl implements ReferralService {
         ReferralOrder order = referralOrderMapper.selectById(id);
         assertPermission(order, currentUserId, currentUserType, "接收", true);
         assertStatus(order, java.util.Set.of(0), "接收");
+        elderReferenceService.requireActive(order.getElderId());
         order.setStatus(1);
         order.setAcceptTime(LocalDateTime.now());
         order.setUpdateTime(LocalDateTime.now());
@@ -125,6 +134,7 @@ public class ReferralServiceImpl implements ReferralService {
         ReferralOrder order = referralOrderMapper.selectById(id);
         assertPermission(order, currentUserId, currentUserType, "完成", true);
         assertStatus(order, java.util.Set.of(1, 2), "完成");
+        elderReferenceService.requireActive(order.getElderId());
         order.setStatus(3);
         order.setDischargeSummary(dischargeSummary);
         order.setCompleteTime(LocalDateTime.now());
@@ -148,6 +158,7 @@ public class ReferralServiceImpl implements ReferralService {
         ReferralOrder order = referralOrderMapper.selectById(id);
         assertPermission(order, currentUserId, currentUserType, "拒绝", true);
         assertStatus(order, java.util.Set.of(0, 1), "拒绝");
+        elderReferenceService.requireActive(order.getElderId());
         order.setStatus(4);
         order.setRejectReason(reason);
         order.setUpdateTime(LocalDateTime.now());
@@ -159,6 +170,7 @@ public class ReferralServiceImpl implements ReferralService {
         ReferralOrder order = referralOrderMapper.selectById(id);
         assertPermission(order, currentUserId, currentUserType, "取消", false);
         assertStatus(order, java.util.Set.of(0, 1), "取消");
+        elderReferenceService.requireActive(order.getElderId());
         order.setStatus(5);
         order.setCancelReason(reason);
         order.setUpdateTime(LocalDateTime.now());

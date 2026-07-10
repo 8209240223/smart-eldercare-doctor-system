@@ -2,8 +2,10 @@ package com.medical.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.medical.common.exception.BusinessException;
 import com.medical.entity.TimelineEvent;
 import com.medical.mapper.TimelineEventMapper;
+import com.medical.service.ElderReferenceService;
 import com.medical.service.TimelineService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,9 @@ public class TimelineServiceImpl implements TimelineService {
 
     @Autowired
     private TimelineEventMapper timelineEventMapper;
+
+    @Autowired
+    private ElderReferenceService elderReferenceService;
 
     @Override
     public Page<TimelineEvent> getTimeline(Long elderId, String startDate, String endDate, Integer eventType, Integer pageNum, Integer pageSize) {
@@ -32,7 +37,7 @@ public class TimelineServiceImpl implements TimelineService {
         summary.put("total", timelineEventMapper.selectCount(totalWrapper));
 
         Map<String, Object> typeCounts = new HashMap<>();
-        for (int i = 1; i <= 9; i++) {
+        for (int i = 1; i <= 12; i++) {
             if (eventType != null && eventType != i) {
                 typeCounts.put(String.valueOf(i), 0);
                 summary.put("type" + i, 0);
@@ -49,6 +54,10 @@ public class TimelineServiceImpl implements TimelineService {
 
     @Override
     public void addEvent(TimelineEvent event) {
+        if (event == null) {
+            throw new BusinessException(400, "时间轴事件不能为空");
+        }
+        elderReferenceService.requireActive(event.getElderId());
         if (event.getEventTime() == null) {
             event.setEventTime(LocalDateTime.now());
         }
@@ -62,7 +71,27 @@ public class TimelineServiceImpl implements TimelineService {
         LambdaQueryWrapper<TimelineEvent> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(TimelineEvent::getElderId, elderId);
         if (eventType != null) {
-            wrapper.eq(TimelineEvent::getEventType, eventType);
+            if (eventType == 6) {
+                wrapper.eq(TimelineEvent::getEventType, 6)
+                        .and(query -> query.ne(TimelineEvent::getSourceType, "intervention_record")
+                                .or()
+                                .isNull(TimelineEvent::getSourceType));
+            } else if (eventType == 7) {
+                wrapper.eq(TimelineEvent::getEventType, 7)
+                        .and(query -> query.ne(TimelineEvent::getSourceType, "ai_health_report")
+                                .or()
+                                .isNull(TimelineEvent::getSourceType));
+            } else if (eventType == 11) {
+                wrapper.and(query -> query.eq(TimelineEvent::getEventType, 11)
+                        .or()
+                        .eq(TimelineEvent::getSourceType, "intervention_record"));
+            } else if (eventType == 12) {
+                wrapper.and(query -> query.eq(TimelineEvent::getEventType, 12)
+                        .or()
+                        .eq(TimelineEvent::getSourceType, "ai_health_report"));
+            } else {
+                wrapper.eq(TimelineEvent::getEventType, eventType);
+            }
         }
         if (startDate != null && !startDate.isEmpty()) {
             wrapper.ge(TimelineEvent::getEventTime, LocalDateTime.parse(startDate + "T00:00:00"));

@@ -45,8 +45,9 @@ public class FollowupTaskController {
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
             @RequestParam(required = false) Long doctorId,
-            @RequestParam(defaultValue = "0") Integer status) {
-        Page<Map<String, Object>> page = followupTaskService.getTaskList(pageNum, pageSize, doctorId, status);
+            @RequestParam(required = false) Long elderId,
+            @RequestParam(required = false) Integer status) {
+        Page<Map<String, Object>> page = followupTaskService.getTaskList(pageNum, pageSize, doctorId, elderId, status);
         return R.ok(page);
     }
 

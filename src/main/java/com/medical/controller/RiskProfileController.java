@@ -65,6 +65,7 @@ public class RiskProfileController {
      */
     @PostMapping("/elders/{elderId}/calculate")
     public R<Map<String, Object>> calculateRisk(@PathVariable Long elderId) {
+        riskProfileService.calculateRisk(elderId);
         Map<String, Object> result = riskProfileService.getRiskProfileDetail(elderId);
         return R.ok("风险评分计算完成", result);
     }

@@ -2,9 +2,12 @@ package com.medical.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.medical.common.exception.BusinessException;
+import com.medical.dto.FollowupTaskGenerationResult;
 import com.medical.entity.*;
 import com.medical.mapper.*;
 import com.medical.service.FollowupTaskService;
+import com.medical.service.ElderReferenceService;
 import com.medical.service.RiskProfileService;
 import com.medical.service.TimelineService;
 import org.slf4j.Logger;
@@ -44,6 +47,12 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
     @Autowired
     private TimelineService timelineService;
 
+    @Autowired
+    private ElderReferenceService elderReferenceService;
+
+    @Autowired
+    private FollowRecordMapper followRecordMapper;
+
     @Override
     @Transactional
     public int generateAutoTasks() {
@@ -69,6 +78,8 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
             // 创建风险随访任务
             FollowupTask task = new FollowupTask();
             task.setElderId(profile.getElderId());
+            FollowPlan linkedPlan = followPlanMapper.selectLatestActiveByElder(profile.getElderId());
+            task.setPlanId(linkedPlan == null ? null : linkedPlan.getId());
             task.setDoctorId(elder.getDoctorId());
             task.setTaskType(1); // 风险随访
             task.setPriority(profile.getRiskLevel() == 4 ? 4 : 3); // 高危紧急，重点高
@@ -102,6 +113,7 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
 
             FollowupTask task = new FollowupTask();
             task.setElderId(plan.getElderId());
+            task.setPlanId(plan.getId());
             task.setDoctorId(plan.getDoctorId());
             task.setTaskType(2); // 逾期随访
             task.setPriority(overdueDays >= 14 ? 3 : 2); // 逾期超过14天为高优先级
@@ -120,18 +132,64 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
     }
 
     @Override
+    @Transactional
+    public FollowupTaskGenerationResult generateForElder(Long elderId, Long doctorId, Long planId) {
+        if (elderId == null || elderId <= 0) {
+            throw new BusinessException(400, "老人ID必须为正整数");
+        }
+        if (planId == null || planId <= 0) {
+            throw new BusinessException(400, "随访计划ID必须为正整数");
+        }
+
+        ElderInfo elder = elderReferenceService.requireActive(elderId);
+
+        FollowPlan plan = followPlanMapper.selectByIdForUpdate(planId);
+        if (plan == null || !elderId.equals(plan.getElderId())) {
+            throw new BusinessException(404, "随访计划不存在或不属于该老人");
+        }
+        if (plan.getStatus() != null && plan.getStatus() >= 2) {
+            throw new BusinessException(400, "已完成或已终止的随访计划不能生成任务");
+        }
+
+        FollowupTask existing = followupTaskMapper.selectPendingByPlanId(elderId, planId);
+        if (existing != null) {
+            return new FollowupTaskGenerationResult(existing, false);
+        }
+
+        ElderRiskProfile profile = elderRiskProfileMapper.selectOne(
+                new QueryWrapper<ElderRiskProfile>().eq("elder_id", elderId));
+        int riskLevel = profile == null || profile.getRiskLevel() == null ? 1 : profile.getRiskLevel();
+        int riskScore = profile == null || profile.getRiskScore() == null ? 0 : profile.getRiskScore();
+
+        FollowupTask task = new FollowupTask();
+        task.setElderId(elderId);
+        task.setPlanId(planId);
+        task.setDoctorId(doctorId != null ? doctorId
+                : (plan.getDoctorId() != null ? plan.getDoctorId() : elder.getDoctorId()));
+        task.setTaskType(1);
+        task.setPriority(priorityForRiskLevel(riskLevel));
+        LocalDate dueDate = plan.getNextFollowDate() == null ? LocalDate.now() : plan.getNextFollowDate();
+        task.setDueDate(dueDate.isBefore(LocalDate.now()) ? LocalDate.now() : dueDate);
+        task.setStatus(0);
+        task.setSource("CARE_WORKFLOW");
+        task.setTaskReason(String.format("%s风险老人随访，评分:%d分，关联计划:%s",
+                getRiskLevelText(riskLevel), riskScore, plan.getPlanName()));
+        followupTaskMapper.insert(task);
+        return new FollowupTaskGenerationResult(task, true);
+    }
+
+    @Override
     public List<Map<String, Object>> getTodayTasks() {
         return followupTaskMapper.selectTodayTasks(LocalDate.now());
     }
 
     @Override
-    public Page<Map<String, Object>> getTaskList(Integer pageNum, Integer pageSize, Long doctorId, Integer status) {
+    public Page<Map<String, Object>> getTaskList(Integer pageNum, Integer pageSize, Long doctorId, Long elderId, Integer status) {
         Page<Map<String, Object>> page = new Page<>(pageNum, pageSize);
-        
-        Integer targetStatus = status != null ? status : 0;
-        List<Map<String, Object>> allRecords = doctorId == null
-                ? followupTaskMapper.selectByStatus(targetStatus)
-                : followupTaskMapper.selectByDoctorId(doctorId, targetStatus);
+        if (elderId != null) {
+            elderReferenceService.requireActive(elderId);
+        }
+        List<Map<String, Object>> allRecords = followupTaskMapper.selectTasks(doctorId, elderId, status);
         
         // 手动分页处理
         int total = allRecords.size();
@@ -154,6 +212,18 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
         FollowupTask task = followupTaskMapper.selectById(taskId);
         if (task == null || task.getStatus() != 0) {
             return false;
+        }
+
+        elderReferenceService.requireActive(task.getElderId());
+        FollowRecord followRecord = followRecordMapper.selectById(followRecordId);
+        if (followRecord == null) {
+            throw new BusinessException(404, "关联的随访记录不存在");
+        }
+        if (!task.getElderId().equals(followRecord.getElderId())) {
+            throw new BusinessException(400, "随访任务与随访记录必须属于同一老人");
+        }
+        if (task.getPlanId() != null && !task.getPlanId().equals(followRecord.getPlanId())) {
+            throw new BusinessException(400, "随访任务与随访记录必须属于同一随访计划");
         }
 
         task.setStatus(2); // 已完成
@@ -232,6 +302,15 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
             case 3: return "重点";
             case 4: return "高危";
             default: return "未知";
+        }
+    }
+
+    private int priorityForRiskLevel(int level) {
+        switch (level) {
+            case 4: return 4;
+            case 3: return 3;
+            case 2: return 2;
+            default: return 1;
         }
     }
 }

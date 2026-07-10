@@ -8,6 +8,7 @@ import com.medical.common.exception.BusinessException;
 import com.medical.entity.NursingRecord;
 import com.medical.entity.TimelineEvent;
 import com.medical.mapper.NursingRecordMapper;
+import com.medical.service.ElderReferenceService;
 import com.medical.service.NurseRecordService;
 import com.medical.service.TimelineService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +29,9 @@ public class NurseRecordServiceImpl implements NurseRecordService {
 
     @Autowired
     private TimelineService timelineService;
+
+    @Autowired
+    private ElderReferenceService elderReferenceService;
 
     @Override
     public Page<NursingRecord> list(Integer pageNum, Integer pageSize, Long elderId, Long nurseId,
@@ -72,6 +76,7 @@ public class NurseRecordServiceImpl implements NurseRecordService {
     @Override
     public Long create(NursingRecord record) {
         validateRequired(record);
+        elderReferenceService.requireActive(record.getElderId());
         if (record.getDeleted() == null) {
             record.setDeleted(0);
         }
@@ -92,6 +97,11 @@ public class NurseRecordServiceImpl implements NurseRecordService {
     @Override
     public void update(Long id, NursingRecord record) {
         NursingRecord existing = getById(id);
+        if (record == null) {
+            throw new BusinessException(400, "护理记录不能为空");
+        }
+        Long elderId = record.getElderId() != null ? record.getElderId() : existing.getElderId();
+        elderReferenceService.requireActive(elderId);
         // 已上报的记录不能修改
         if (existing.getReportStatus() != null && existing.getReportStatus() == 1) {
             throw new BusinessException(400, "已上报的记录不能修改");
@@ -122,6 +132,7 @@ public class NurseRecordServiceImpl implements NurseRecordService {
     @Override
     public void reportAbnormal(Long id, String abnormalDesc) {
         NursingRecord record = getById(id);
+        elderReferenceService.requireActive(record.getElderId());
         record.setIsAbnormal(1);
         record.setAbnormalDesc(abnormalDesc);
         record.setReportStatus(1);
