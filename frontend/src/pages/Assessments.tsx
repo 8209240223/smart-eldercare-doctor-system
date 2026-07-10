@@ -42,7 +42,7 @@ import {
   useUpdateAssessment,
   type Assessment,
 } from "@/hooks/useApi";
-import { useAuthStore } from "@/store/auth";
+import { getUserRole, useAuthStore } from "@/store/auth";
 
 const typeLabels = [
   "",
@@ -59,6 +59,7 @@ const typeLabels = [
 
 export default function Assessments() {
   const { userInfo } = useAuthStore();
+  const canManageAssessments = getUserRole(userInfo) === "doctor";
   const currentDoctorId =
     Number(userInfo?.userId || userInfo?.id || 0) || undefined;
   const [page, setPage] = useState(1);
@@ -239,16 +240,12 @@ export default function Assessments() {
                 查看 AI 评估记录
               </Link>
             </Button>
-            <Button
-              onClick={() => {
-                setEditing(undefined);
-                setFormOpen(true);
-              }}
-              className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              新增评估记录
-            </Button>
+            {canManageAssessments && (
+              <Button onClick={() => { setEditing(undefined); setFormOpen(true); }} className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white">
+                <Plus className="mr-2 h-4 w-4" />
+                新增评估记录
+              </Button>
+            )}
           </CardContent>
         </Card>
         <Card className="border-border/40 bg-white/80 shadow-card backdrop-blur-sm">
@@ -305,35 +302,22 @@ export default function Assessments() {
                         <Eye className="mr-1 h-4 w-4" />
                         详情
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditing(item);
-                          setFormOpen(true);
-                        }}
-                      >
-                        <Pencil className="mr-1 h-4 w-4" />
-                        编辑
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => generate(item.elderId)}
-                        disabled={generateAi.isPending}
-                      >
-                        <Sparkles className="mr-1 h-4 w-4" />
-                        AI 报告
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-red-600"
-                        onClick={() => setDeleteTarget(item)}
-                      >
-                        <Trash2 className="mr-1 h-4 w-4" />
-                        删除
-                      </Button>
+                      {canManageAssessments && (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => { setEditing(item); setFormOpen(true); }}>
+                            <Pencil className="mr-1 h-4 w-4" />
+                            编辑
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => generate(item.elderId)} disabled={generateAi.isPending}>
+                            <Sparkles className="mr-1 h-4 w-4" />
+                            AI 报告
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-red-600" onClick={() => setDeleteTarget(item)}>
+                            <Trash2 className="mr-1 h-4 w-4" />
+                            删除
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </motion.div>
                 ))}

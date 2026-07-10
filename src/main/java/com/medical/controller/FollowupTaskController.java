@@ -1,5 +1,6 @@
 package com.medical.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.result.R;
 import com.medical.service.FollowupTaskService;
@@ -14,6 +15,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/followup/tasks")
+@RequireRole({1, 2})
 public class FollowupTaskController {
 
     @Autowired
@@ -22,6 +24,7 @@ public class FollowupTaskController {
     /**
      * 自动生成随访任务
      */
+    @RequireRole({2})
     @PostMapping("/generate")
     public R<Integer> generateAutoTasks() {
         int count = followupTaskService.generateAutoTasks();
@@ -54,6 +57,7 @@ public class FollowupTaskController {
     /**
      * 完成随访任务
      */
+    @RequireRole({2})
     @PutMapping("/{id}/finish")
     public R<Boolean> finishTask(
             @PathVariable Long id,
@@ -65,6 +69,7 @@ public class FollowupTaskController {
     /**
      * 取消随访任务
      */
+    @RequireRole({2})
     @PutMapping("/{id}/cancel")
     public R<Boolean> cancelTask(
             @PathVariable Long id,

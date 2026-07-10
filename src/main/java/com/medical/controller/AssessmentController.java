@@ -1,5 +1,6 @@
 package com.medical.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.result.R;
 import com.medical.entity.AssessmentRecord;
 import com.medical.service.AssessmentService;
@@ -13,6 +14,7 @@ import javax.servlet.http.HttpServletRequest;
  */
 @RestController
 @RequestMapping("/api/assessments")
+@RequireRole({1, 2, 3})
 public class AssessmentController {
 
     @Autowired
@@ -31,17 +33,20 @@ public class AssessmentController {
         return R.ok(assessmentService.getDetail(id));
     }
 
+    @RequireRole({2})
     @PostMapping
     public R<?> create(@RequestBody AssessmentRecord record) {
         return R.ok("评估完成", assessmentService.create(record));
     }
 
+    @RequireRole({2})
     @PutMapping("/{id}")
     public R<?> update(@PathVariable Long id, @RequestBody AssessmentRecord record) {
         assessmentService.update(id, record);
         return R.ok("修改成功");
     }
 
+    @RequireRole({2})
     @DeleteMapping("/{id}")
     public R<?> delete(@PathVariable Long id) {
         assessmentService.delete(id);

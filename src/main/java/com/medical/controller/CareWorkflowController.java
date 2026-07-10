@@ -1,5 +1,6 @@
 package com.medical.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.annotation.OperationLog;
 import com.medical.common.result.R;
 import com.medical.dto.CareWorkflowResult;
@@ -15,11 +16,13 @@ import javax.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/care-workflows/elders")
+@RequireRole({1, 2, 3})
 public class CareWorkflowController {
 
     @Autowired
     private CareWorkflowService careWorkflowService;
 
+    @RequireRole({2})
     @PostMapping("/{elderId}/generate")
     @OperationLog(module = "健康管理流程", type = "生成", desc = "生成老人统一健康管理流程")
     public R<CareWorkflowResult> generate(@PathVariable Long elderId, HttpServletRequest request) {

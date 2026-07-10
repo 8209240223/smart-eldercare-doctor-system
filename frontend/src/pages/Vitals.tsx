@@ -43,6 +43,7 @@ import {
   type WearableDevice,
 } from "@/hooks/useApi";
 import { toast } from "sonner";
+import { getUserRole, useAuthStore } from "@/store/auth";
 
 const vitalTypes = [
   { dataType: 1, title: "收缩压", unit: "mmHg", icon: Gauge },
@@ -70,6 +71,9 @@ function formatDate(daysAgo: number) {
 }
 
 export default function Vitals() {
+  const role = getUserRole(useAuthStore((state) => state.userInfo));
+  const canManageDevices = role === "doctor" || role === "nurse";
+  const canGenerateMockData = role === "admin";
   const [selectedElderId, setSelectedElderId] = useState<number | null>(null);
   const [selectedDataType, setSelectedDataType] = useState(0);
   const [startDate, setStartDate] = useState(() => formatDate(7));
@@ -173,7 +177,7 @@ export default function Vitals() {
             <Field label="结束日期">
               <Input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="h-10 rounded-xl bg-white/70" />
             </Field>
-            <Field label="模拟天数">
+            {canGenerateMockData && <Field label="模拟天数">
               <div className="flex gap-2">
                 <Input
                   type="number"
@@ -187,7 +191,7 @@ export default function Vitals() {
                   <Zap className="h-4 w-4" />
                 </Button>
               </div>
-            </Field>
+            </Field>}
             {!dateRangeValid && <p className="text-sm text-red-500 md:col-span-2 xl:col-span-6">开始日期不能晚于结束日期。</p>}
           </CardContent>
         </Card>
@@ -202,9 +206,9 @@ export default function Vitals() {
                   <CardTitle className="text-base font-bold">穿戴设备</CardTitle>
                   <p className="mt-1 text-sm text-muted-foreground">{selectedElder?.name || "当前老人"}的已绑定设备</p>
                 </div>
-                <Button onClick={() => setDeviceDialogOpen(true)} className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white">
+                {canManageDevices && <Button onClick={() => setDeviceDialogOpen(true)} className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white">
                   <Plus className="mr-2 h-4 w-4" />绑定设备
-                </Button>
+                </Button>}
               </CardHeader>
               <CardContent>
                 {devicesLoading ? (
@@ -221,7 +225,7 @@ export default function Vitals() {
                           <p className="mt-1 text-xs text-muted-foreground">类型：{deviceTypeLabels[device.deviceType] || `未知类型（${device.deviceType}）`}</p>
                           <p className="mt-1 text-xs text-muted-foreground">状态：{device.bindStatus === 1 ? "已绑定" : "已解绑"}</p>
                         </div>
-                        {device.bindStatus === 1 && (
+                        {canManageDevices && device.bindStatus === 1 && (
                           <Button size="icon" variant="ghost" onClick={() => setUnbindTarget(device)} className="shrink-0 text-red-500 hover:bg-red-50 hover:text-red-600" title="解绑设备">
                             <Trash2 className="h-4 w-4" />
                           </Button>

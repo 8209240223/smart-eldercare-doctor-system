@@ -77,12 +77,12 @@ public class NurseRecordServiceImpl implements NurseRecordService {
     public Long create(NursingRecord record) {
         validateRequired(record);
         elderReferenceService.requireActive(record.getElderId());
-        if (record.getDeleted() == null) {
-            record.setDeleted(0);
-        }
-        if (record.getReportStatus() == null) {
-            record.setReportStatus(0);
-        }
+        record.setDeleted(0);
+        record.setReportStatus(0);
+        record.setDoctorReview(0);
+        record.setReviewDoctorId(null);
+        record.setReviewComment(null);
+        record.setReviewTime(null);
         if (record.getIsAbnormal() == null) {
             record.setIsAbnormal(0);
         }
@@ -108,7 +108,8 @@ public class NurseRecordServiceImpl implements NurseRecordService {
         }
         BeanUtil.copyProperties(record, existing, CopyOptions.create()
                 .ignoreNullValue()
-                .setIgnoreProperties("id", "createTime", "updateTime", "deleted", "reportStatus"));
+                .setIgnoreProperties("id", "nurseId", "createTime", "updateTime", "deleted",
+                        "reportStatus", "doctorReview", "reviewDoctorId", "reviewComment", "reviewTime"));
         if (record.getIsAbnormal() != null && record.getIsAbnormal() == 1) {
             existing.setIsAbnormal(1);
             existing.setAbnormalDesc(record.getAbnormalDesc());
@@ -143,8 +144,10 @@ public class NurseRecordServiceImpl implements NurseRecordService {
     public Map<String, Object> getStats(Long nurseId) {
         Map<String, Object> stats = new HashMap<>();
         LambdaQueryWrapper<NursingRecord> baseQ = new LambdaQueryWrapper<NursingRecord>()
-                .eq(NursingRecord::getNurseId, nurseId)
                 .eq(NursingRecord::getDeleted, 0);
+        if (nurseId != null) {
+            baseQ.eq(NursingRecord::getNurseId, nurseId);
+        }
 
         stats.put("total", nursingRecordMapper.selectCount(baseQ));
 

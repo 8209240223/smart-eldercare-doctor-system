@@ -1,5 +1,6 @@
 package com.medical.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.result.R;
 import com.medical.service.RiskProfileService;
@@ -13,6 +14,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/risk")
+@RequireRole({1, 2, 3})
 public class RiskProfileController {
 
     @Autowired
@@ -21,6 +23,7 @@ public class RiskProfileController {
     /**
      * 手动触发全量风险计算
      */
+    @RequireRole({2})
     @PostMapping("/elders/calculate")
     public R<Integer> calculateAllRisk() {
         int count = riskProfileService.calculateAllRisk();
@@ -63,6 +66,7 @@ public class RiskProfileController {
     /**
      * 单个老人风险计算(测试用)
      */
+    @RequireRole({2})
     @PostMapping("/elders/{elderId}/calculate")
     public R<Map<String, Object>> calculateRisk(@PathVariable Long elderId) {
         riskProfileService.calculateRisk(elderId);

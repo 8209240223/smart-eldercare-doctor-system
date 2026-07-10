@@ -1,5 +1,6 @@
 package com.medical.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.result.R;
 import com.medical.service.DashboardEnhancedService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +15,7 @@ import javax.servlet.http.HttpServletRequest;
  */
 @RestController
 @RequestMapping("/api/dashboard")
+@RequireRole({1, 2, 3})
 public class DashboardEnhancedController {
 
     @Autowired

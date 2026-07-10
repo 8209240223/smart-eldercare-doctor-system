@@ -26,7 +26,7 @@ export default function ElderCareJourney() {
   const elderId = Number(params.elderId || 0);
   const userInfo = useAuthStore((state) => state.userInfo);
   const role = getUserRole(userInfo);
-  const canGenerate = role === "doctor" || role === "admin";
+  const canGenerate = role === "doctor";
   const {
     data: summary,
     isLoading,

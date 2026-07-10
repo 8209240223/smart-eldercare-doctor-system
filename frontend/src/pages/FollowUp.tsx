@@ -56,7 +56,7 @@ import {
   type FollowupPlan,
   type FollowupRecord,
 } from "@/hooks/useApi";
-import { useAuthStore } from "@/store/auth";
+import { getUserRole, useAuthStore } from "@/store/auth";
 
 function statusText(status?: number) {
   if (status === 1) return "进行中";
@@ -100,6 +100,7 @@ const frequencyLabels = ["", "每周", "每月", "每季度", "每半年", "每�
 
 export default function FollowUp() {
   const { userInfo } = useAuthStore();
+  const canManageFollowup = getUserRole(userInfo) === "doctor";
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedElderId = searchParams.get("elderId") || "";
   const [page, setPage] = useState(1);
@@ -422,33 +423,22 @@ export default function FollowUp() {
             >
               查询
             </Button>
-            <Button
-              variant="outline"
-              className="rounded-xl"
-              onClick={() => setCleanupOpen(true)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              清理自动计划
-            </Button>
-            <Button
-              variant="outline"
-              className="rounded-xl"
-              onClick={generate}
-              disabled={generatePlans.isPending}
-            >
-              <CalendarPlus className="mr-2 h-4 w-4" />
-              生成随访计划
-            </Button>
-            <Button
-              onClick={() => {
-                setEditingPlan(undefined);
-                setPlanDialogOpen(true);
-              }}
-              className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              新增随访计划
-            </Button>
+            {canManageFollowup && (
+              <>
+                <Button variant="outline" className="rounded-xl" onClick={() => setCleanupOpen(true)}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  清理自动计划
+                </Button>
+                <Button variant="outline" className="rounded-xl" onClick={generate} disabled={generatePlans.isPending}>
+                  <CalendarPlus className="mr-2 h-4 w-4" />
+                  生成随访计划
+                </Button>
+                <Button onClick={() => { setEditingPlan(undefined); setPlanDialogOpen(true); }} className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white">
+                  <Plus className="mr-2 h-4 w-4" />
+                  新增随访计划
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -513,7 +503,7 @@ export default function FollowUp() {
                           <Eye className="mr-1 h-4 w-4" />
                           查看记录
                         </Button>
-                        {canRecordFollowup(plan) && (
+                        {canManageFollowup && canRecordFollowup(plan) && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -523,7 +513,7 @@ export default function FollowUp() {
                             记录结果
                           </Button>
                         )}
-                        {plan.status === 0 && (
+                        {canManageFollowup && plan.status === 0 && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -532,7 +522,7 @@ export default function FollowUp() {
                             开始
                           </Button>
                         )}
-                        {plan.status === 1 && (
+                        {canManageFollowup && plan.status === 1 && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -541,7 +531,7 @@ export default function FollowUp() {
                             完成
                           </Button>
                         )}
-                        {(plan.status === 0 || plan.status === 1) && (
+                        {canManageFollowup && (plan.status === 0 || plan.status === 1) && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -551,26 +541,18 @@ export default function FollowUp() {
                             终止
                           </Button>
                         )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingPlan(plan);
-                            setPlanDialogOpen(true);
-                          }}
-                        >
-                          <Pencil className="mr-1 h-4 w-4" />
-                          编辑
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-red-600"
-                          onClick={() => setDeleteTarget(plan)}
-                        >
-                          <Trash2 className="mr-1 h-4 w-4" />
-                          删除
-                        </Button>
+                        {canManageFollowup && (
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => { setEditingPlan(plan); setPlanDialogOpen(true); }}>
+                              <Pencil className="mr-1 h-4 w-4" />
+                              编辑
+                            </Button>
+                            <Button size="sm" variant="outline" className="text-red-600" onClick={() => setDeleteTarget(plan)}>
+                              <Trash2 className="mr-1 h-4 w-4" />
+                              删除
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </motion.div>
@@ -758,7 +740,7 @@ export default function FollowUp() {
             <Button variant="outline" onClick={() => setRecordsPlan(null)}>
               关闭
             </Button>
-            {canRecordFollowup(recordsPlan) && (
+            {canManageFollowup && canRecordFollowup(recordsPlan) && (
               <Button
                 onClick={() => {
                   setRecordPlan(recordsPlan);

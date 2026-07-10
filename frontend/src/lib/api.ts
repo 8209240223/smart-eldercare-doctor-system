@@ -93,7 +93,7 @@ export interface ApiResponse<T = unknown> {
 
 export function unwrap<T>(response: ApiResponse<T>): T {
   if (response.code !== 200 && response.code !== 0) {
-    throw new Error(response.message || "请求失败");
+    throw new Error(response.message || response.msg || "请求失败");
   }
   return response.data;
 }

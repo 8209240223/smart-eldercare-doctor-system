@@ -1,5 +1,6 @@
 package com.medical.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.annotation.OperationLog;
 import com.medical.common.result.R;
 import com.medical.entity.InterventionRecord;
@@ -14,6 +15,7 @@ import javax.validation.Valid;
  */
 @RestController
 @RequestMapping("/api/intervention")
+@RequireRole({1, 2, 3})
 public class InterventionController {
 
     @Autowired
@@ -33,12 +35,14 @@ public class InterventionController {
         return R.ok(interventionService.getById(id));
     }
 
+    @RequireRole({2})
     @PostMapping
     @OperationLog(module = "干预管理", type = "新增", desc = "新建干预记录")
     public R<?> create(@Valid @RequestBody InterventionRecord record) {
         return R.ok("创建成功", interventionService.create(record));
     }
 
+    @RequireRole({2})
     @PutMapping("/{id}")
     @OperationLog(module = "干预管理", type = "修改", desc = "更新干预记录")
     public R<?> update(@PathVariable Long id, @Valid @RequestBody InterventionRecord record) {
@@ -46,6 +50,7 @@ public class InterventionController {
         return R.ok("修改成功");
     }
 
+    @RequireRole({2})
     @DeleteMapping("/{id}")
     @OperationLog(module = "干预管理", type = "删除", desc = "删除干预记录")
     public R<?> delete(@PathVariable Long id) {

@@ -1,5 +1,6 @@
 package com.medical.controller;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.annotation.OperationLog;
 import com.medical.common.result.R;
 import com.medical.entity.ReferralOrder;
@@ -14,6 +15,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/referrals")
+@RequireRole({1, 2})
 public class ReferralController {
 
     @Autowired
@@ -38,12 +40,14 @@ public class ReferralController {
         return R.ok(referralService.getStats());
     }
 
+    @RequireRole({2})
     @PostMapping
     @OperationLog(module = "双向转诊", type = "新增", desc = "创建转诊单")
     public R<?> create(@RequestBody ReferralOrder order) {
         return R.ok("创建成功", referralService.createReferral(order));
     }
 
+    @RequireRole({2})
     @PutMapping("/{id}/accept")
     @OperationLog(module = "双向转诊", type = "接收", desc = "接收转诊")
     public R<?> accept(@PathVariable Long id, javax.servlet.http.HttpServletRequest request) {
@@ -53,6 +57,7 @@ public class ReferralController {
         return R.ok("已接收");
     }
 
+    @RequireRole({2})
     @PutMapping("/{id}/complete")
     @OperationLog(module = "双向转诊", type = "完成", desc = "完成转诊")
     public R<?> complete(@PathVariable Long id, @RequestBody Map<String, String> body,
@@ -63,6 +68,7 @@ public class ReferralController {
         return R.ok("已完成");
     }
 
+    @RequireRole({2})
     @PutMapping("/{id}/reject")
     @OperationLog(module = "双向转诊", type = "拒绝", desc = "拒绝转诊")
     public R<?> reject(@PathVariable Long id, @RequestBody Map<String, String> body,
@@ -73,6 +79,7 @@ public class ReferralController {
         return R.ok("已拒绝");
     }
 
+    @RequireRole({2})
     @PutMapping("/{id}/cancel")
     public R<?> cancel(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body,
                        javax.servlet.http.HttpServletRequest request) {

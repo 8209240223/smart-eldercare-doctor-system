@@ -61,18 +61,10 @@ public class NursePlanServiceImpl implements NursePlanService {
     public Long create(NursingPlan plan) {
         validateRequired(plan);
         elderReferenceService.requireActive(plan.getElderId());
-        if (plan.getDeleted() == null) {
-            plan.setDeleted(0);
-        }
-        if (plan.getStatus() == null) {
-            plan.setStatus(0);
-        }
-        if (plan.getDoctorApproval() == null) {
-            plan.setDoctorApproval(0);
-        }
-        if (plan.getCompletedCount() == null) {
-            plan.setCompletedCount(0);
-        }
+        plan.setDeleted(0);
+        plan.setStatus(0);
+        plan.setDoctorApproval(0);
+        plan.setCompletedCount(0);
         nursingPlanMapper.insert(plan);
         return plan.getId();
     }
@@ -88,7 +80,8 @@ public class NursePlanServiceImpl implements NursePlanService {
         elderReferenceService.requireActive(plan.getElderId());
         BeanUtil.copyProperties(plan, existing, CopyOptions.create()
                 .ignoreNullValue()
-                .setIgnoreProperties("id", "createTime", "updateTime", "deleted", "completedCount"));
+                .setIgnoreProperties("id", "nurseId", "createTime", "updateTime", "deleted",
+                        "status", "completedCount", "doctorApproval"));
         nursingPlanMapper.updateById(existing);
     }
 
@@ -136,8 +129,10 @@ public class NursePlanServiceImpl implements NursePlanService {
     public Map<String, Object> getStats(Long nurseId) {
         Map<String, Object> stats = new HashMap<>();
         LambdaQueryWrapper<NursingPlan> baseQ = new LambdaQueryWrapper<NursingPlan>()
-                .eq(NursingPlan::getNurseId, nurseId)
                 .eq(NursingPlan::getDeleted, 0);
+        if (nurseId != null) {
+            baseQ.eq(NursingPlan::getNurseId, nurseId);
+        }
 
         stats.put("total", nursingPlanMapper.selectCount(baseQ));
         stats.put("pending", nursingPlanMapper.selectCount(baseQ.clone()

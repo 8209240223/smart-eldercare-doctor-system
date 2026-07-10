@@ -25,11 +25,13 @@ import {
   type ReviewPlan,
   type ReviewRecord,
 } from "@/hooks/useApi";
+import { getUserRole, useAuthStore } from "@/store/auth";
 
 const recordTypeLabels = ["", "基础护理", "专科护理", "生活照料", "心理护理", "康复护理"];
 const planTypeLabels = ["", "基础护理", "康复护理", "专科护理", "心理护理"];
 
 export default function NurseReview() {
+  const canReview = getUserRole(useAuthStore((state) => state.userInfo)) === "doctor";
   const [recordPage, setRecordPage] = useState(1);
   const [planPage, setPlanPage] = useState(1);
   const [recordDetail, setRecordDetail] = useState<ReviewRecord | null>(null);
@@ -193,22 +195,13 @@ export default function NurseReview() {
                               <Eye className="mr-1 h-4 w-4" />
                               查看
                             </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => setApproveRecordTarget(item)}
-                              className="bg-gradient-to-r from-medical-400 to-medical-600 text-white"
-                            >
-                              通过
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600"
-                              onClick={() => setRejectRecordTarget(item)}
-                            >
-                              <XCircle className="mr-1 h-4 w-4" />
-                              驳回
-                            </Button>
+                            {canReview && <>
+                              <Button size="sm" onClick={() => setApproveRecordTarget(item)} className="bg-gradient-to-r from-medical-400 to-medical-600 text-white">通过</Button>
+                              <Button size="sm" variant="outline" className="text-red-600" onClick={() => setRejectRecordTarget(item)}>
+                                <XCircle className="mr-1 h-4 w-4" />
+                                驳回
+                              </Button>
+                            </>}
                           </div>
                         </div>
                       </motion.div>
@@ -278,22 +271,13 @@ export default function NurseReview() {
                               <Eye className="mr-1 h-4 w-4" />
                               查看
                             </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => setApprovePlanTarget(item)}
-                              className="bg-gradient-to-r from-medical-400 to-medical-600 text-white"
-                            >
-                              通过
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600"
-                              onClick={() => setRejectPlanTarget(item)}
-                            >
-                              <XCircle className="mr-1 h-4 w-4" />
-                              驳回
-                            </Button>
+                            {canReview && <>
+                              <Button size="sm" onClick={() => setApprovePlanTarget(item)} className="bg-gradient-to-r from-medical-400 to-medical-600 text-white">通过</Button>
+                              <Button size="sm" variant="outline" className="text-red-600" onClick={() => setRejectPlanTarget(item)}>
+                                <XCircle className="mr-1 h-4 w-4" />
+                                驳回
+                              </Button>
+                            </>}
                           </div>
                         </div>
                       </motion.div>

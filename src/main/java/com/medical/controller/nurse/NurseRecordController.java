@@ -1,5 +1,6 @@
 package com.medical.controller.nurse;
 
+import com.medical.common.annotation.RequireRole;
 import com.medical.common.annotation.OperationLog;
 import com.medical.common.result.R;
 import com.medical.entity.NursingRecord;
@@ -15,6 +16,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/nurse/records")
+@RequireRole({1, 2, 3})
 public class NurseRecordController {
 
     @Autowired
@@ -38,12 +40,16 @@ public class NurseRecordController {
         return R.ok(nurseRecordService.getById(id));
     }
 
+    @RequireRole({3})
     @PostMapping
     @OperationLog(module = "护理记录", type = "新增", desc = "新增护理记录")
-    public R<?> create(@RequestBody NursingRecord record) {
+    public R<?> create(@RequestBody NursingRecord record,
+                       @RequestAttribute("currentUserId") Long currentUserId) {
+        record.setNurseId(currentUserId);
         return R.ok("新增成功", nurseRecordService.create(record));
     }
 
+    @RequireRole({3})
     @PutMapping("/{id}")
     @OperationLog(module = "护理记录", type = "修改", desc = "修改护理记录")
     public R<?> update(@PathVariable Long id, @RequestBody NursingRecord record) {
@@ -51,6 +57,7 @@ public class NurseRecordController {
         return R.ok("修改成功");
     }
 
+    @RequireRole({3})
     @DeleteMapping("/{id}")
     @OperationLog(module = "护理记录", type = "删除", desc = "删除护理记录")
     public R<?> delete(@PathVariable Long id) {
@@ -58,6 +65,7 @@ public class NurseRecordController {
         return R.ok("删除成功");
     }
 
+    @RequireRole({3})
     @PostMapping("/{id}/report")
     @OperationLog(module = "护理记录", type = "上报", desc = "上报异常护理记录")
     public R<?> reportAbnormal(@PathVariable Long id, @RequestBody Map<String, String> body) {
@@ -68,7 +76,10 @@ public class NurseRecordController {
 
     @GetMapping("/stats")
     public R<?> stats(HttpServletRequest request) {
-        Long nurseId = (Long) request.getAttribute("currentUserId");
-        return R.ok(nurseRecordService.getStats(nurseId != null ? nurseId : 5L));
+        Integer userType = (Integer) request.getAttribute("currentUserType");
+        Long nurseId = Integer.valueOf(3).equals(userType)
+                ? (Long) request.getAttribute("currentUserId")
+                : null;
+        return R.ok(nurseRecordService.getStats(nurseId));
     }
 }

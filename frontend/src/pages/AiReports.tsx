@@ -63,7 +63,7 @@ export default function AiReports() {
   const requestedElderId = Number(searchParams.get("elderId") || 0) || 0;
   const userInfo = useAuthStore((state) => state.userInfo);
   const role = getUserRole(userInfo);
-  const canOperateReports = role === "doctor" || role === "admin";
+  const canOperateReports = role === "doctor";
   const [selectedElderId, setSelectedElderId] = useState(requestedElderId);
   const [page, setPage] = useState(1);
   const [detailId, setDetailId] = useState<number | undefined>();
@@ -294,7 +294,7 @@ export default function AiReports() {
                 variant="outline"
                 className="h-9 border-sky-200 bg-sky-50 px-3 text-sky-700"
               >
-                护士只读视图
+                当前角色为只读视图
               </Badge>
             )}
           </CardContent>

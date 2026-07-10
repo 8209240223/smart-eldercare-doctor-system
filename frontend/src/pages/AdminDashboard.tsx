@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { toast } from "sonner";
 import {
   Activity,
   ArrowRightLeft,
@@ -19,15 +18,8 @@ import TodoList from "@/components/dashboard/TodoList";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import ElderMasterSelect from "@/components/workflow/ElderMasterSelect";
-import WorkflowNavigationDialog, {
-  type WorkflowNavigationOption,
-} from "@/components/workflow/WorkflowNavigationDialog";
 import { createElderNameMap, resolveElderName } from "@/lib/elderName";
-import {
-  useCareWorkflowSummary,
-  useGenerateCareWorkflow,
-  type CareWorkflowSummary,
-} from "@/hooks/useCareWorkflow";
+import { useCareWorkflowSummary } from "@/hooks/useCareWorkflow";
 import {
   useAssessmentStats,
   useDashboardChronicOverview,
@@ -74,8 +66,6 @@ function todoItemsFrom(data: unknown) {
 
 export default function AdminDashboard() {
   const [selectedElderId, setSelectedElderId] = useState<number | undefined>();
-  const [workflowResult, setWorkflowResult] =
-    useState<CareWorkflowSummary | null>(null);
   const { data: stats, isLoading } = useDashboardStats();
   const { data: todo } = useDashboardTodo();
   const { data: chronicOverview } = useDashboardChronicOverview();
@@ -91,54 +81,11 @@ export default function AdminDashboard() {
     refetch: refetchWorkflow,
     isFetching: workflowLoading,
   } = useCareWorkflowSummary(selectedElderId);
-  const generateWorkflow = useGenerateCareWorkflow();
   const todoItems = Array.isArray(todo) ? todo : todoItemsFrom(todo);
   const elderNames = createElderNameMap(eldersData?.records || []);
   const selectedElder = (eldersData?.records || []).find(
     (elder) => elder.id === selectedElderId,
   );
-  const navigationOptions: WorkflowNavigationOption[] = selectedElderId
-    ? [
-        {
-          key: "journey",
-          label: "进入照护全流程",
-          description: "查看七步健康管理状态和真实业务 ID",
-          to: `/elders/${selectedElderId}/care-journey`,
-        },
-        {
-          key: "risk",
-          label: "查看风险画像",
-          description: "核对风险等级和评分",
-          to: `/key-population?elderId=${selectedElderId}`,
-        },
-        {
-          key: "plan",
-          label: "查看随访计划",
-          description: "查看该老人的计划与历史",
-          to: `/followup?elderId=${selectedElderId}`,
-        },
-        {
-          key: "nursing",
-          label: "查看护理协同",
-          description: "进入该老人的护理计划",
-          to: `/nurse-plans?elderId=${selectedElderId}`,
-        },
-      ]
-    : [];
-
-  const generateSelectedWorkflow = async () => {
-    if (!selectedElderId) return;
-    try {
-      const result = await generateWorkflow.mutateAsync(selectedElderId);
-      setWorkflowResult(result);
-      toast.success("演示对象全流程已刷新");
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "刷新照护全流程失败",
-      );
-    }
-  };
-
   return (
     <PageShell
       title="管理员工作台"
@@ -218,13 +165,6 @@ export default function AdminDashboard() {
                 >
                   进入全流程
                 </Link>
-              </Button>
-              <Button
-                disabled={!selectedElderId || generateWorkflow.isPending}
-                onClick={generateSelectedWorkflow}
-                className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white"
-              >
-                生成 / 刷新流程
               </Button>
             </div>
           </CardContent>
@@ -458,14 +398,6 @@ export default function AdminDashboard() {
           </Card>
         </div>
       </div>
-      <WorkflowNavigationDialog
-        open={!!workflowResult}
-        onOpenChange={(open) => !open && setWorkflowResult(null)}
-        title="演示对象全流程已刷新"
-        description="该老人的风险、随访、任务、报告和护理状态已汇总，选择下一步进行核对。"
-        options={navigationOptions}
-        result={workflowResult}
-      />
     </PageShell>
   );
 }
