@@ -536,24 +536,6 @@ CREATE TABLE IF NOT EXISTS nursing_plan (
     KEY idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='护理计划表';
 
-SET @col_exists := (
-    SELECT COUNT(*) FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'nursing_plan'
-      AND COLUMN_NAME = 'doctor_id'
-);
-SET @sql := IF(@col_exists = 0,
-    'ALTER TABLE nursing_plan ADD COLUMN doctor_id BIGINT DEFAULT NULL COMMENT ''责任医生ID'' AFTER nurse_id',
-    'SELECT ''nursing_plan.doctor_id exists''');
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
-UPDATE nursing_plan np
-JOIN elder_info e ON e.id = np.elder_id
-SET np.doctor_id = e.doctor_id
-WHERE np.doctor_id IS NULL;
-
 -- ============================================
 -- 医生模块增强（v1.0 新增）
 -- ============================================
