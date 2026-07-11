@@ -29,6 +29,19 @@ public class WarningRuleServiceImpl implements WarningRuleService {
             "bmi", "steps", "sleep");
     private static final Pattern CONDITION_PATTERN = Pattern.compile(
             "^([A-Za-z][A-Za-z0-9]*)\\s*(>=|<=|>|<)\\s*(-?\\d+(?:\\.\\d+)?)$");
+    private static final Map<String, MetricRange> METRIC_RANGES = Map.ofEntries(
+            Map.entry("systolic", new MetricRange("收缩压", "60", "240")),
+            Map.entry("diastolic", new MetricRange("舒张压", "40", "140")),
+            Map.entry("heartRate", new MetricRange("心率", "30", "180")),
+            Map.entry("bloodSugarFasting", new MetricRange("空腹血糖", "2", "30")),
+            Map.entry("bloodSugarPostprandial", new MetricRange("餐后血糖", "2", "35")),
+            Map.entry("spo2", new MetricRange("血氧饱和度", "50", "100")),
+            Map.entry("bloodOxygen", new MetricRange("血氧饱和度", "50", "100")),
+            Map.entry("temperature", new MetricRange("体温", "34", "42")),
+            Map.entry("bmi", new MetricRange("BMI", "10", "60")),
+            Map.entry("steps", new MetricRange("步数", "0", "100000")),
+            Map.entry("sleep", new MetricRange("睡眠时长", "0", "24"))
+    );
 
     @Autowired
     private WarningRuleMapper warningRuleMapper;
@@ -82,6 +95,7 @@ public class WarningRuleServiceImpl implements WarningRuleService {
 
     @Override
     public int evaluateVitalSigns(Long elderId, Map<String, BigDecimal> vitalData) {
+        validateVitalData(elderId, vitalData);
         // 获取所有启用的规则
         LambdaQueryWrapper<WarningRule> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(WarningRule::getEnabled, 1);
@@ -101,6 +115,31 @@ public class WarningRuleServiceImpl implements WarningRuleService {
             }
         }
         return triggeredCount;
+    }
+
+    private void validateVitalData(Long elderId, Map<String, BigDecimal> vitalData) {
+        if (elderId == null || elderId <= 0) {
+            throw new BusinessException(400, "老人ID必须为正整数");
+        }
+        if (vitalData == null || vitalData.isEmpty()) {
+            throw new BusinessException(400, "请至少填写一项生命体征数据");
+        }
+        for (Map.Entry<String, BigDecimal> entry : vitalData.entrySet()) {
+            MetricRange range = METRIC_RANGES.get(entry.getKey());
+            if (range == null) {
+                throw new BusinessException(400, "不支持的生命体征指标: " + entry.getKey());
+            }
+            BigDecimal value = entry.getValue();
+            if (value == null || value.compareTo(range.min()) < 0 || value.compareTo(range.max()) > 0) {
+                throw new BusinessException(400, range.label() + "必须在" + range.min().stripTrailingZeros().toPlainString()
+                        + "到" + range.max().stripTrailingZeros().toPlainString() + "之间");
+            }
+        }
+        BigDecimal systolic = vitalData.get("systolic");
+        BigDecimal diastolic = vitalData.get("diastolic");
+        if (systolic != null && diastolic != null && systolic.compareTo(diastolic) <= 0) {
+            throw new BusinessException(400, "收缩压必须大于舒张压");
+        }
     }
 
     /**
@@ -156,6 +195,13 @@ public class WarningRuleServiceImpl implements WarningRuleService {
         if (!matcher.matches() || !metricEquivalent(rule.getMetricCode(), matcher.group(1))) {
             throw new BusinessException(400, "条件表达式必须使用所选指标，并采用 指标>=数值 等格式");
         }
+        MetricRange range = METRIC_RANGES.get(rule.getMetricCode());
+        BigDecimal threshold = new BigDecimal(matcher.group(3));
+        if (threshold.compareTo(range.min()) < 0 || threshold.compareTo(range.max()) > 0) {
+            throw new BusinessException(400, range.label() + "规则阈值必须在"
+                    + range.min().stripTrailingZeros().toPlainString() + "到"
+                    + range.max().stripTrailingZeros().toPlainString() + "之间");
+        }
         if (rule.getWarningLevel() == null || rule.getWarningLevel() < 1 || rule.getWarningLevel() > 3) {
             throw new BusinessException(400, "预警等级必须是黄色、橙色或红色");
         }
@@ -193,5 +239,11 @@ public class WarningRuleServiceImpl implements WarningRuleService {
         event.setSourceId(warningId);
         event.setEventTime(LocalDateTime.now());
         timelineService.addEvent(event);
+    }
+
+    private record MetricRange(String label, BigDecimal min, BigDecimal max) {
+        private MetricRange(String label, String min, String max) {
+            this(label, new BigDecimal(min), new BigDecimal(max));
+        }
     }
 }

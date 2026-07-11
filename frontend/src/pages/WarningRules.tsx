@@ -46,6 +46,19 @@ const metricOptions = [
   ["sleep", "睡眠时长"],
 ] as const;
 
+const metricRanges: Record<string, { label: string; min: number; max: number; step?: number }> = {
+  systolic: { label: "收缩压", min: 60, max: 240 },
+  diastolic: { label: "舒张压", min: 40, max: 140 },
+  heartRate: { label: "心率", min: 30, max: 180 },
+  bloodSugarFasting: { label: "空腹血糖", min: 2, max: 30, step: 0.1 },
+  bloodSugarPostprandial: { label: "餐后血糖", min: 2, max: 35, step: 0.1 },
+  spo2: { label: "血氧饱和度", min: 50, max: 100, step: 0.1 },
+  temperature: { label: "体温", min: 34, max: 42, step: 0.1 },
+  bmi: { label: "BMI", min: 10, max: 60, step: 0.1 },
+  steps: { label: "步数", min: 0, max: 100000 },
+  sleep: { label: "睡眠时长", min: 0, max: 24, step: 0.1 },
+};
+
 function ruleTypeText(type?: number) {
   return ["", "血压", "血糖", "心率", "体温", "BMI", "综合"][type || 0] || "预警规则";
 }
@@ -102,6 +115,12 @@ export default function WarningRules() {
       || ([conditionMetric, form.metricCode].includes("spo2") && [conditionMetric, form.metricCode].includes("bloodOxygen"));
     if (!conditionMatch || !metricMatches) {
       toast.error("条件表达式必须使用所选指标，例如 systolic >= 180");
+      return;
+    }
+    const range = metricRanges[form.metricCode];
+    const threshold = Number(conditionMatch[3]);
+    if (!range || threshold < range.min || threshold > range.max) {
+      toast.error(range ? `${range.label}规则阈值必须在 ${range.min} 到 ${range.max} 之间` : "不支持的预警指标");
       return;
     }
     const payload = {
@@ -162,6 +181,18 @@ export default function WarningRules() {
     ) as Record<string, number>;
     if (Object.keys(numericData).length === 0) {
       toast.error("请至少填写一项生命体征数据");
+      return;
+    }
+    for (const [key, value] of Object.entries(numericData)) {
+      const range = metricRanges[key];
+      if (!range || value < range.min || value > range.max) {
+        toast.error(range ? `${range.label}必须在 ${range.min} 到 ${range.max} 之间` : `不支持的指标：${key}`);
+        return;
+      }
+    }
+    if (numericData.systolic !== undefined && numericData.diastolic !== undefined
+      && numericData.systolic <= numericData.diastolic) {
+      toast.error("收缩压必须大于舒张压");
       return;
     }
     try {
@@ -281,18 +312,14 @@ export default function WarningRules() {
             <label className="space-y-2"><span className="text-sm font-medium">老人档案</span><select value={evaluateElderId} onChange={(event) => setEvaluateElderId(event.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">请选择老人</option>{(eldersData?.records || []).map((elder) => <option key={elder.id} value={elder.id}>{elder.name}（{elder.idCard}）</option>)}</select></label>
             <div className="grid gap-4 sm:grid-cols-2">
               {[
-                ["systolic", "收缩压", "mmHg"],
-                ["diastolic", "舒张压", "mmHg"],
-                ["heartRate", "心率", "bpm"],
-                ["bloodSugarFasting", "空腹血糖", "mmol/L"],
-                ["spo2", "血氧饱和度", "%"],
-                ["temperature", "体温", "℃"],
-                ["bmi", "BMI", ""],
-                ["bloodSugarPostprandial", "餐后血糖", "mmol/L"],
-                ["steps", "步数", "步"],
-                ["sleep", "睡眠时长", "小时"],
-              ].map(([key, label, unit]) => (
-                <label key={key} className="space-y-2"><span className="text-sm font-medium">{label}{unit ? `（${unit}）` : ""}</span><Input type="number" step="0.1" value={vitalData[key] || ""} onChange={(event) => setVitalData((value) => ({ ...value, [key]: event.target.value }))} placeholder={`请输入${label}`} /></label>
+                ["systolic", "mmHg"], ["diastolic", "mmHg"], ["heartRate", "bpm"],
+                ["bloodSugarFasting", "mmol/L"], ["spo2", "%"], ["temperature", "℃"],
+                ["bmi", ""], ["bloodSugarPostprandial", "mmol/L"], ["steps", "步"], ["sleep", "小时"],
+              ].map(([key, unit]) => (
+                <label key={key} className="space-y-2">
+                  <span className="text-sm font-medium">{metricRanges[key].label}{unit ? `（${unit}）` : ""}</span>
+                  <Input type="number" min={metricRanges[key].min} max={metricRanges[key].max} step={metricRanges[key].step || 1} value={vitalData[key] || ""} onChange={(event) => setVitalData((value) => ({ ...value, [key]: event.target.value }))} placeholder={`${metricRanges[key].min} - ${metricRanges[key].max}`} />
+                </label>
               ))}
             </div>
           </div>

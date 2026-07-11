@@ -24,7 +24,7 @@ public interface ReviewService {
     /**
      * 查询待审核的护理计划
      */
-    Page<NursingPlan> listPendingPlans(Integer pageNum, Integer pageSize);
+    Page<NursingPlan> listPendingPlans(Integer pageNum, Integer pageSize, Long doctorId);
 
     /**
      * 审核护理计划
@@ -34,5 +34,5 @@ public interface ReviewService {
     /**
      * 获取审核统计
      */
-    Map<String, Object> getReviewStats();
+    Map<String, Object> getReviewStats(Long doctorId);
 }

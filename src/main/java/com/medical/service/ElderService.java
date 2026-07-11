@@ -12,7 +12,7 @@ import java.util.List;
  */
 public interface ElderService {
 
-    Page<ElderInfo> listElders(Integer pageNum, Integer pageSize, String name, String community, Long doctorId, Integer diseaseType);
+    Page<ElderInfo> listElders(Integer pageNum, Integer pageSize, Long elderId, String name, String community, Long doctorId, Integer diseaseType);
 
     ElderInfo getDetail(Long id);
 

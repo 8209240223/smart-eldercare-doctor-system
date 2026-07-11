@@ -2,6 +2,7 @@ package com.medical.service.impl;
 
 import com.medical.common.exception.BusinessException;
 import com.medical.entity.NursingPlan;
+import com.medical.entity.ElderInfo;
 import com.medical.mapper.NursingPlanMapper;
 import com.medical.service.ElderReferenceService;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,7 @@ class NursePlanServiceImplTest {
         assertEquals(0, plan.getStatus());
         assertEquals(0, plan.getCompletedCount());
         assertEquals(0, plan.getDoctorApproval());
+        assertEquals(2L, plan.getDoctorId());
         verify(mapper).insert(plan);
     }
 
@@ -117,6 +119,10 @@ class NursePlanServiceImplTest {
         NursePlanServiceImpl service = new NursePlanServiceImpl();
         ReflectionTestUtils.setField(service, "nursingPlanMapper", mapper);
         ReflectionTestUtils.setField(service, "elderReferenceService", elderReferenceService);
+        ElderInfo elder = new ElderInfo();
+        elder.setId(1L);
+        elder.setDoctorId(2L);
+        when(elderReferenceService.requireActive(1L)).thenReturn(elder);
         return service;
     }
 

@@ -448,6 +448,10 @@ public class FollowUpServiceImpl implements FollowUpService {
         }
         checkRange(record.getSystolicPressure(), 60, 240, "收缩压");
         checkRange(record.getDiastolicPressure(), 40, 140, "舒张压");
+        if (record.getSystolicPressure() != null && record.getDiastolicPressure() != null
+                && record.getSystolicPressure() <= record.getDiastolicPressure()) {
+            throw new BusinessException(400, "收缩压必须大于舒张压");
+        }
         checkRange(record.getHeartRate(), 30, 180, "心率");
         checkRange(record.getBloodSugarFasting(), BigDecimal.valueOf(2), BigDecimal.valueOf(30), "空腹血糖");
         checkRange(record.getWeight(), BigDecimal.valueOf(20), BigDecimal.valueOf(200), "体重");

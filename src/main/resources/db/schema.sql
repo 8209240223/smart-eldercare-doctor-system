@@ -512,6 +512,7 @@ CREATE TABLE IF NOT EXISTS nursing_plan (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     elder_id BIGINT NOT NULL COMMENT '老人ID',
     nurse_id BIGINT NOT NULL COMMENT '制定护士ID',
+    doctor_id BIGINT DEFAULT NULL COMMENT '责任医生ID',
     plan_name VARCHAR(200) NOT NULL COMMENT '护理计划名称',
     plan_type TINYINT NOT NULL COMMENT '计划类型:1基础护理 2康复护理 3专科护理 4心理护理',
     start_date DATE NOT NULL COMMENT '开始日期',
@@ -531,8 +532,27 @@ CREATE TABLE IF NOT EXISTS nursing_plan (
     PRIMARY KEY (id),
     KEY idx_elder_id (elder_id),
     KEY idx_nurse_id (nurse_id),
+    KEY idx_doctor_id (doctor_id),
     KEY idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='护理计划表';
+
+SET @col_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'nursing_plan'
+      AND COLUMN_NAME = 'doctor_id'
+);
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE nursing_plan ADD COLUMN doctor_id BIGINT DEFAULT NULL COMMENT ''责任医生ID'' AFTER nurse_id',
+    'SELECT ''nursing_plan.doctor_id exists''');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+UPDATE nursing_plan np
+JOIN elder_info e ON e.id = np.elder_id
+SET np.doctor_id = e.doctor_id
+WHERE np.doctor_id IS NULL;
 
 -- ============================================
 -- 医生模块增强（v1.0 新增）

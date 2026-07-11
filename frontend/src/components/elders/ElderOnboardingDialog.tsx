@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ElderInfo, HealthRecordInfo, PhysicalExam } from "@/hooks/useApi";
+import { extractBirthDateFromIdCard, validateIdCard } from "@/lib/idCard";
 
 export interface ElderOnboardingPayload {
   elder: ElderInfo;
@@ -124,18 +125,6 @@ const emptyHistory: HistoryDraft = {
   remark: "",
 };
 
-function validateIdCard(value: string) {
-  const normalized = value.trim().toUpperCase();
-  if (!/^\d{17}[\dX]$/.test(normalized)) return false;
-  const weights = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2];
-  const checksums = ["1", "0", "X", "9", "8", "7", "6", "5", "4", "3", "2"];
-  const sum = normalized
-    .slice(0, 17)
-    .split("")
-    .reduce((total, digit, index) => total + Number(digit) * weights[index], 0);
-  return checksums[sum % 11] === normalized[17];
-}
-
 function optionalNumber(value: string) {
   return value === "" ? undefined : Number(value);
 }
@@ -199,6 +188,9 @@ export default function ElderOnboardingDialog({
     if (!elder.name.trim()) next.name = "姓名不能为空";
     if (!validateIdCard(elder.idCard))
       next.idCard = "请输入包含正确校验位的18位身份证号";
+    const idCardBirthDate = extractBirthDateFromIdCard(elder.idCard);
+    if (idCardBirthDate && elder.birthDate && elder.birthDate !== idCardBirthDate)
+      next.birthDate = "出生日期必须与身份证号一致";
     if (!/^1\d{10}$/.test(elder.phone)) next.phone = "手机号格式不正确";
     if (elder.emergencyPhone && !/^1\d{10}$/.test(elder.emergencyPhone))
       next.emergencyPhone = "紧急联系电话格式不正确";
@@ -226,6 +218,10 @@ export default function ElderOnboardingDialog({
     for (const [field, value, min, max] of ranges) {
       if (value !== "" && (Number(value) < min || Number(value) > max))
         next[field] = `请输入 ${min}-${max} 范围内的数值`;
+    }
+    if (exam.systolicPressure && exam.diastolicPressure
+      && Number(exam.systolicPressure) <= Number(exam.diastolicPressure)) {
+      next.diastolicPressure = "收缩压必须大于舒张压";
     }
     if (history.diseaseName.trim() && !history.diagnoseDate)
       next.diagnoseDate = "填写疾病后必须填写确诊日期";
@@ -362,9 +358,12 @@ export default function ElderOnboardingDialog({
                 <Input
                   value={elder.idCard}
                   maxLength={18}
-                  onChange={(event) =>
-                    updateElder("idCard", event.target.value)
-                  }
+                  onChange={(event) => {
+                    const value = event.target.value.toUpperCase();
+                    updateElder("idCard", value);
+                    const birthDate = extractBirthDateFromIdCard(value);
+                    if (birthDate) updateElder("birthDate", birthDate);
+                  }}
                 />
               </Field>
               <Field label="联系电话 *" error={errors.phone}>

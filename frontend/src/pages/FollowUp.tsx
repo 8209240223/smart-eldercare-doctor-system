@@ -507,7 +507,10 @@ export default function FollowUp() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setRecordPlan(plan)}
+                            onClick={() => setRecordPlan({
+                              ...plan,
+                              elderName: plan.elderName || elderNames.get(plan.elderId),
+                            })}
                           >
                             <Plus className="mr-1 h-4 w-4" />
                             记录结果
@@ -743,7 +746,12 @@ export default function FollowUp() {
             {canManageFollowup && canRecordFollowup(recordsPlan) && (
               <Button
                 onClick={() => {
-                  setRecordPlan(recordsPlan);
+                  const selectedPlan = recordsPlan;
+                  if (!selectedPlan) return;
+                  setRecordPlan({
+                    ...selectedPlan,
+                    elderName: selectedPlan.elderName || elderNames.get(selectedPlan.elderId),
+                  });
                   setRecordsPlan(null);
                 }}
                 className="bg-gradient-to-r from-medical-400 to-medical-600 text-white"

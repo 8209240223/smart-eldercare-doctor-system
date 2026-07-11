@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -63,6 +64,17 @@ class WarningRuleServiceImplTest {
     }
 
     @Test
+    void rejectsRuleThresholdOutsideHumanRange() {
+        WarningRuleServiceImpl service = createService(mock(WarningRuleMapper.class), mock(WarningService.class), mock(TimelineService.class));
+        WarningRule rule = validRule();
+        rule.setConditionExpr("systolic >= 999");
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.createRule(rule));
+
+        assertEquals("收缩压规则阈值必须在60到240之间", exception.getMessage());
+    }
+
+    @Test
     void acceptsValidRule() {
         WarningRuleMapper mapper = mock(WarningRuleMapper.class);
         WarningRuleServiceImpl service = createService(mapper, mock(WarningService.class), mock(TimelineService.class));
@@ -71,6 +83,49 @@ class WarningRuleServiceImplTest {
         service.createRule(rule);
 
         verify(mapper).insert(rule);
+    }
+
+    @Test
+    void rejectsVitalValueOutsideHumanRange() {
+        WarningRuleServiceImpl service = createService(mock(WarningRuleMapper.class), mock(WarningService.class), mock(TimelineService.class));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.evaluateVitalSigns(1L, Map.of("temperature", BigDecimal.valueOf(99))));
+
+        assertEquals("体温必须在34到42之间", exception.getMessage());
+    }
+
+    @Test
+    void rejectsBloodPressureWhenSystolicIsNotGreaterThanDiastolic() {
+        WarningRuleServiceImpl service = createService(mock(WarningRuleMapper.class), mock(WarningService.class), mock(TimelineService.class));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.evaluateVitalSigns(1L, Map.of(
+                        "systolic", BigDecimal.valueOf(90),
+                        "diastolic", BigDecimal.valueOf(90))));
+
+        assertEquals("收缩压必须大于舒张压", exception.getMessage());
+    }
+
+    @Test
+    void createsOneWarningForEveryTriggeredRule() {
+        WarningRuleMapper mapper = mock(WarningRuleMapper.class);
+        WarningService warningService = mock(WarningService.class);
+        TimelineService timelineService = mock(TimelineService.class);
+        WarningRuleServiceImpl service = createService(mapper, warningService, timelineService);
+        WarningRule orange = validRule();
+        WarningRule red = validRule();
+        red.setRuleName("收缩压严重偏高");
+        red.setConditionExpr("systolic >= 180");
+        red.setWarningLevel(3);
+        when(mapper.selectList(any(Wrapper.class))).thenReturn(List.of(orange, red));
+        when(warningService.create(any())).thenReturn(101L, 102L);
+
+        int count = service.evaluateVitalSigns(1L, Map.of("systolic", BigDecimal.valueOf(190)));
+
+        assertEquals(2, count);
+        verify(warningService, times(2)).create(any());
+        verify(timelineService, times(2)).addEvent(any());
     }
 
     private WarningRuleServiceImpl createService(WarningRuleMapper mapper, WarningService warningService,
