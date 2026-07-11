@@ -63,12 +63,13 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
-    public Page<NursingPlan> listPendingPlans(Integer pageNum, Integer pageSize) {
+    public Page<NursingPlan> listPendingPlans(Integer pageNum, Integer pageSize, Long doctorId) {
         Page<NursingPlan> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<NursingPlan> wrapper = new LambdaQueryWrapper<NursingPlan>()
                 .eq(NursingPlan::getDoctorApproval, 0)
                 .in(NursingPlan::getStatus, 0, 1)
                 .eq(NursingPlan::getDeleted, 0)
+                .eq(doctorId != null, NursingPlan::getDoctorId, doctorId)
                 .orderByDesc(NursingPlan::getCreateTime);
         return nursingPlanMapper.selectPage(page, wrapper);
     }
@@ -82,6 +83,9 @@ public class ReviewServiceImpl implements ReviewService {
         }
         if (plan.getDoctorApproval() == null || plan.getDoctorApproval() != 0) {
             throw new BusinessException(400, "该计划已被审核");
+        }
+        if (plan.getDoctorId() != null && !plan.getDoctorId().equals(doctorId)) {
+            throw new BusinessException(403, "只能审核分配给当前医生的护理计划");
         }
         // action: 1=通过  2=驳回
         if (action == 1) {
@@ -100,7 +104,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
-    public Map<String, Object> getReviewStats() {
+    public Map<String, Object> getReviewStats(Long doctorId) {
         Map<String, Object> stats = new HashMap<>();
 
         long pendingRecords = nursingRecordMapper.selectCount(
@@ -113,6 +117,7 @@ public class ReviewServiceImpl implements ReviewService {
                 new LambdaQueryWrapper<NursingPlan>()
                         .eq(NursingPlan::getDoctorApproval, 0)
                         .in(NursingPlan::getStatus, 0, 1)
+                        .eq(doctorId != null, NursingPlan::getDoctorId, doctorId)
                         .eq(NursingPlan::getDeleted, 0));
         stats.put("pendingPlans", pendingPlans);
 
@@ -125,6 +130,7 @@ public class ReviewServiceImpl implements ReviewService {
         long approvedPlans = nursingPlanMapper.selectCount(
                 new LambdaQueryWrapper<NursingPlan>()
                         .eq(NursingPlan::getDoctorApproval, 1)
+                        .eq(doctorId != null, NursingPlan::getDoctorId, doctorId)
                         .eq(NursingPlan::getDeleted, 0));
         stats.put("approvedPlans", approvedPlans);
 

@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.exception.BusinessException;
 import com.medical.entity.NursingPlan;
+import com.medical.entity.ElderInfo;
 import com.medical.mapper.NursingPlanMapper;
 import com.medical.service.ElderReferenceService;
 import com.medical.service.NursePlanService;
@@ -60,7 +61,11 @@ public class NursePlanServiceImpl implements NursePlanService {
     @Override
     public Long create(NursingPlan plan) {
         validateRequired(plan);
-        elderReferenceService.requireActive(plan.getElderId());
+        ElderInfo elder = elderReferenceService.requireActive(plan.getElderId());
+        if (elder.getDoctorId() == null) {
+            throw new BusinessException(400, "该老人尚未分配责任医生，不能创建待审核护理计划");
+        }
+        plan.setDoctorId(elder.getDoctorId());
         plan.setDeleted(0);
         plan.setStatus(0);
         plan.setDoctorApproval(0);
@@ -77,7 +82,11 @@ public class NursePlanServiceImpl implements NursePlanService {
             throw new BusinessException(400, "已完成或已终止的计划不能修改");
         }
         validateRequired(plan);
-        elderReferenceService.requireActive(plan.getElderId());
+        ElderInfo elder = elderReferenceService.requireActive(plan.getElderId());
+        if (elder.getDoctorId() == null) {
+            throw new BusinessException(400, "该老人尚未分配责任医生，不能更新护理计划");
+        }
+        existing.setDoctorId(elder.getDoctorId());
         BeanUtil.copyProperties(plan, existing, CopyOptions.create()
                 .ignoreNullValue()
                 .setIgnoreProperties("id", "nurseId", "createTime", "updateTime", "deleted",

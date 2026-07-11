@@ -13,6 +13,7 @@ interface StatCardProps {
   icon: LucideIcon;
   iconClassName?: string;
   delay?: number;
+  onClick?: () => void;
 }
 
 function AnimatedNumber({ value }: { value: number }) {
@@ -37,6 +38,7 @@ export default function StatCard({
   icon: Icon,
   iconClassName,
   delay = 0,
+  onClick,
 }: StatCardProps) {
   const isPositive = trend !== undefined && trend >= 0;
 
@@ -46,6 +48,17 @@ export default function StatCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 + delay * 0.1, duration: 0.5 }}
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (onClick && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? `查看${title}` : undefined}
+      className={cn(onClick && "cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-medical-400")}
     >
       <Card className="relative overflow-hidden border-border/40 bg-white/80 shadow-card backdrop-blur-sm transition-shadow hover:shadow-soft">
         <div className="absolute right-0 top-0 h-24 w-24 -translate-y-1/2 translate-x-1/2 rounded-full bg-gradient-to-br from-medical-100/50 to-transparent blur-2xl" />

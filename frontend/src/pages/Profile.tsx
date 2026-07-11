@@ -51,6 +51,7 @@ export default function Profile() {
     avatar: userInfo?.avatar || "",
   });
   const [password, setPassword] = useState({ oldPassword: "", newPassword: "", confirmPassword: "" });
+  const [activeTab, setActiveTab] = useState("info");
 
   const { data: serverProfile } = useProfileInfo();
   const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useProfileMessages(1, 10, userId);
@@ -179,10 +180,10 @@ export default function Profile() {
     <PageShell title="个人中心" subtitle="查看和管理个人账户信息、头像、密码、操作日志和系统消息">
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard title="未读消息" value={Number(unreadCount || 0)} icon={Bell} delay={0} />
-          <StatCard title="操作日志" value={Number(logs?.total || 0)} icon={ClipboardList} iconClassName="from-sky-400 to-sky-500" delay={1} />
-          <StatCard title="资料状态" value={profile.phone ? 1 : 0} icon={CheckCircle2} delay={2} />
-          <StatCard title="账号权限" value={role === "admin" ? 3 : role === "nurse" ? 2 : 1} icon={Shield} iconClassName="from-lavender-400 to-lavender-500" delay={3} />
+          <StatCard title="未读消息" value={Number(unreadCount || 0)} icon={Bell} delay={0} onClick={() => setActiveTab("messages")} />
+          <StatCard title="操作日志" value={Number(logs?.total || 0)} icon={ClipboardList} iconClassName="from-sky-400 to-sky-500" delay={1} onClick={() => setActiveTab("logs")} />
+          <StatCard title="资料状态" value={profile.phone ? 1 : 0} icon={CheckCircle2} delay={2} onClick={() => setActiveTab("info")} />
+          <StatCard title="账号权限" value={role === "admin" ? 3 : role === "nurse" ? 2 : 1} icon={Shield} iconClassName="from-lavender-400 to-lavender-500" delay={3} onClick={() => setActiveTab("info")} />
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
@@ -230,7 +231,7 @@ export default function Profile() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
             <Card className="border-border/40 bg-white/80 shadow-card backdrop-blur-sm">
               <CardContent className="p-6">
-                <Tabs defaultValue="info" className="w-full">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                   <TabsList className="mb-5 bg-medical-50/70">
                     <TabsTrigger value="info">基本信息</TabsTrigger>
                     <TabsTrigger value="password">修改密码</TabsTrigger>
@@ -255,6 +256,10 @@ export default function Profile() {
                       <div className="space-y-2">
                         <Label>用户名</Label>
                         <Input value={String(userInfo?.username || "")} className="rounded-xl" disabled />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{role === "doctor" ? "医生ID" : role === "nurse" ? "护士ID" : "管理员ID"}</Label>
+                        <Input value={userId ? String(userId) : "未分配"} className="rounded-xl bg-muted/40" readOnly />
                       </div>
                     </div>
                     <div className="flex justify-end gap-3 pt-2">

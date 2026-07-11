@@ -20,6 +20,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
@@ -51,6 +53,8 @@ class KimiAssistantServiceTest {
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Authorization", "Bearer test-secret"))
                 .andExpect(content().string(containsString("\"model\":\"kimi-for-coding\"")))
+                .andExpect(content().string(containsString("medical_system_data")))
+                .andExpect(content().string(containsString("follow_plan")))
                 .andRespond(withSuccess(
                         "{\"choices\":[{\"message\":{\"reasoning_content\":\"internal\",\"content\":\"您好，我是乐奈猫。\"}}]}",
                         MediaType.APPLICATION_JSON));
@@ -59,7 +63,7 @@ class KimiAssistantServiceTest {
         request.setMessage("你好");
         request.setHistory(List.of(new AssistantHistoryMessage("assistant", "您好")));
 
-        AssistantChatResponse response = fixture.service.chat(request);
+        AssistantChatResponse response = fixture.service.chat(request, 2L, 2);
 
         assertThat(response.getAnswer()).isEqualTo("您好，我是乐奈猫。");
         assertThat(response.getAnswer()).doesNotContain("internal");
@@ -78,7 +82,7 @@ class KimiAssistantServiceTest {
         }
         request.setHistory(history);
 
-        assertThatThrownBy(() -> fixture.service.chat(request))
+        assertThatThrownBy(() -> fixture.service.chat(request, 2L, 2))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("最多保留12条");
         fixture.server.verify();
@@ -92,9 +96,23 @@ class KimiAssistantServiceTest {
         AssistantChatRequest request = new AssistantChatRequest();
         request.setMessage("你好");
 
-        assertThatThrownBy(() -> fixture.service.chat(request))
+        assertThatThrownBy(() -> fixture.service.chat(request, 2L, 2))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("请求较多");
+        fixture.server.verify();
+    }
+
+    @Test
+    void chatReturnsHardPermissionDenialWithoutCallingUpstream() {
+        Fixture fixture = fixture("test-secret");
+        when(fixture.dataContextService.permissionDeniedAnswer("followup", 3))
+                .thenReturn("permission denied");
+        AssistantChatRequest request = new AssistantChatRequest();
+        request.setMessage("followup");
+
+        AssistantChatResponse response = fixture.service.chat(request, 6L, 3);
+
+        assertThat(response.getAnswer()).isEqualTo("permission denied");
         fixture.server.verify();
     }
 
@@ -105,17 +123,24 @@ class KimiAssistantServiceTest {
         properties.setApiKey(apiKey);
         properties.setBaseUrl("https://api.kimi.com/coding/v1");
         properties.setModel("kimi-for-coding");
-        KimiAssistantService service = new KimiAssistantService(restTemplate, new ObjectMapper(), properties);
-        return new Fixture(service, server);
+        AssistantDataContextService dataContextService = mock(AssistantDataContextService.class);
+        when(dataContextService.buildContext(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn("{\"queryType\":\"elder_full_record\",\"follow_plan\":[{\"id\":1}]}" );
+        KimiAssistantService service = new KimiAssistantService(restTemplate, new ObjectMapper(), properties, dataContextService);
+        return new Fixture(service, server, dataContextService);
     }
 
     private static class Fixture {
         private final KimiAssistantService service;
         private final MockRestServiceServer server;
+        private final AssistantDataContextService dataContextService;
 
-        private Fixture(KimiAssistantService service, MockRestServiceServer server) {
+        private Fixture(KimiAssistantService service, MockRestServiceServer server,
+                        AssistantDataContextService dataContextService) {
             this.service = service;
             this.server = server;
+            this.dataContextService = dataContextService;
         }
     }
 }

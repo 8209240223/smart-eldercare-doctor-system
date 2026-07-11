@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
+import javax.servlet.http.HttpServletRequest;
 
 @Validated
 @RestController
@@ -32,7 +33,11 @@ public class AssistantController {
     }
 
     @PostMapping("/chat")
-    public R<AssistantChatResponse> chat(@Valid @RequestBody AssistantChatRequest request) {
-        return R.ok(assistantService.chat(request));
+    public R<AssistantChatResponse> chat(@Valid @RequestBody AssistantChatRequest request,
+                                         HttpServletRequest httpRequest) {
+        return R.ok(assistantService.chat(
+                request,
+                (Long) httpRequest.getAttribute("currentUserId"),
+                (Integer) httpRequest.getAttribute("currentUserType")));
     }
 }

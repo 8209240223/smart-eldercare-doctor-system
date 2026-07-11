@@ -259,7 +259,7 @@ export default function NurseReview() {
                               老人：{resolveElderName(undefined, item.elderId, elderNames)} · {planTypeLabels[item.planType || 0] || "护理计划"} · {item.startDate || "-"} 至 {item.endDate || "-"}
                             </p>
                             <p className="mt-1 text-xs text-muted-foreground">
-                              {item.nursingGoal || item.nursingContent || "-"} · 护士ID：{item.nurseId || "-"} · {item.createTime}
+                              {item.nursingGoal || item.nursingContent || "-"} · 护士ID：{item.nurseId || "-"} · 责任医生ID：{item.doctorId || "-"} · {item.createTime}
                             </p>
                           </div>
                           <div className="flex gap-2">
@@ -410,6 +410,7 @@ export default function NurseReview() {
                 },
                 { label: "老人", value: resolveElderName(undefined, planDetail.elderId, elderNames) },
                 { label: "护士ID", value: planDetail.nurseId || "-" },
+                { label: "责任医生ID", value: planDetail.doctorId || "-" },
                 { label: "计划类型", value: planTypeLabels[planDetail.planType || 0] || "-" },
                 { label: "计划周期", value: `${planDetail.startDate || "-"} 至 ${planDetail.endDate || "-"}` },
                 { label: "执行频次", value: planDetail.frequency || "-" },

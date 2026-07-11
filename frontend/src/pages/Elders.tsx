@@ -84,6 +84,7 @@ export default function Elders() {
   const canManage = role === "doctor";
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
+  const [elderId, setElderId] = useState("");
   const [name, setName] = useState("");
   const [community, setCommunity] = useState("");
   const [doctorId, setDoctorId] = useState("");
@@ -103,6 +104,7 @@ export default function Elders() {
     community,
     doctorId ? Number(doctorId) : undefined,
     diseaseType,
+    elderId ? Number(elderId) : undefined,
   );
   const { data: stats } = useElderStats();
   const { data: report, isLoading: reportLoading } = useAssessmentReport(
@@ -248,6 +250,13 @@ export default function Elders() {
     try {
       const response = await apiClient.get("/api/elders/export", {
         responseType: "blob",
+        params: {
+          elderId: elderId ? Number(elderId) : undefined,
+          name: name || undefined,
+          community: community || undefined,
+          doctorId: doctorId ? Number(doctorId) : undefined,
+          diseaseType,
+        },
       });
       const url = URL.createObjectURL(response.data);
       const anchor = document.createElement("a");
@@ -292,6 +301,10 @@ export default function Elders() {
         </div>
         <Card className="border-border/40 bg-white/80 shadow-card backdrop-blur-sm">
           <CardContent className="flex flex-wrap items-end gap-3 p-4">
+            <div className="min-w-[140px]">
+              <label className="text-sm font-medium text-muted-foreground">老人ID</label>
+              <Input className="mt-2 rounded-xl bg-white/70" type="number" min={1} value={elderId} onChange={(event) => setElderId(event.target.value.replace(/\D/g, ""))} placeholder="精确查询" />
+            </div>
             <div className="min-w-[170px]">
               <label className="text-sm font-medium text-muted-foreground">
                 姓名
@@ -415,7 +428,7 @@ export default function Elders() {
                           </Badge>
                         </div>
                         <p className="mt-2 text-sm text-muted-foreground">
-                          身份证：{elder.idCard} · 电话：{elder.phone}
+                          老人ID：{elder.id || "-"} · 身份证：{elder.idCard} · 电话：{elder.phone}
                         </p>
                         <p className="mt-1 text-sm text-muted-foreground">
                           社区：{elder.community || "-"} · 紧急联系人：

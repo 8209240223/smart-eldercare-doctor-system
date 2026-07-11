@@ -21,6 +21,8 @@ public class NursingPlan implements Serializable {
 
     private Long nurseId;
 
+    private Long doctorId;
+
     private String planName;
 
     /** 计划类型:1基础护理 2康复护理 3专科护理 4心理护理 */

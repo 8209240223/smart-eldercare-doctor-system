@@ -47,10 +47,11 @@ public class ElderServiceImpl implements ElderService {
     private SysUserMapper sysUserMapper;
 
     @Override
-    public Page<ElderInfo> listElders(Integer pageNum, Integer pageSize, String name, String community, Long doctorId, Integer diseaseType) {
+    public Page<ElderInfo> listElders(Integer pageNum, Integer pageSize, Long elderId, String name, String community, Long doctorId, Integer diseaseType) {
         Page<ElderInfo> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<ElderInfo> wrapper = new LambdaQueryWrapper<>();
-        wrapper.like(StringUtils.hasText(name), ElderInfo::getName, name)
+        wrapper.eq(elderId != null, ElderInfo::getId, elderId)
+               .like(StringUtils.hasText(name), ElderInfo::getName, name)
                .eq(StringUtils.hasText(community), ElderInfo::getCommunity, community)
                .eq(doctorId != null, ElderInfo::getDoctorId, doctorId);
         if (diseaseType != null) {
@@ -66,7 +67,7 @@ public class ElderServiceImpl implements ElderService {
             }
             wrapper.in(ElderInfo::getId, elderIds);
         }
-        wrapper.orderByDesc(ElderInfo::getCreateTime);
+        wrapper.orderByAsc(ElderInfo::getId);
         return elderInfoMapper.selectPage(page, wrapper);
     }
 
@@ -179,6 +180,12 @@ public class ElderServiceImpl implements ElderService {
         String normalizedIdCard = normalizeIdCard(elderInfo.getIdCard());
         elderInfo.setIdCard(normalizedIdCard);
         validateIdCard(normalizedIdCard);
+        LocalDate idCardBirthDate = LocalDate.parse(normalizedIdCard.substring(6, 14), java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+        if (elderInfo.getBirthDate() == null) {
+            elderInfo.setBirthDate(idCardBirthDate);
+        } else if (!elderInfo.getBirthDate().equals(idCardBirthDate)) {
+            throw new BusinessException(400, "出生日期必须与身份证号中的出生日期一致");
+        }
         validateDuplicateIdCard(elderInfo.getIdCard(), currentId);
         if (elderInfo.getBirthDate() != null && elderInfo.getBirthDate().isAfter(LocalDate.now())) {
             throw new BusinessException(400, "出生日期不能晚于今天");

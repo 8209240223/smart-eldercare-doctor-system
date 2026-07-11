@@ -173,6 +173,10 @@ public class ExamServiceImpl implements ExamService {
         checkRange(exam.getWeight(), "20", "200", "体重");
         checkRange(exam.getSystolicPressure(), 60, 240, "收缩压");
         checkRange(exam.getDiastolicPressure(), 40, 140, "舒张压");
+        if (exam.getSystolicPressure() != null && exam.getDiastolicPressure() != null
+                && exam.getSystolicPressure() <= exam.getDiastolicPressure()) {
+            throw new BusinessException(400, "收缩压必须大于舒张压");
+        }
         checkRange(exam.getHeartRate(), 30, 180, "心率");
         checkRange(exam.getBloodSugarFasting(), "2", "30", "空腹血糖");
         checkRange(exam.getBloodSugarRandom(), "2", "35", "随机血糖");

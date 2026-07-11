@@ -49,6 +49,10 @@ export default function ExamDialog({
     const errs: Record<string, string> = {};
     if (!form.elderId) errs.elderId = "请选择老人";
     if (!form.examDate) errs.examDate = "请选择体检日期";
+    if (form.systolicPressure !== undefined && form.diastolicPressure !== undefined
+      && form.systolicPressure <= form.diastolicPressure) {
+      errs.diastolicPressure = "收缩压必须大于舒张压";
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -160,6 +164,7 @@ export default function ExamDialog({
                 placeholder="舒张压"
                 className="rounded-xl"
               />
+              {errors.diastolicPressure && <p className="text-xs text-red-500">{errors.diastolicPressure}</p>}
             </div>
 
             <div className="space-y-2">

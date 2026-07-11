@@ -29,6 +29,8 @@ export default function FollowupRecordDialog({ open, onOpenChange, plan, onSubmi
   const recordingDisabled = !plan || planIsTerminal || planHasNoRemainingVisits;
   const followDateOnly = form.followDate?.slice(0, 10) || "";
   const nextFollowDateInvalid = !!form.nextFollowDate && !!followDateOnly && form.nextFollowDate <= followDateOnly;
+  const bloodPressureInvalid = form.systolicPressure !== undefined && form.diastolicPressure !== undefined
+    && form.systolicPressure <= form.diastolicPressure;
 
   useEffect(() => {
     if (!open || !plan) return;
@@ -51,7 +53,7 @@ export default function FollowupRecordDialog({ open, onOpenChange, plan, onSubmi
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (recordingDisabled || nextFollowDateInvalid || !form.planId || !form.elderId || !form.followResult?.trim()) return;
+    if (recordingDisabled || nextFollowDateInvalid || bloodPressureInvalid || !form.planId || !form.elderId || !form.followResult?.trim()) return;
     onSubmit(form);
   };
 
@@ -67,6 +69,7 @@ export default function FollowupRecordDialog({ open, onOpenChange, plan, onSubmi
           <div className="space-y-2"><Label>随访方式</Label><select value={form.followType ?? 2} onChange={(event) => update("followType", Number(event.target.value))} className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"><option value="1">门诊</option><option value="2">电话</option><option value="3">上门</option><option value="4">远程视频</option></select></div>
           <div className="space-y-2"><Label>收缩压</Label><Input type="number" min={60} max={240} value={form.systolicPressure ?? ""} onChange={(event) => updateNumber("systolicPressure", event.target.value)} /></div>
           <div className="space-y-2"><Label>舒张压</Label><Input type="number" min={40} max={140} value={form.diastolicPressure ?? ""} onChange={(event) => updateNumber("diastolicPressure", event.target.value)} /></div>
+          {bloodPressureInvalid && <p className="text-xs text-red-500 md:col-span-2">收缩压必须大于舒张压</p>}
           <div className="space-y-2"><Label>心率</Label><Input type="number" min={30} max={180} value={form.heartRate ?? ""} onChange={(event) => updateNumber("heartRate", event.target.value)} /></div>
           <div className="space-y-2"><Label>空腹血糖</Label><Input type="number" min={2} max={30} step="0.1" value={form.bloodSugarFasting ?? ""} onChange={(event) => updateNumber("bloodSugarFasting", event.target.value)} /></div>
           <div className="space-y-2"><Label>体重</Label><Input type="number" min={20} max={200} step="0.1" value={form.weight ?? ""} onChange={(event) => updateNumber("weight", event.target.value)} /></div>
@@ -76,7 +79,7 @@ export default function FollowupRecordDialog({ open, onOpenChange, plan, onSubmi
           <div className="space-y-2 md:col-span-2"><Label>随访结论 *</Label><textarea required value={form.followResult || ""} onChange={(event) => update("followResult", event.target.value)} className="min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm" /></div>
           <div className="space-y-2"><Label>下次随访日期</Label><Input type="date" min={getNextDay(followDateOnly)} value={form.nextFollowDate || ""} onChange={(event) => update("nextFollowDate", event.target.value)} className={nextFollowDateInvalid ? "border-red-400" : undefined} />{nextFollowDateInvalid && <p className="text-xs text-red-500">下次随访日期必须晚于本次随访日期</p>}</div>
           <div className="space-y-2"><Label>备注</Label><Input value={form.remark || ""} onChange={(event) => update("remark", event.target.value)} /></div>
-          <div className="flex justify-end gap-3 md:col-span-2"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>取消</Button><Button type="submit" disabled={pending || recordingDisabled || nextFollowDateInvalid || !form.followResult?.trim()} className="bg-gradient-to-r from-medical-400 to-medical-600 text-white">{pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}保存并记录随访</Button></div>
+          <div className="flex justify-end gap-3 md:col-span-2"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>取消</Button><Button type="submit" disabled={pending || recordingDisabled || nextFollowDateInvalid || bloodPressureInvalid || !form.followResult?.trim()} className="bg-gradient-to-r from-medical-400 to-medical-600 text-white">{pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}保存并记录随访</Button></div>
         </form>
       </DialogContent>
     </Dialog>

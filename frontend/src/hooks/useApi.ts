@@ -216,12 +216,14 @@ export function useElders(
   community = "",
   doctorId?: number,
   diseaseType?: number,
+  elderId?: number,
 ) {
   const query = new URLSearchParams({
     pageNum: String(page),
     pageSize: String(pageSize),
   });
   if (name) query.set("name", name);
+  if (elderId !== undefined) query.set("elderId", String(elderId));
   if (community) query.set("community", community);
   if (doctorId !== undefined) query.set("doctorId", String(doctorId));
   if (diseaseType !== undefined) query.set("diseaseType", String(diseaseType));
@@ -234,6 +236,7 @@ export function useElders(
       community,
       doctorId === undefined ? "all" : String(doctorId),
       diseaseType === undefined ? "all" : String(diseaseType),
+      elderId === undefined ? "all" : String(elderId),
     ],
     `/api/elders?${query.toString()}`,
   );
@@ -1338,6 +1341,7 @@ export interface ReviewPlan {
   id: number;
   elderId: number;
   nurseId?: number;
+  doctorId?: number;
   planName?: string;
   planType?: number;
   startDate?: string;
@@ -1686,6 +1690,7 @@ export interface NursingPlan {
   id?: number;
   elderId: number;
   nurseId?: number;
+  doctorId?: number;
   planName: string;
   planType?: number;
   startDate?: string;
@@ -1844,6 +1849,8 @@ export function useNursePlanStats() {
 export function useCreateNursePlan() {
   return useApiMutation<NursingPlan, NursingPlan>("/api/nurse/plans", "POST", [
     ["nurse", "plans"],
+    ["nurse", "dashboard"],
+    ["review"],
   ]);
 }
 
@@ -1851,7 +1858,7 @@ export function useUpdateNursePlan() {
   return useApiMutation<void, NursingPlan>(
     (plan) => `/api/nurse/plans/${plan.id}`,
     "PUT",
-    [["nurse", "plans"]],
+    [["nurse", "plans"], ["nurse", "dashboard"], ["review"]],
   );
 }
 
@@ -1859,7 +1866,7 @@ export function useDeleteNursePlan() {
   return useApiMutation<void, number>(
     (id) => `/api/nurse/plans/${id}`,
     "DELETE",
-    [["nurse", "plans"]],
+    [["nurse", "plans"], ["nurse", "dashboard"], ["review"]],
   );
 }
 
@@ -1867,7 +1874,7 @@ export function useChangeNursePlanStatus() {
   return useApiMutation<void, { id: number; status: number }>(
     (vars) => `/api/nurse/plans/${vars.id}/status`,
     "PUT",
-    [["nurse", "plans"]],
+    [["nurse", "plans"], ["nurse", "dashboard"], ["review"]],
   );
 }
 
@@ -1875,7 +1882,7 @@ export function useIncrementNursePlan() {
   return useApiMutation<void, number>(
     (id) => `/api/nurse/plans/${id}/increment`,
     "POST",
-    [["nurse", "plans"]],
+    [["nurse", "plans"], ["nurse", "dashboard"], ["review"]],
   );
 }
 

@@ -57,8 +57,11 @@ public class ReviewController {
 
     @GetMapping("/plans")
     public R<?> listPendingPlans(@RequestParam(defaultValue = "1") Integer pageNum,
-                                 @RequestParam(defaultValue = "10") Integer pageSize) {
-        return R.ok(reviewService.listPendingPlans(pageNum, pageSize));
+                                 @RequestParam(defaultValue = "10") Integer pageSize,
+                                 HttpServletRequest request) {
+        Integer userType = (Integer) request.getAttribute("currentUserType");
+        Long doctorId = userType != null && userType == 2 ? (Long) request.getAttribute("currentUserId") : null;
+        return R.ok(reviewService.listPendingPlans(pageNum, pageSize, doctorId));
     }
 
     @RequireRole({2})
@@ -80,7 +83,9 @@ public class ReviewController {
     }
 
     @GetMapping("/stats")
-    public R<?> stats() {
-        return R.ok(reviewService.getReviewStats());
+    public R<?> stats(HttpServletRequest request) {
+        Integer userType = (Integer) request.getAttribute("currentUserType");
+        Long doctorId = userType != null && userType == 2 ? (Long) request.getAttribute("currentUserId") : null;
+        return R.ok(reviewService.getReviewStats(doctorId));
     }
 }

@@ -7,6 +7,7 @@ import com.medical.entity.ElderInfo;
 import com.medical.entity.HealthRecord;
 import com.medical.dto.ElderOnboardRequest;
 import com.medical.dto.ElderOnboardResult;
+import com.medical.dto.ElderExportRow;
 import com.medical.service.ElderService;
 import com.medical.service.ElderOnboardingService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,11 +35,12 @@ public class ElderController {
     @GetMapping
     public R<?> list(@RequestParam(defaultValue = "1") Integer pageNum,
                      @RequestParam(defaultValue = "10") Integer pageSize,
+                     @RequestParam(required = false) Long elderId,
                      @RequestParam(required = false) String name,
                      @RequestParam(required = false) String community,
                      @RequestParam(required = false) Long doctorId,
                      @RequestParam(required = false) Integer diseaseType) {
-        return R.ok(elderService.listElders(pageNum, pageSize, name, community, doctorId, diseaseType));
+        return R.ok(elderService.listElders(pageNum, pageSize, elderId, name, community, doctorId, diseaseType));
     }
 
     @GetMapping("/options/doctors")
@@ -104,10 +106,18 @@ public class ElderController {
 
     @GetMapping("/export")
     @OperationLog(module = "老人档案", type = "导出", desc = "导出Excel")
-    public void export(HttpServletResponse response) throws Exception {
+    public void export(@RequestParam(required = false) Long elderId,
+                       @RequestParam(required = false) String name,
+                       @RequestParam(required = false) String community,
+                       @RequestParam(required = false) Long doctorId,
+                       @RequestParam(required = false) Integer diseaseType,
+                       HttpServletResponse response) throws Exception {
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setHeader("Content-Disposition", "attachment;filename=elders.xlsx");
-        List<ElderInfo> list = elderService.listElders(1, 1000, null, null, null, null).getRecords();
-        com.alibaba.excel.EasyExcel.write(response.getOutputStream(), ElderInfo.class).sheet("老人信息").doWrite(list);
+        List<ElderExportRow> list = elderService.listElders(1, 10000, elderId, name, community, doctorId, diseaseType)
+                .getRecords().stream()
+                .map(elder -> ElderExportRow.from(elder, elderService.getHealthRecord(elder.getId())))
+                .toList();
+        com.alibaba.excel.EasyExcel.write(response.getOutputStream(), ElderExportRow.class).sheet("老人完整档案").doWrite(list);
     }
 }

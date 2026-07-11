@@ -346,7 +346,7 @@ export default function NursePlans() {
                         <p className="mt-2 text-sm text-muted-foreground">
                           {elderNames.get(plan.elderId) ||
                             "姓名未同步"}{" "}
-                          · {plan.startDate || "-"} 至 {plan.endDate || "-"} ·{" "}
+                          · 责任医生ID {plan.doctorId || "待分配"} · {plan.startDate || "-"} 至 {plan.endDate || "-"} ·{" "}
                           {plan.completedCount || 0}/{plan.totalCount || 0}
                         </p>
                         <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
@@ -579,6 +579,7 @@ export default function NursePlans() {
                 { label: "计划类型", value: typeLabels[detail.planType || 0] },
                 { label: "计划名称", value: detail.planName, wide: true },
                 { label: "状态", value: statusLabels[detail.status || 0] },
+                { label: "责任医生ID", value: detail.doctorId || "-" },
                 { label: "执行频次", value: detail.frequency || "-" },
                 { label: "开始日期", value: detail.startDate || "-" },
                 { label: "结束日期", value: detail.endDate || "-" },
