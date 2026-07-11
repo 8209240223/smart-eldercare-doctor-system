@@ -29,6 +29,15 @@ public class ReviewController {
         return R.ok(reviewService.listPendingRecords(pageNum, pageSize));
     }
 
+    @GetMapping("/records/history")
+    public R<?> listReviewedRecords(@RequestParam(defaultValue = "1") Integer pageNum,
+                                    @RequestParam(defaultValue = "10") Integer pageSize,
+                                    HttpServletRequest request) {
+        Integer userType = (Integer) request.getAttribute("currentUserType");
+        Long doctorId = userType != null && userType == 2 ? (Long) request.getAttribute("currentUserId") : null;
+        return R.ok(reviewService.listReviewedRecords(pageNum, pageSize, doctorId));
+    }
+
     @RequireRole({2})
     @PostMapping("/records/{id}/approve")
     @OperationLog(module = "护士审核", type = "审核通过", desc = "审核通过护理记录")
@@ -62,6 +71,15 @@ public class ReviewController {
         Integer userType = (Integer) request.getAttribute("currentUserType");
         Long doctorId = userType != null && userType == 2 ? (Long) request.getAttribute("currentUserId") : null;
         return R.ok(reviewService.listPendingPlans(pageNum, pageSize, doctorId));
+    }
+
+    @GetMapping("/plans/history")
+    public R<?> listReviewedPlans(@RequestParam(defaultValue = "1") Integer pageNum,
+                                  @RequestParam(defaultValue = "10") Integer pageSize,
+                                  HttpServletRequest request) {
+        Integer userType = (Integer) request.getAttribute("currentUserType");
+        Long doctorId = userType != null && userType == 2 ? (Long) request.getAttribute("currentUserId") : null;
+        return R.ok(reviewService.listReviewedPlans(pageNum, pageSize, doctorId));
     }
 
     @RequireRole({2})

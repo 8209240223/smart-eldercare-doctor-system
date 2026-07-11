@@ -53,6 +53,7 @@ class KimiAssistantServiceTest {
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Authorization", "Bearer test-secret"))
                 .andExpect(content().string(containsString("\"model\":\"kimi-for-coding\"")))
+                .andExpect(content().string(containsString("\"max_tokens\":3000")))
                 .andExpect(content().string(containsString("medical_system_data")))
                 .andExpect(content().string(containsString("follow_plan")))
                 .andRespond(withSuccess(
@@ -99,6 +100,56 @@ class KimiAssistantServiceTest {
         assertThatThrownBy(() -> fixture.service.chat(request, 2L, 2))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("请求较多");
+        fixture.server.verify();
+    }
+
+    @Test
+    void chatContinuesWhenUpstreamStopsBecauseOfLength() {
+        Fixture fixture = fixture("test-secret");
+        fixture.server.expect(once(), requestTo(URL))
+                .andExpect(content().string(containsString("\"max_tokens\":3000")))
+                .andRespond(withSuccess(
+                        "{\"choices\":[{\"finish_reason\":\"length\",\"message\":{\"content\":\"## 健康档案\\n- **姓名**：王大爷\"}}]}",
+                        MediaType.APPLICATION_JSON));
+        fixture.server.expect(once(), requestTo(URL))
+                .andExpect(content().string(containsString("\"max_tokens\":2000")))
+                .andExpect(content().string(containsString("请从截断处继续")))
+                .andRespond(withSuccess(
+                        "{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{\"content\":\"- **血型**：A型\\n- **状态**：正常\"}}]}",
+                        MediaType.APPLICATION_JSON));
+
+        AssistantChatRequest request = new AssistantChatRequest();
+        request.setMessage("告诉我王大爷的全部档案");
+
+        AssistantChatResponse response = fixture.service.chat(request, 2L, 2);
+
+        assertThat(response.getAnswer())
+                .contains("## 健康档案")
+                .contains("**姓名**")
+                .contains("**血型**")
+                .contains("**状态**");
+        fixture.server.verify();
+    }
+
+    @Test
+    void streamChatForwardsEachUpstreamDelta() {
+        Fixture fixture = fixture("test-secret");
+        fixture.server.expect(once(), requestTo(URL))
+                .andExpect(content().string(containsString("\"stream\":true")))
+                .andExpect(content().string(containsString("\"max_tokens\":3000")))
+                .andRespond(withSuccess(
+                        "data: {\"choices\":[{\"delta\":{\"content\":\"## 基本信息\\n\"},\"finish_reason\":null}]}\n\n"
+                                + "data: {\"choices\":[{\"delta\":{\"content\":\"- **姓名**：王大爷\"},\"finish_reason\":null}]}\n\n"
+                                + "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n"
+                                + "data: [DONE]\n\n",
+                        MediaType.TEXT_EVENT_STREAM));
+        AssistantChatRequest request = new AssistantChatRequest();
+        request.setMessage("告诉我王大爷的档案");
+        List<String> chunks = new ArrayList<>();
+
+        fixture.service.streamChat(request, 2L, 2, chunks::add);
+
+        assertThat(chunks).containsExactly("## 基本信息\n", "- **姓名**：王大爷");
         fixture.server.verify();
     }
 

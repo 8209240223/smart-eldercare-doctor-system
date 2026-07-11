@@ -21,6 +21,8 @@ import {
   usePendingReviewRecords,
   useRejectReviewPlan,
   useRejectReviewRecord,
+  useReviewedReviewPlans,
+  useReviewedReviewRecords,
   useReviewStats,
   type ReviewPlan,
   type ReviewRecord,
@@ -56,7 +58,9 @@ export default function NurseReview() {
     isLoading: plansLoading,
     refetch: refetchPlans,
   } = usePendingReviewPlans(planPage, 10);
-  const { data: stats } = useReviewStats();
+  const { data: reviewedRecordsData, isLoading: reviewedRecordsLoading, refetch: refetchReviewedRecords } = useReviewedReviewRecords(1, 50);
+  const { data: reviewedPlansData, isLoading: reviewedPlansLoading, refetch: refetchReviewedPlans } = useReviewedReviewPlans(1, 50);
+  const { data: stats, refetch: refetchStats } = useReviewStats();
   const { data: eldersData } = useElders(1, 500);
   const approveRecord = useApproveReviewRecord();
   const rejectRecord = useRejectReviewRecord();
@@ -64,6 +68,8 @@ export default function NurseReview() {
   const rejectPlan = useRejectReviewPlan();
   const records = recordsData?.records || [];
   const plans = plansData?.records || [];
+  const reviewedRecords = reviewedRecordsData?.records || [];
+  const reviewedPlans = reviewedPlansData?.records || [];
   const elderNames = createElderNameMap(eldersData?.records || []);
 
   const approveRecordAction = async () => {
@@ -72,7 +78,7 @@ export default function NurseReview() {
       await approveRecord.mutateAsync({ id: approveRecordTarget.id });
       setApproveRecordTarget(null);
       toast.success("护理记录审核通过");
-      refetchRecords();
+      await Promise.all([refetchRecords(), refetchReviewedRecords(), refetchStats()]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "审核失败");
     }
@@ -83,7 +89,7 @@ export default function NurseReview() {
       await rejectRecord.mutateAsync({ id: rejectRecordTarget.id, comment });
       setRejectRecordTarget(null);
       toast.success("护理记录已驳回");
-      refetchRecords();
+      await Promise.all([refetchRecords(), refetchReviewedRecords(), refetchStats()]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "驳回失败");
     }
@@ -94,7 +100,7 @@ export default function NurseReview() {
       await approvePlan.mutateAsync(approvePlanTarget.id);
       setApprovePlanTarget(null);
       toast.success("护理计划审核通过");
-      refetchPlans();
+      await Promise.all([refetchPlans(), refetchReviewedPlans(), refetchStats()]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "审核失败");
     }
@@ -105,7 +111,7 @@ export default function NurseReview() {
       await rejectPlan.mutateAsync(rejectPlanTarget.id);
       setRejectPlanTarget(null);
       toast.success("护理计划已驳回");
-      refetchPlans();
+      await Promise.all([refetchPlans(), refetchReviewedPlans(), refetchStats()]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "驳回失败");
     }
@@ -139,8 +145,8 @@ export default function NurseReview() {
             delay={2}
           />
           <StatCard
-            title="已通过计划"
-            value={Number(stats?.approvedPlans || 0)}
+            title="已处理计划"
+            value={Number(stats?.reviewedPlans || 0)}
             icon={CheckCircle2}
             iconClassName="from-medical-400 to-medical-500"
             delay={3}
@@ -155,6 +161,8 @@ export default function NurseReview() {
               <TabsList>
                 <TabsTrigger value="records">待审核护理记录</TabsTrigger>
                 <TabsTrigger value="plans">待审核护理计划</TabsTrigger>
+                <TabsTrigger value="reviewed-records">已处理护理记录</TabsTrigger>
+                <TabsTrigger value="reviewed-plans">已处理护理计划</TabsTrigger>
               </TabsList>
               <TabsContent value="records" className="mt-5">
                 {recordsLoading ? (
@@ -305,6 +313,56 @@ export default function NurseReview() {
                         </Button>
                       </div>
                     )}
+                  </div>
+                )}
+              </TabsContent>
+              <TabsContent value="reviewed-records" className="mt-5">
+                {reviewedRecordsLoading ? (
+                  <Skeleton className="h-44 w-full" />
+                ) : reviewedRecords.length === 0 ? (
+                  <EmptyState title="暂无已处理护理记录" description="医生处理过的护理记录会展示在这里" />
+                ) : (
+                  <div className="space-y-3">
+                    {reviewedRecords.map((item, index) => (
+                      <motion.div key={item.id} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.03 }} className="rounded-xl border border-border/40 bg-white/60 p-4">
+                        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="font-semibold">{item.recordTitle || "护理记录"}</h3>
+                              <span className="rounded-full bg-medical-50 px-2 py-1 text-xs text-medical-700">{item.doctorReview === 2 ? "审核通过" : "已驳回"}</span>
+                            </div>
+                            <p className="mt-2 text-sm text-muted-foreground">老人：{resolveElderName(undefined, item.elderId, elderNames)} · 护士ID：{item.nurseId || "-"} · 审核时间：{item.reviewTime || "-"}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">审核意见：{item.reviewComment || "-"}</p>
+                          </div>
+                          <Button size="sm" variant="outline" onClick={() => setRecordDetail(item)}><Eye className="mr-1 h-4 w-4" />查看</Button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+              <TabsContent value="reviewed-plans" className="mt-5">
+                {reviewedPlansLoading ? (
+                  <Skeleton className="h-44 w-full" />
+                ) : reviewedPlans.length === 0 ? (
+                  <EmptyState title="暂无已处理护理计划" description="医生通过或驳回的护理计划会展示在这里" />
+                ) : (
+                  <div className="space-y-3">
+                    {reviewedPlans.map((item, index) => (
+                      <motion.div key={item.id} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.03 }} className="rounded-xl border border-border/40 bg-white/60 p-4">
+                        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="font-semibold">{item.planName || "护理计划"}</h3>
+                              <span className="rounded-full bg-medical-50 px-2 py-1 text-xs text-medical-700">{item.doctorApproval === 1 ? "审核通过" : "已驳回"}</span>
+                            </div>
+                            <p className="mt-2 text-sm text-muted-foreground">老人：{resolveElderName(undefined, item.elderId, elderNames)} · 护士ID：{item.nurseId || "-"} · 责任医生ID：{item.doctorId || "-"}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{item.nursingGoal || item.nursingContent || "-"}</p>
+                          </div>
+                          <Button size="sm" variant="outline" onClick={() => setPlanDetail(item)}><Eye className="mr-1 h-4 w-4" />查看</Button>
+                        </div>
+                      </motion.div>
+                    ))}
                   </div>
                 )}
               </TabsContent>

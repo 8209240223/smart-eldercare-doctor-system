@@ -167,6 +167,105 @@
   scrollbar-color: #b8d9dc transparent;
 }
 
+.rana-markdown > :first-child {
+  margin-top: 0;
+}
+
+.rana-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.rana-markdown p,
+.rana-markdown ul,
+.rana-markdown ol,
+.rana-markdown blockquote,
+.rana-markdown pre,
+.rana-markdown table {
+  margin: 0.55rem 0;
+}
+
+.rana-markdown h1,
+.rana-markdown h2,
+.rana-markdown h3,
+.rana-markdown h4 {
+  margin: 0.9rem 0 0.4rem;
+  color: #0f3f4a;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.rana-markdown h1 { font-size: 1.05rem; }
+.rana-markdown h2 { font-size: 1rem; }
+.rana-markdown h3,
+.rana-markdown h4 { font-size: 0.925rem; }
+
+.rana-markdown ul,
+.rana-markdown ol {
+  padding-left: 1.25rem;
+}
+
+.rana-markdown ul { list-style: disc; }
+.rana-markdown ol { list-style: decimal; }
+.rana-markdown li + li { margin-top: 0.2rem; }
+
+.rana-markdown strong {
+  color: #164e63;
+  font-weight: 700;
+}
+
+.rana-markdown a {
+  color: #0f766e;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.rana-markdown blockquote {
+  border-left: 3px solid #5eead4;
+  padding-left: 0.75rem;
+  color: #475569;
+}
+
+.rana-markdown code {
+  border-radius: 4px;
+  background: #e8f4f4;
+  padding: 0.1rem 0.3rem;
+  color: #155e75;
+  font-size: 0.8rem;
+}
+
+.rana-markdown pre {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: 6px;
+  background: #edf7f7;
+  padding: 0.75rem;
+}
+
+.rana-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.rana-markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.rana-markdown th,
+.rana-markdown td {
+  border: 1px solid #cbdfe1;
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.rana-markdown th {
+  background: #e8f4f4;
+  color: #164e63;
+}
+
 .rana-quick-list {
   scrollbar-width: none;
 }

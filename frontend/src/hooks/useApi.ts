@@ -1854,6 +1854,20 @@ export function useCreateNursePlan() {
   ]);
 }
 
+export function useReviewedReviewRecords(page = 1, pageSize = 10) {
+  return useApiQuery<PageResult<ReviewRecord>>(
+    ["review", "records", "history", String(page), String(pageSize)],
+    `/api/review/records/history?pageNum=${page}&pageSize=${pageSize}`,
+  );
+}
+
+export function useReviewedReviewPlans(page = 1, pageSize = 10) {
+  return useApiQuery<PageResult<ReviewPlan>>(
+    ["review", "plans", "history", String(page), String(pageSize)],
+    `/api/review/plans/history?pageNum=${page}&pageSize=${pageSize}`,
+  );
+}
+
 export function useUpdateNursePlan() {
   return useApiMutation<void, NursingPlan>(
     (plan) => `/api/nurse/plans/${plan.id}`,

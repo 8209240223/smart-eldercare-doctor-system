@@ -37,6 +37,18 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
+    public Page<NursingRecord> listReviewedRecords(Integer pageNum, Integer pageSize, Long doctorId) {
+        Page<NursingRecord> page = new Page<>(pageNum, pageSize);
+        LambdaQueryWrapper<NursingRecord> wrapper = new LambdaQueryWrapper<NursingRecord>()
+                .in(NursingRecord::getDoctorReview, 1, 2)
+                .eq(NursingRecord::getDeleted, 0)
+                .eq(doctorId != null, NursingRecord::getReviewDoctorId, doctorId)
+                .orderByDesc(NursingRecord::getReviewTime)
+                .orderByDesc(NursingRecord::getCreateTime);
+        return nursingRecordMapper.selectPage(page, wrapper);
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void reviewRecord(Long id, Long doctorId, String comment, Integer action) {
         NursingRecord record = nursingRecordMapper.selectById(id);
@@ -70,6 +82,18 @@ public class ReviewServiceImpl implements ReviewService {
                 .in(NursingPlan::getStatus, 0, 1)
                 .eq(NursingPlan::getDeleted, 0)
                 .eq(doctorId != null, NursingPlan::getDoctorId, doctorId)
+                .orderByDesc(NursingPlan::getCreateTime);
+        return nursingPlanMapper.selectPage(page, wrapper);
+    }
+
+    @Override
+    public Page<NursingPlan> listReviewedPlans(Integer pageNum, Integer pageSize, Long doctorId) {
+        Page<NursingPlan> page = new Page<>(pageNum, pageSize);
+        LambdaQueryWrapper<NursingPlan> wrapper = new LambdaQueryWrapper<NursingPlan>()
+                .in(NursingPlan::getDoctorApproval, 1, 2)
+                .eq(NursingPlan::getDeleted, 0)
+                .eq(doctorId != null, NursingPlan::getDoctorId, doctorId)
+                .orderByDesc(NursingPlan::getUpdateTime)
                 .orderByDesc(NursingPlan::getCreateTime);
         return nursingPlanMapper.selectPage(page, wrapper);
     }
@@ -123,9 +147,17 @@ public class ReviewServiceImpl implements ReviewService {
 
         long reviewedRecords = nursingRecordMapper.selectCount(
                 new LambdaQueryWrapper<NursingRecord>()
-                        .eq(NursingRecord::getDoctorReview, 2)
+                        .in(NursingRecord::getDoctorReview, 1, 2)
+                        .eq(doctorId != null, NursingRecord::getReviewDoctorId, doctorId)
                         .eq(NursingRecord::getDeleted, 0));
         stats.put("reviewedRecords", reviewedRecords);
+
+        long reviewedPlans = nursingPlanMapper.selectCount(
+                new LambdaQueryWrapper<NursingPlan>()
+                        .in(NursingPlan::getDoctorApproval, 1, 2)
+                        .eq(doctorId != null, NursingPlan::getDoctorId, doctorId)
+                        .eq(NursingPlan::getDeleted, 0));
+        stats.put("reviewedPlans", reviewedPlans);
 
         long approvedPlans = nursingPlanMapper.selectCount(
                 new LambdaQueryWrapper<NursingPlan>()

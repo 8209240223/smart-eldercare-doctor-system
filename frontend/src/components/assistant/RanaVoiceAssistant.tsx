@@ -1,9 +1,11 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { Bot, CircleAlert, LoaderCircle, Mic, MicOff, Send, Volume2, VolumeX, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { AssistantPet, type PetAction } from "./AssistantPet";
 import { useAssistantSpeech } from "@/hooks/useAssistantSpeech";
-import { getAssistantStatus, sendAssistantMessage } from "@/lib/assistantClient";
+import { getAssistantStatus, streamAssistantMessage } from "@/lib/assistantClient";
 import { useAuthStore } from "@/store/auth";
 import "./ranaAssistant.css";
 
@@ -12,6 +14,23 @@ interface Message {
   role: "assistant" | "user";
   content: string;
   error?: boolean;
+}
+
+function AssistantMarkdown({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        a: ({ children, ...props }) => (
+          <a {...props} target="_blank" rel="noreferrer noopener">
+            {children}
+          </a>
+        ),
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
 }
 
 const QUICK_QUESTIONS = ["今天有哪些重点健康事项？", "帮我整理高风险老人关注重点", "一次规范随访需要记录什么？"];
@@ -118,7 +137,10 @@ export default function RanaVoiceAssistant() {
 
   useEffect(() => {
     if (!open) return;
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: reducedMotion ? "auto" : "smooth" });
+    listRef.current?.scrollTo({
+      top: listRef.current.scrollHeight,
+      behavior: reducedMotion || sending ? "auto" : "smooth",
+    });
   }, [messages, open, reducedMotion, sending]);
 
   useEffect(() => {
@@ -206,14 +228,25 @@ export default function RanaVoiceAssistant() {
     setError(null);
     setSending(true);
     setAction("running");
-    setMessages((current) => [...current, { id: messageId(), role: "user", content: text }]);
+    const assistantMessageId = messageId();
+    let streamedContent = "";
+    setMessages((current) => [
+      ...current,
+      { id: messageId(), role: "user", content: text },
+      { id: assistantMessageId, role: "assistant", content: "" },
+    ]);
     try {
       const history = messages.slice(-12).map(({ role, content }) => ({
         role,
         content: content.slice(0, 1000),
       }));
-      const reply = await sendAssistantMessage({ message: text, history });
-      setMessages((current) => [...current, { id: messageId(), role: "assistant", content: reply.content }]);
+      const reply = await streamAssistantMessage({ message: text, history }, (chunk) => {
+        streamedContent += chunk;
+        setMessages((current) => current.map((message) =>
+          message.id === assistantMessageId
+            ? { ...message, content: streamedContent }
+            : message));
+      });
       setOnline(true);
       setStatusText("AI 服务在线");
       setAction(Math.random() > 0.5 ? "review" : "jumping");
@@ -221,7 +254,10 @@ export default function RanaVoiceAssistant() {
     } catch (requestError) {
       const textMessage = requestError instanceof Error ? requestError.message : "助手暂时无法回答";
       setError(textMessage);
-      setMessages((current) => [...current, { id: messageId(), role: "assistant", content: textMessage, error: true }]);
+      setMessages((current) => [
+        ...current.filter((message) => message.id !== assistantMessageId || Boolean(message.content)),
+        { id: messageId(), role: "assistant", content: textMessage, error: true },
+      ]);
       setOnline(false);
       setStatusText("AI 服务暂时无法连接");
       setAction("failed");
@@ -231,6 +267,10 @@ export default function RanaVoiceAssistant() {
   };
 
   if (!isAuthenticated) return null;
+
+  const isStreamingContent = sending
+    && messages[messages.length - 1]?.role === "assistant"
+    && Boolean(messages[messages.length - 1]?.content);
 
   return (
     <>
@@ -296,19 +336,21 @@ export default function RanaVoiceAssistant() {
             </header>
 
             <div ref={listRef} className="rana-message-list" aria-live="polite">
-              {messages.map((message) => (
+              {messages.filter((message) => message.content).map((message) => (
                 <div key={message.id} className={`flex items-end gap-2 ${message.role === "user" ? "justify-end" : "justify-start"}`}>
                   {message.role === "assistant" && (
                     <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${message.error ? "border-rose-100 bg-rose-50 text-rose-500" : "border-medical-100 bg-medical-50 text-medical-600"}`}>
                       {message.error ? <CircleAlert className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
                     </span>
                   )}
-                  <div className={`max-w-[82%] whitespace-pre-wrap break-words rounded-lg px-3.5 py-2.5 text-sm leading-6 shadow-sm ${message.role === "user" ? "rounded-br-sm bg-medical-500 text-white" : message.error ? "rounded-bl-sm border border-rose-100 bg-rose-50 text-rose-700" : "rounded-bl-sm border border-slate-100 bg-white text-slate-700"}`}>
-                    {message.content}
+                  <div className={`max-w-[82%] break-words rounded-lg px-3.5 py-2.5 text-sm leading-6 shadow-sm ${message.role === "user" ? "whitespace-pre-wrap rounded-br-sm bg-medical-500 text-white" : message.error ? "whitespace-pre-wrap rounded-bl-sm border border-rose-100 bg-rose-50 text-rose-700" : "rana-markdown rounded-bl-sm border border-slate-100 bg-white text-slate-700"}`}>
+                    {message.role === "assistant" && !message.error
+                      ? <AssistantMarkdown content={message.content} />
+                      : message.content}
                   </div>
                 </div>
               ))}
-              {sending && (
+              {sending && !isStreamingContent && (
                 <div className="flex items-end gap-2 text-xs text-slate-500">
                   <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-medical-100 bg-medical-50 text-medical-600"><Bot className="h-3.5 w-3.5" /></span>
                   <span className="flex items-center gap-2 rounded-lg border border-slate-100 bg-white px-3.5 py-3"><LoaderCircle className="h-3.5 w-3.5 animate-spin text-medical-500" />正在思考</span>
