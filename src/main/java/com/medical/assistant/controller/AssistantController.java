@@ -12,9 +12,15 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import javax.validation.Valid;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @Validated
 @RestController
@@ -39,5 +45,49 @@ public class AssistantController {
                 request,
                 (Long) httpRequest.getAttribute("currentUserId"),
                 (Integer) httpRequest.getAttribute("currentUserType")));
+    }
+
+    @PostMapping(value = "/chat/stream", produces = "text/event-stream")
+    public SseEmitter streamChat(@Valid @RequestBody AssistantChatRequest request,
+                                 HttpServletRequest httpRequest,
+                                 HttpServletResponse httpResponse) {
+        Long userId = (Long) httpRequest.getAttribute("currentUserId");
+        Integer userType = (Integer) httpRequest.getAttribute("currentUserType");
+        httpResponse.setHeader("Cache-Control", "no-cache, no-transform");
+        httpResponse.setHeader("X-Accel-Buffering", "no");
+        httpResponse.setHeader("Connection", "keep-alive");
+        SseEmitter emitter = new SseEmitter(180_000L);
+        CompletableFuture.runAsync(() -> {
+            try {
+                assistantService.streamChat(request, userId, userType,
+                        chunk -> sendEvent(emitter, "delta", chunk, null));
+                sendEvent(emitter, "done", null, assistantService.status().getModel());
+                emitter.complete();
+            } catch (Exception e) {
+                try {
+                    sendEvent(emitter, "error", e.getMessage(), null);
+                    emitter.complete();
+                } catch (Exception ignored) {
+                    emitter.completeWithError(e);
+                }
+            }
+        });
+        return emitter;
+    }
+
+    private void sendEvent(SseEmitter emitter, String type, String content, String model) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("type", type);
+        if (content != null) {
+            payload.put("content", content);
+        }
+        if (model != null) {
+            payload.put("model", model);
+        }
+        try {
+            emitter.send(SseEmitter.event().data(payload));
+        } catch (IOException e) {
+            throw new IllegalStateException("流式连接已断开", e);
+        }
     }
 }

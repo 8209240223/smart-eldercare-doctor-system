@@ -20,15 +20,25 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 @Service
 public class KimiAssistantService {
 
     static final int MAX_TOTAL_INPUT_CHARS = 8000;
+    static final int MAX_OUTPUT_TOKENS = 3000;
+    static final int CONTINUATION_OUTPUT_TOKENS = 2000;
+    static final int MAX_CONTINUATIONS = 2;
+
+    private static final String CONTINUATION_PROMPT =
+            "上一段回答因为长度限制被截断。请从截断处继续，不要重复已经回答的内容，并补全尚未完成的 Markdown 结构。";
 
     private static final String SYSTEM_PROMPT = String.join("\n",
             "你是智慧医养医生服务系统中的AI语音助手“乐奈猫”。",
@@ -77,25 +87,26 @@ public class KimiAssistantService {
             throw new BusinessException(503, "AI助手尚未配置，请联系管理员设置 KIMI_API_KEY");
         }
 
-        Map<String, Object> requestBody = new LinkedHashMap<>();
-        requestBody.put("model", properties.getModel());
         String dataContext = dataContextService.buildContext(request.getMessage(), currentUserId, currentUserType);
-        requestBody.put("messages", buildMessages(request, dataContext));
-        requestBody.put("max_tokens", 1000);
-        requestBody.put("stream", false);
+        List<Map<String, String>> messages = buildMessages(request, dataContext);
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(properties.getApiKey().trim());
+        HttpHeaders headers = requestHeaders(MediaType.APPLICATION_JSON);
 
         try {
-            ResponseEntity<String> response = restTemplate.exchange(
-                    resolveChatEndpoint(),
-                    HttpMethod.POST,
-                    new HttpEntity<>(requestBody, headers),
-                    String.class
-            );
-            return new AssistantChatResponse(extractAnswer(response.getBody()), properties.getModel(), true);
+            Completion completion = requestCompletion(messages, headers, MAX_OUTPUT_TOKENS);
+            StringBuilder answer = new StringBuilder(completion.content());
+            int continuationCount = 0;
+            while ("length".equals(completion.finishReason()) && continuationCount < MAX_CONTINUATIONS) {
+                messages.add(message("assistant", completion.content()));
+                messages.add(message("user", CONTINUATION_PROMPT));
+                completion = requestCompletion(messages, headers, CONTINUATION_OUTPUT_TOKENS);
+                answer.append("\n").append(completion.content());
+                continuationCount++;
+            }
+            if ("length".equals(completion.finishReason())) {
+                answer.append("\n\n> 回答内容较长，已达到本次输出上限。可以回复“继续”查看剩余内容。");
+            }
+            return new AssistantChatResponse(answer.toString().trim(), properties.getModel(), true);
         } catch (RestClientResponseException e) {
             throw mapUpstreamError(e.getRawStatusCode());
         } catch (ResourceAccessException e) {
@@ -105,6 +116,131 @@ public class KimiAssistantService {
         } catch (Exception e) {
             throw new BusinessException(502, "AI助手暂时不可用，请稍后再试");
         }
+    }
+
+    public void streamChat(AssistantChatRequest request,
+                           Long currentUserId,
+                           Integer currentUserType,
+                           Consumer<String> onDelta) {
+        String deniedAnswer = dataContextService.permissionDeniedAnswer(request.getMessage(), currentUserType);
+        if (StringUtils.hasText(deniedAnswer)) {
+            onDelta.accept(deniedAnswer);
+            return;
+        }
+        if (!isConfigured()) {
+            throw new BusinessException(503, "AI助手尚未配置，请联系管理员设置 KIMI_API_KEY");
+        }
+
+        String dataContext = dataContextService.buildContext(request.getMessage(), currentUserId, currentUserType);
+        List<Map<String, String>> messages = buildMessages(request, dataContext);
+        HttpHeaders headers = requestHeaders(MediaType.TEXT_EVENT_STREAM);
+
+        try {
+            Completion completion = streamCompletion(messages, headers, MAX_OUTPUT_TOKENS, onDelta);
+            int continuationCount = 0;
+            while ("length".equals(completion.finishReason()) && continuationCount < MAX_CONTINUATIONS) {
+                messages.add(message("assistant", completion.content()));
+                messages.add(message("user", CONTINUATION_PROMPT));
+                onDelta.accept("\n");
+                completion = streamCompletion(messages, headers, CONTINUATION_OUTPUT_TOKENS, onDelta);
+                continuationCount++;
+            }
+            if ("length".equals(completion.finishReason())) {
+                onDelta.accept("\n\n> 回答内容较长，已达到本次输出上限。可以回复“继续”查看剩余内容。");
+            }
+        } catch (RestClientResponseException e) {
+            throw mapUpstreamError(e.getRawStatusCode());
+        } catch (ResourceAccessException e) {
+            throw new BusinessException(504, "AI助手响应超时，请稍后再试");
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException(502, "AI助手暂时不可用，请稍后再试");
+        }
+    }
+
+    private HttpHeaders requestHeaders(MediaType acceptType) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setAccept(List.of(acceptType));
+        headers.setBearerAuth(properties.getApiKey().trim());
+        return headers;
+    }
+
+    private Completion requestCompletion(List<Map<String, String>> messages,
+                                         HttpHeaders headers,
+                                         int maxTokens) {
+        Map<String, Object> requestBody = new LinkedHashMap<>();
+        requestBody.put("model", properties.getModel());
+        requestBody.put("messages", messages);
+        requestBody.put("max_tokens", maxTokens);
+        requestBody.put("stream", false);
+        ResponseEntity<String> response = restTemplate.exchange(
+                resolveChatEndpoint(),
+                HttpMethod.POST,
+                new HttpEntity<>(requestBody, headers),
+                String.class
+        );
+        return extractCompletion(response.getBody());
+    }
+
+    private Completion streamCompletion(List<Map<String, String>> messages,
+                                        HttpHeaders headers,
+                                        int maxTokens,
+                                        Consumer<String> onDelta) {
+        Map<String, Object> requestBody = new LinkedHashMap<>();
+        requestBody.put("model", properties.getModel());
+        requestBody.put("messages", messages);
+        requestBody.put("max_tokens", maxTokens);
+        requestBody.put("stream", true);
+
+        return restTemplate.execute(
+                resolveChatEndpoint(),
+                HttpMethod.POST,
+                request -> {
+                    request.getHeaders().putAll(headers);
+                    objectMapper.writeValue(request.getBody(), requestBody);
+                },
+                response -> {
+                    StringBuilder content = new StringBuilder();
+                    String finishReason = null;
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                            response.getBody(), StandardCharsets.UTF_8))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            if (!line.startsWith("data:")) {
+                                continue;
+                            }
+                            String data = line.substring(5).trim();
+                            if (data.isEmpty() || "[DONE]".equals(data)) {
+                                continue;
+                            }
+                            JsonNode root = objectMapper.readTree(data);
+                            if (root.has("error")) {
+                                String message = root.path("error").path("message").asText("AI服务返回流式错误");
+                                throw new BusinessException(502, message);
+                            }
+                            JsonNode choice = root.path("choices").path(0);
+                            JsonNode delta = choice.path("delta").path("content");
+                            if (!delta.isTextual()) {
+                                delta = choice.path("message").path("content");
+                            }
+                            if (delta.isTextual() && !delta.asText().isEmpty()) {
+                                String chunk = delta.asText();
+                                content.append(chunk);
+                                onDelta.accept(chunk);
+                            }
+                            if (choice.path("finish_reason").isTextual()) {
+                                finishReason = choice.path("finish_reason").asText();
+                            }
+                        }
+                    }
+                    if (content.length() == 0) {
+                        throw new BusinessException(502, "AI助手暂时没有返回有效内容，请稍后再试");
+                    }
+                    return new Completion(content.toString(), finishReason);
+                }
+        );
     }
 
     private String resolveChatEndpoint() {
@@ -165,17 +301,21 @@ public class KimiAssistantService {
         return message;
     }
 
-    private String extractAnswer(String responseBody) {
+    private Completion extractCompletion(String responseBody) {
         if (!StringUtils.hasText(responseBody)) {
             throw new BusinessException(502, "AI助手暂时没有返回有效内容，请稍后再试");
         }
         try {
             JsonNode root = objectMapper.readTree(responseBody);
-            JsonNode content = root.path("choices").path(0).path("message").path("content");
+            JsonNode choice = root.path("choices").path(0);
+            JsonNode content = choice.path("message").path("content");
             if (!content.isTextual() || !StringUtils.hasText(content.asText())) {
                 throw new BusinessException(502, "AI助手暂时没有返回有效内容，请稍后再试");
             }
-            return content.asText().trim();
+            String finishReason = choice.path("finish_reason").isTextual()
+                    ? choice.path("finish_reason").asText()
+                    : null;
+            return new Completion(content.asText().trim(), finishReason);
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
@@ -198,5 +338,8 @@ public class KimiAssistantService {
 
     private boolean isConfigured() {
         return StringUtils.hasText(properties.getApiKey());
+    }
+
+    private record Completion(String content, String finishReason) {
     }
 }

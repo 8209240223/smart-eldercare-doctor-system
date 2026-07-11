@@ -16,6 +16,8 @@ public interface ReviewService {
      */
     Page<NursingRecord> listPendingRecords(Integer pageNum, Integer pageSize);
 
+    Page<NursingRecord> listReviewedRecords(Integer pageNum, Integer pageSize, Long doctorId);
+
     /**
      * 审核护理记录（通过/驳回）
      */
@@ -25,6 +27,8 @@ public interface ReviewService {
      * 查询待审核的护理计划
      */
     Page<NursingPlan> listPendingPlans(Integer pageNum, Integer pageSize, Long doctorId);
+
+    Page<NursingPlan> listReviewedPlans(Integer pageNum, Integer pageSize, Long doctorId);
 
     /**
      * 审核护理计划
