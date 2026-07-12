@@ -141,6 +141,32 @@ Started MedicalDoctorApplication in x.x seconds
 | 2 | MySQL 已启动，密码匹配 | `mysql -u root -p` |
 | 3 | Redis 已启动 | Windows 内置自动起 / Mac·Linux `redis-cli ping` 返回 PONG |
 
+### 方式三：Docker 一键部署（无需自备 JDK / MySQL / Redis）
+
+只需装好 **Docker** 和 **Docker Compose**，一条命令拉起全套环境（MySQL + Redis + 应用 + Nginx 反向代理），
+数据库、缓存、JDK 全部在容器里，无需在本机安装任何东西：
+
+```bash
+docker compose up -d --build
+```
+
+首次构建会下载依赖、编译打包，耗时较久，之后启动很快。启动后访问：
+
+- **<http://localhost>** （经 Nginx 反向代理，80 端口）
+- 或 <http://localhost:8080>（如需直连应用，可在 compose 中给 app 服务放开端口映射）
+
+常用命令：
+
+```bash
+docker compose logs -f app     # 查看应用日志
+docker compose ps              # 查看各服务状态
+docker compose down            # 停止并移除容器（数据保留在数据卷）
+docker compose down -v         # 连同数据卷一起删除（清空数据库）
+```
+
+> 容器编排说明：MySQL 通过健康检查就绪后应用才启动；数据库首启自动建表灌数据；
+> MySQL 数据持久化在 Docker 数据卷 `mysql-data`，重启不丢。
+
 ---
 
 ## 四、访问系统

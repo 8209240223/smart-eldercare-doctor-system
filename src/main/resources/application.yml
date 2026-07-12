@@ -7,12 +7,12 @@ spring:
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher
-  # MySQL 数据库配置
+  # MySQL 数据库配置（支持环境变量覆盖，便于 Docker 部署；默认值用于本地直接运行）
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/medical_doctor?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
-    username: root
-    password: 123456
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DB:medical_doctor}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:123456}
     type: com.alibaba.druid.pool.DruidDataSource
     druid:
       initial-size: 5
@@ -49,11 +49,11 @@ spring:
     time-zone: GMT+8
     serialization:
       write-dates-as-timestamps: false
-  # Redis 分布式缓存配置
+  # Redis 分布式缓存配置（支持环境变量覆盖，便于 Docker 部署）
   redis:
-    host: localhost
-    port: 6379
-    password:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
     database: 0
     timeout: 10000ms
     lettuce:
