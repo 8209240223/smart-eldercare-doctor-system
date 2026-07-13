@@ -54,7 +54,9 @@ public class WarningServiceImpl implements WarningService {
                .eq(elderId != null, HealthWarning::getElderId, elderId)
                .orderByDesc(HealthWarning::getWarningLevel)
                .orderByDesc(HealthWarning::getCreateTime);
-        return healthWarningMapper.selectPage(page, wrapper);
+        Page<HealthWarning> result = healthWarningMapper.selectPage(page, wrapper);
+        enrichReadFlags(result.getRecords());
+        return result;
     }
 
     @Override
@@ -63,7 +65,30 @@ public class WarningServiceImpl implements WarningService {
         if (warning == null) {
             throw new BusinessException(404, "预警不存在");
         }
+        enrichReadFlags(Collections.singletonList(warning));
         return warning;
+    }
+
+    private void enrichReadFlags(List<HealthWarning> warnings) {
+        if (warnings == null || warnings.isEmpty()) {
+            return;
+        }
+        List<Long> warningIds = warnings.stream()
+                .map(HealthWarning::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        if (warningIds.isEmpty()) {
+            return;
+        }
+        Set<Long> readWarningIds = warningEventLogMapper.selectList(
+                        new LambdaQueryWrapper<WarningEventLog>()
+                                .in(WarningEventLog::getWarningId, warningIds)
+                                .eq(WarningEventLog::getEventType, 3))
+                .stream()
+                .filter(this::isReadEvent)
+                .map(WarningEventLog::getWarningId)
+                .collect(Collectors.toSet());
+        warnings.forEach(warning -> warning.setRead(readWarningIds.contains(warning.getId())));
     }
 
     @Override
@@ -128,7 +153,7 @@ public class WarningServiceImpl implements WarningService {
 
         WarningEventLog eventLog = new WarningEventLog();
         eventLog.setWarningId(id);
-        eventLog.setEventType(3);
+        eventLog.setEventType(4);
         eventLog.setOperatorId(doctorId);
         eventLog.setOperatorName(doctorId != null ? "医生-" + doctorId : "系统");
         eventLog.setEventDetail("预警标记为处理中");
@@ -198,13 +223,29 @@ public class WarningServiceImpl implements WarningService {
             throw new BusinessException(404, "预警不存在");
         }
         elderReferenceService.requireActive(warning.getElderId());
-        // 标记已读（不改变状态，只是记录已读事件）
+        boolean alreadyRead = warningEventLogMapper.selectList(
+                new LambdaQueryWrapper<WarningEventLog>()
+                        .eq(WarningEventLog::getWarningId, id)
+                        .eq(WarningEventLog::getEventType, 3))
+                .stream()
+                .anyMatch(this::isReadEvent);
+        if (alreadyRead) {
+            return;
+        }
         WarningEventLog eventLog = new WarningEventLog();
         eventLog.setWarningId(id);
-        eventLog.setEventType(3); // 已读
+        eventLog.setEventType(3);
         eventLog.setOperatorId(doctorId);
-        eventLog.setEventDetail("医生查看预警详情");
+        eventLog.setOperatorName(doctorId == null ? "医生" : "医生-" + doctorId);
+        eventLog.setEventDetail("医生查看并标记预警为已读");
         warningEventLogMapper.insert(eventLog);
+    }
+
+    private boolean isReadEvent(WarningEventLog eventLog) {
+        String detail = eventLog.getEventDetail();
+        return eventLog.getEventType() != null
+                && eventLog.getEventType() == 3
+                && (detail == null || !detail.contains("处理中"));
     }
 
     @Override

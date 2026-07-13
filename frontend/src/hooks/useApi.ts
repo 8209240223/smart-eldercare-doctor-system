@@ -390,6 +390,7 @@ export interface HealthWarning {
   status: number;
   handleResult?: string;
   doctorId?: number;
+  read?: boolean;
   createTime: string;
 }
 
@@ -505,7 +506,12 @@ export function useMarkWarningProcessing() {
           doctorId,
         }),
       ),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["warnings"] }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["warnings"] });
+      queryClient.invalidateQueries({
+        queryKey: ["warning", String(variables.id)],
+      });
+    },
   });
 }
 
@@ -516,7 +522,12 @@ export function useMarkWarningRead() {
       unwrap(
         await put<ApiResponse<void>>(`/api/warnings/${id}/read`, { doctorId }),
       ),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["warnings"] }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["warnings"] });
+      queryClient.invalidateQueries({
+        queryKey: ["warning", String(variables.id)],
+      });
+    },
   });
 }
 
@@ -918,6 +929,9 @@ export interface ComprehensiveHealthReport {
   overallScore?: number;
   overallLevel?: string;
   medicalHistories?: Array<Record<string, unknown>>;
+  medications?: Array<Record<string, unknown>>;
+  allergies?: Array<Record<string, unknown>>;
+  familyHistories?: Array<Record<string, unknown>>;
   recentVitals?: Array<Record<string, unknown>>;
   recentWarnings?: Array<Record<string, unknown>>;
   aiReports?: AiHealthReport[];
@@ -1545,12 +1559,18 @@ export interface RiskProfile {
   community?: string;
 }
 
-export function useRiskElders(page = 1, pageSize = 10, riskLevel?: number) {
+export function useRiskElders(
+  page = 1,
+  pageSize = 10,
+  riskLevel?: number,
+  keyword?: string,
+) {
   const query = new URLSearchParams({
     pageNum: String(page),
     pageSize: String(pageSize),
   });
   if (riskLevel !== undefined) query.set("riskLevel", String(riskLevel));
+  if (keyword?.trim()) query.set("keyword", keyword.trim());
   return useApiQuery<PageResult<RiskProfile>>(
     [
       "risk",
@@ -1558,6 +1578,7 @@ export function useRiskElders(page = 1, pageSize = 10, riskLevel?: number) {
       String(page),
       String(pageSize),
       riskLevel === undefined ? "all" : String(riskLevel),
+      keyword?.trim() || "all",
     ],
     `/api/risk/elders?${query.toString()}`,
   );

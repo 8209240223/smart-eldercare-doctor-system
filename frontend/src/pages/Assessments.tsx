@@ -148,7 +148,7 @@ export default function Assessments() {
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageWidth = 190;
       const pageHeight = 277;
-      const pageNumbers = [1, 2].filter((pageNumber) =>
+      const pageNumbers = [1, 2, 3].filter((pageNumber) =>
         reportRef.current?.querySelector(`[data-pdf-page="${pageNumber}"]`),
       );
       const pageCanvases = await Promise.all(

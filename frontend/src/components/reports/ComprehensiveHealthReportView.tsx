@@ -142,6 +142,9 @@ export default function ComprehensiveHealthReportView({
     : {};
   const assessments = recordList(document.assessments);
   const medicalHistories = recordList(document.medicalHistories);
+  const medications = recordList(document.medications);
+  const allergies = recordList(document.allergies);
+  const familyHistories = recordList(document.familyHistories);
   const recentVitals = recordList(document.recentVitals);
   const recentWarnings = recordList(document.recentWarnings);
   const aiReports = Array.isArray(document.aiReports)
@@ -271,11 +274,12 @@ export default function ComprehensiveHealthReportView({
         </ReportSection>
       )}
 
-      <div data-pdf-page="1" className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2">
+      <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2">
         {assessments.length > 0 && (
           <ReportSection
             icon={<ClipboardList className="h-4 w-4" />}
             title={`健康评估（${document.assessmentCount ?? assessments.length}）`}
+            pdfPage={1}
           >
             <div className="space-y-2">
               {assessments.slice(0, 6).map((item, index) => {
@@ -316,6 +320,7 @@ export default function ComprehensiveHealthReportView({
           <ReportSection
             icon={<History className="h-4 w-4" />}
             title="病史记录"
+            pdfPage={2}
           >
             <div className="space-y-2">
               {medicalHistories.slice(0, 6).map((item, index) => (
@@ -342,13 +347,77 @@ export default function ComprehensiveHealthReportView({
             </div>
           </ReportSection>
         )}
+
+        {medications.length > 0 && (
+          <ReportSection
+            icon={<Pill className="h-4 w-4" />}
+            title={`用药记录（${medications.length}）`}
+            pdfPage={2}
+          >
+            <div className="space-y-2">
+              {medications.slice(0, 8).map((item, index) => (
+                <div key={`${asText(item.id)}-${index}`} className="min-w-0 rounded-lg bg-emerald-50/60 p-3">
+                  <p className="break-words text-sm font-medium text-slate-800">
+                    {asText(item.drugName) || "未命名药物"}
+                  </p>
+                  <p className="mt-1 break-words text-xs leading-5 text-slate-600">
+                    {[asText(item.dosage), asText(item.frequency), asText(item.route)].filter(Boolean).join(" · ") || "暂无剂量和用法说明"}
+                  </p>
+                  {asText(item.remark) && <p className="mt-1 break-words text-xs text-slate-500">{asText(item.remark)}</p>}
+                </div>
+              ))}
+            </div>
+          </ReportSection>
+        )}
+
+        {allergies.length > 0 && (
+          <ReportSection
+            icon={<ShieldAlert className="h-4 w-4" />}
+            title={`过敏记录（${allergies.length}）`}
+            pdfPage={2}
+          >
+            <div className="space-y-2">
+              {allergies.slice(0, 8).map((item, index) => (
+                <div key={`${asText(item.id)}-${index}`} className="min-w-0 rounded-lg border border-rose-100 bg-rose-50/60 p-3">
+                  <p className="break-words text-sm font-medium text-rose-800">
+                    {asText(item.allergen) || "未记录过敏原"}
+                  </p>
+                  <p className="mt-1 break-words text-xs leading-5 text-rose-700">
+                    {asText(item.reaction) || asText(item.remark) || "暂无反应说明"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </ReportSection>
+        )}
+
+        {familyHistories.length > 0 && (
+          <ReportSection
+            icon={<UserRound className="h-4 w-4" />}
+            title={`家族史（${familyHistories.length}）`}
+            pdfPage={2}
+          >
+            <div className="space-y-2">
+              {familyHistories.slice(0, 8).map((item, index) => (
+                <div key={`${asText(item.id)}-${index}`} className="min-w-0 rounded-lg bg-sky-50/60 p-3">
+                  <p className="break-words text-sm font-medium text-slate-800">
+                    {asText(item.diseaseName) || "未记录疾病名称"}
+                  </p>
+                  <p className="mt-1 break-words text-xs leading-5 text-slate-600">
+                    {[asText(item.relationship), asText(item.remark)].filter(Boolean).join(" · ") || "暂无补充说明"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </ReportSection>
+        )}
       </div>
 
       {recentWarnings.length > 0 && (
         <ReportSection
           icon={<ShieldAlert className="h-4 w-4" />}
           title="最近健康预警"
-          pdfPage={2}
+          pdfPage={3}
         >
           <div className="space-y-2">
             {recentWarnings.map((item, index) => (
@@ -382,7 +451,7 @@ export default function ComprehensiveHealthReportView({
         <ReportSection
           icon={<Sparkles className="h-4 w-4" />}
           title={`AI 健康报告（${document.aiReportCount ?? aiReports.length}）`}
-          pdfPage={2}
+          pdfPage={3}
         >
           <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
             {aiReports.map((item, index) => {
@@ -419,6 +488,9 @@ export default function ComprehensiveHealthReportView({
 
       {assessments.length === 0 &&
         medicalHistories.length === 0 &&
+        medications.length === 0 &&
+        allergies.length === 0 &&
+        familyHistories.length === 0 &&
         recentVitals.length === 0 &&
         recentWarnings.length === 0 &&
         aiReports.length === 0 && (

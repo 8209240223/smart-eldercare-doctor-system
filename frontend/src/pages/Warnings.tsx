@@ -363,6 +363,17 @@ export default function Warnings() {
                             >
                               {statusMeta(warning.status).label}
                             </Badge>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-xs",
+                                warning.read
+                                  ? "border-slate-200 bg-slate-50 text-slate-600"
+                                  : "border-sky-200 bg-sky-50 text-sky-700",
+                              )}
+                            >
+                              {warning.read ? "已读" : "未读"}
+                            </Badge>
                           </div>
                           <p className="mt-2 text-sm text-muted-foreground">
                             {warning.warningTitle ||
@@ -393,9 +404,14 @@ export default function Warnings() {
                                   忽略
                                 </Button>
                               )}
-                              <Button size="sm" variant="outline" onClick={() => read(warning.id)} disabled={isMutating}>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => read(warning.id)}
+                                disabled={isMutating || warning.read}
+                              >
                                 <MailOpen className="mr-1 h-4 w-4" />
-                                已读
+                                {warning.read ? "已读" : "标记已读"}
                               </Button>
                             </>
                           )}
@@ -529,13 +545,23 @@ export default function Warnings() {
                 >
                   <p className="text-sm font-medium leading-6 text-foreground">
                     {String(
-                      log.action ||
+                      log.eventDetail ||
+                        log.action ||
                         log.operation ||
                         log.content ||
                         log.handleResult ||
-                        "状态变更",
+                        log.eventTypeText ||
+                        "预警状态发生变化",
                     )}
                   </p>
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    {Boolean(log.eventTypeText) && (
+                      <span>{String(log.eventTypeText)}</span>
+                    )}
+                    {Boolean(log.operatorName) && (
+                      <span>操作人：{String(log.operatorName)}</span>
+                    )}
+                  </div>
                   <p className="mt-2 text-xs text-muted-foreground">
                     {String(log.createTime || log.time || "时间未记录")}
                   </p>

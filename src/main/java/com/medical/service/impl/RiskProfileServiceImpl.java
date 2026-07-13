@@ -268,7 +268,7 @@ public class RiskProfileServiceImpl implements RiskProfileService {
 
     @Override
     public Page<Map<String, Object>> getKeyPopulationList(Integer pageNum, Integer pageSize,
-            Integer riskLevel, Long doctorId, String community) {
+            Integer riskLevel, Long doctorId, String community, String keyword) {
         Page<Map<String, Object>> page = new Page<>(pageNum, pageSize);
 
         List<Map<String, Object>> allRecords;
@@ -285,9 +285,13 @@ public class RiskProfileServiceImpl implements RiskProfileService {
             allRecords = elderRiskProfileMapper.selectAllWithElder();
         }
 
+        String normalizedKeyword = StringUtils.hasText(keyword)
+                ? keyword.trim().toLowerCase()
+                : null;
         allRecords = allRecords.stream()
                 .map(this::normalizeRiskRecord)
                 .filter(record -> !StringUtils.hasText(community) || community.equals(record.get("community")))
+                .filter(record -> matchesRiskKeyword(record, normalizedKeyword))
                 .collect(Collectors.toList());
 
         // 手动分页处理
@@ -303,6 +307,15 @@ public class RiskProfileServiceImpl implements RiskProfileService {
         page.setRecords(pageRecords);
         page.setTotal(total);
         return page;
+    }
+
+    private boolean matchesRiskKeyword(Map<String, Object> record, String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return true;
+        }
+        String elderId = String.valueOf(record.getOrDefault("elderId", ""));
+        String elderName = String.valueOf(record.getOrDefault("name", "")).toLowerCase();
+        return elderId.equals(keyword) || elderName.contains(keyword);
     }
 
     private void ensureRiskProfilesReady() {

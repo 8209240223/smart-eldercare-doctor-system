@@ -32,6 +32,15 @@ public class AssessmentServiceImpl implements AssessmentService {
     private MedicalHistoryMapper medicalHistoryMapper;
 
     @Autowired
+    private MedicationRecordMapper medicationRecordMapper;
+
+    @Autowired
+    private AllergyRecordMapper allergyRecordMapper;
+
+    @Autowired
+    private FamilyHistoryMapper familyHistoryMapper;
+
+    @Autowired
     private VitalSignDataMapper vitalSignDataMapper;
 
     @Autowired
@@ -176,6 +185,23 @@ public class AssessmentServiceImpl implements AssessmentService {
         mhWrapper.eq(MedicalHistory::getElderId, elderId);
         List<MedicalHistory> medicalHistories = medicalHistoryMapper.selectList(mhWrapper);
         report.put("medicalHistories", medicalHistories);
+
+        LambdaQueryWrapper<MedicationRecord> medicationWrapper = new LambdaQueryWrapper<>();
+        medicationWrapper.eq(MedicationRecord::getElderId, elderId)
+                .orderByDesc(MedicationRecord::getStatus)
+                .orderByDesc(MedicationRecord::getStartDate);
+        report.put("medications", medicationRecordMapper.selectList(medicationWrapper));
+
+        LambdaQueryWrapper<AllergyRecord> allergyWrapper = new LambdaQueryWrapper<>();
+        allergyWrapper.eq(AllergyRecord::getElderId, elderId)
+                .orderByDesc(AllergyRecord::getSeverity)
+                .orderByDesc(AllergyRecord::getDiscoverDate);
+        report.put("allergies", allergyRecordMapper.selectList(allergyWrapper));
+
+        LambdaQueryWrapper<FamilyHistory> familyHistoryWrapper = new LambdaQueryWrapper<>();
+        familyHistoryWrapper.eq(FamilyHistory::getElderId, elderId)
+                .orderByDesc(FamilyHistory::getCreateTime);
+        report.put("familyHistories", familyHistoryMapper.selectList(familyHistoryWrapper));
 
         // 5. 最新体征数据（每种类型取最近一条）
         List<Map<String, Object>> vitalsList = new ArrayList<>();
