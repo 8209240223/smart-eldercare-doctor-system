@@ -54,7 +54,9 @@ function AgentProgress({
   onCancel: () => void;
 }) {
   const visibleEvents = (events || []).filter((event) => event.type !== "delta" && event.type !== "approval_required");
-  if (!visibleEvents.length && !approval) return null;
+  const hasAgentActivity = Boolean(approval) || visibleEvents.some((event) =>
+    event.type === "step" || event.type === "tool" || event.type === "tool_result");
+  if (!hasAgentActivity) return null;
   return (
     <div className="rana-agent-progress">
       {visibleEvents.map((event, index) => (

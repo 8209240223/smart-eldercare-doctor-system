@@ -27,10 +27,13 @@ import java.util.Map;
 @Service
 public class AssistantAgentService {
 
-    private static final int MAX_OUTPUT_TOKENS = 3000;
+    private static final int MAX_OUTPUT_TOKENS = 2000;
     private static final String SYSTEM_PROMPT = String.join("\n",
             "你是智慧医养医生服务系统中的站内 Agent 乐奈猫。",
-            "始终使用简体中文，优先调用白名单工具获取真实站内数据，不得编造记录。",
+            "你同时具备普通问答与站内 Agent 两种能力。",
+            "普通健康科普、概念解释、系统使用说明和闲聊等不依赖实时站内数据的问题，必须直接回答，不得为了展示 Agent 能力调用工具。",
+            "除非用户明确要求详细展开，普通问答优先给出简洁、结构化且可执行的回答，避免重复和无关延伸。",
+            "只有用户要求查询当前站内数据、核对业务状态或执行站内操作时，才调用白名单工具；涉及真实记录时不得编造。",
             "不确定接口路径、请求方法或字段时，必须先调用 list_site_capabilities，再调用查询或执行工具。",
             "只能调用能力目录实际返回的 method 与 path 组合，绝对不能根据常见REST习惯猜测不存在的接口。",
             "只能使用本次请求提供的工具；工具未提供的删除、封禁、密码重置等操作必须拒绝。",
@@ -47,6 +50,7 @@ public class AssistantAgentService {
     private final KimiClient kimiClient;
     private final AssistantConversationMemoryService memoryService;
     private final AssistantToolRegistry toolRegistry;
+    private final AssistantRequestModeResolver requestModeResolver;
     private final AssistantApprovalService approvalService;
     private final AssistantPermissionService permissionService;
     private final ObjectMapper objectMapper;
@@ -55,6 +59,7 @@ public class AssistantAgentService {
     public AssistantAgentService(KimiClient kimiClient,
                                  AssistantConversationMemoryService memoryService,
                                  AssistantToolRegistry toolRegistry,
+                                 AssistantRequestModeResolver requestModeResolver,
                                  AssistantApprovalService approvalService,
                                  AssistantPermissionService permissionService,
                                  ObjectMapper objectMapper,
@@ -62,6 +67,7 @@ public class AssistantAgentService {
         this.kimiClient = kimiClient;
         this.memoryService = memoryService;
         this.toolRegistry = toolRegistry;
+        this.requestModeResolver = requestModeResolver;
         this.approvalService = approvalService;
         this.permissionService = permissionService;
         this.objectMapper = objectMapper;
@@ -86,13 +92,11 @@ public class AssistantAgentService {
                 + "\n当前角色：" + roleName(role)));
         messages.addAll(memoryService.load(userId, conversationId, request.getHistory()));
         messages.add(UserMessage.from(request.getMessage().trim()));
-        List<ToolSpecification> tools = toolRegistry.specificationsForRole(role);
+        List<ToolSpecification> tools = requestModeResolver.requiresSiteTools(request.getMessage())
+                ? toolRegistry.specificationsForRole(role)
+                : List.of();
 
         for (int step = 1; step <= maxSteps; step++) {
-            emit(eventSink, "step", Map.of(
-                    "step", step,
-                    "phase", "model",
-                    "conversationId", conversationId));
             ChatResponse response = kimiClient.chat(messages, tools, MAX_OUTPUT_TOKENS);
             AiMessage aiMessage = response.aiMessage();
             if (aiMessage == null) {
@@ -113,6 +117,10 @@ public class AssistantAgentService {
                 return new AssistantAgentResult(answer, conversationId, false);
             }
 
+            emit(eventSink, "step", Map.of(
+                    "step", step,
+                    "phase", "model",
+                    "conversationId", conversationId));
             for (ToolExecutionRequest toolRequest : aiMessage.toolExecutionRequests()) {
                 emit(eventSink, "tool", mapOfNullable(
                         "id", toolRequest.id(),
