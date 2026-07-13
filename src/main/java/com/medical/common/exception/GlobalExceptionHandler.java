@@ -2,6 +2,8 @@ package com.medical.common.exception;
 
 import com.medical.common.result.R;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.server.ResponseStatusException;
 
 import javax.validation.ConstraintViolation;
 import javax.validation.ConstraintViolationException;
@@ -71,6 +74,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public R<?> handleMethodNotSupported(HttpRequestMethodNotSupportedException e) {
         return R.fail(405, "不支持的请求方法: " + e.getMethod());
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<R<?>> handleResponseStatusException(ResponseStatusException e) {
+        HttpStatus status = e.getStatus();
+        String message = e.getReason();
+        if (message == null || message.isBlank()) {
+            message = status == HttpStatus.NOT_FOUND ? "请求资源不存在" : status.getReasonPhrase();
+        }
+        log.debug("HTTP状态异常: {} {}", status.value(), message);
+        return ResponseEntity.status(status).body(R.fail(status.value(), message));
     }
 
     @ExceptionHandler(Exception.class)
