@@ -1,0 +1,26 @@
+{
+  "baseUrl": "http://127.0.0.1:8080",
+  "checks": {
+    "modeButtonsVisible": true,
+    "ordinaryQaAnswered": true,
+    "ordinaryQaHasNoAgentSteps": true,
+    "agentUsedProgress": true,
+    "agentReturnedRealCount": true,
+    "doctorCanUsePermittedNurseRead": true,
+    "mobileDialogFits": true,
+    "mobileModeSwitchFits": true
+  },
+  "timings": {
+    "ordinaryQaMs": 3171,
+    "agentQueryMs": 4169,
+    "doctorNurseReadMs": 4156
+  },
+  "errors": [],
+  "failedChecks": [],
+  "screenshots": [
+    "01-ordinary-qa.png",
+    "02-agent-query.png",
+    "03-doctor-nurse-read.png",
+    "04-mobile-modes.png"
+  ]
+}

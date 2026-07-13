@@ -3,11 +3,17 @@ package com.medical.assistant.tool;
 import com.medical.common.annotation.OperationLog;
 import com.medical.common.annotation.RequireRole;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.core.DefaultParameterNameDiscoverer;
+import org.springframework.core.ParameterNameDiscoverer;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ValueConstants;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -18,6 +24,7 @@ import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
@@ -34,7 +41,8 @@ import java.util.Set;
 @Service
 public class AssistantCapabilityService {
 
-    private static final int MAX_RESULTS = 80;
+    private static final int MAX_RESULTS = 240;
+    private static final ParameterNameDiscoverer PARAMETER_NAMES = new DefaultParameterNameDiscoverer();
     private static final Map<String, List<String>> KEYWORD_ALIASES = Map.ofEntries(
             Map.entry("老人", List.of("elder", "health-detail")),
             Map.entry("档案", List.of("elder", "health-detail")),
@@ -54,6 +62,19 @@ public class AssistantCapabilityService {
             Map.entry("报告", List.of("ai", "health-report")),
             Map.entry("风险", List.of("risk")),
             Map.entry("重点人群", List.of("risk")),
+            Map.entry("重点", List.of("risk", "warning", "dashboard")),
+            Map.entry("今日", List.of("dashboard", "followup", "warning", "message")),
+            Map.entry("待办", List.of("dashboard", "followup", "review", "message")),
+            Map.entry("任务", List.of("followup", "nurse")),
+            Map.entry("计划", List.of("followup", "nurse", "care-workflow")),
+            Map.entry("流程", List.of("care-workflow", "timeline")),
+            Map.entry("审核", List.of("review", "admin")),
+            Map.entry("日志", List.of("operation-log", "warning", "profile")),
+            Map.entry("封禁", List.of("admin", "user", "ban")),
+            Map.entry("解封", List.of("admin", "user", "unban")),
+            Map.entry("密码", List.of("admin", "profile", "password")),
+            Map.entry("下线", List.of("admin", "logout", "session")),
+            Map.entry("导出", List.of("export")),
             Map.entry("时间轴", List.of("timeline")),
             Map.entry("干预", List.of("intervention")),
             Map.entry("工作台", List.of("dashboard")));
@@ -97,6 +118,14 @@ public class AssistantCapabilityService {
                     item.put("path", path);
                     item.put("description", description);
                     Map<String, Map<String, Object>> bodySchema = requestBodySchema(handler);
+                    Map<String, Map<String, Object>> pathSchema = pathParameterSchema(handler);
+                    Map<String, Map<String, Object>> querySchema = queryParameterSchema(handler);
+                    if (!pathSchema.isEmpty()) {
+                        item.put("pathParameters", pathSchema);
+                    }
+                    if (!querySchema.isEmpty()) {
+                        item.put("queryParameters", querySchema);
+                    }
                     if (!bodySchema.isEmpty()) {
                         item.put("bodyFields", new ArrayList<>(bodySchema.keySet()));
                         item.put("bodySchema", bodySchema);
@@ -152,30 +181,98 @@ public class AssistantCapabilityService {
             if (parameter.getAnnotation(RequestBody.class) == null) {
                 continue;
             }
-            Map<String, Map<String, Object>> fields = new LinkedHashMap<>();
-            Class<?> currentType = parameter.getType();
-            while (currentType != null && currentType != Object.class) {
-                for (Field field : currentType.getDeclaredFields()) {
-                    if (!Modifier.isStatic(field.getModifiers()) && !field.isSynthetic()
-                            && !fields.containsKey(field.getName())) {
-                        fields.put(field.getName(), fieldSchema(field));
-                    }
-                }
-                currentType = currentType.getSuperclass();
-            }
-            return fields;
+            return fieldsSchema(parameter.getType());
         }
         return Map.of();
     }
 
+    private Map<String, Map<String, Object>> pathParameterSchema(HandlerMethod handler) {
+        Map<String, Map<String, Object>> fields = new LinkedHashMap<>();
+        Parameter[] parameters = handler.getMethod().getParameters();
+        String[] discoveredNames = PARAMETER_NAMES.getParameterNames(handler.getMethod());
+        for (int index = 0; index < parameters.length; index++) {
+            Parameter parameter = parameters[index];
+            PathVariable annotation = parameter.getAnnotation(PathVariable.class);
+            if (annotation == null) {
+                continue;
+            }
+            String name = parameterName(annotation.name(), annotation.value(), discoveredNames, index);
+            fields.put(name, valueSchema(parameter.getType(), parameter, annotation.required()));
+        }
+        return fields;
+    }
+
+    private Map<String, Map<String, Object>> queryParameterSchema(HandlerMethod handler) {
+        Map<String, Map<String, Object>> fields = new LinkedHashMap<>();
+        Parameter[] parameters = handler.getMethod().getParameters();
+        String[] discoveredNames = PARAMETER_NAMES.getParameterNames(handler.getMethod());
+        for (int index = 0; index < parameters.length; index++) {
+            Parameter parameter = parameters[index];
+            RequestParam requestParam = parameter.getAnnotation(RequestParam.class);
+            if (requestParam != null) {
+                String name = parameterName(requestParam.name(), requestParam.value(), discoveredNames, index);
+                boolean hasDefault = !ValueConstants.DEFAULT_NONE.equals(requestParam.defaultValue());
+                Map<String, Object> schema = valueSchema(
+                        parameter.getType(), parameter, requestParam.required() && !hasDefault);
+                if (hasDefault) {
+                    schema.put("defaultValue", requestParam.defaultValue());
+                }
+                fields.put(name, schema);
+                continue;
+            }
+            if (parameter.getAnnotation(ModelAttribute.class) != null) {
+                fields.putAll(fieldsSchema(parameter.getType()));
+            }
+        }
+        return fields;
+    }
+
+    private String parameterName(String name,
+                                 String value,
+                                 String[] discoveredNames,
+                                 int index) {
+        if (StringUtils.hasText(name)) {
+            return name;
+        }
+        if (StringUtils.hasText(value)) {
+            return value;
+        }
+        if (discoveredNames != null && index < discoveredNames.length
+                && StringUtils.hasText(discoveredNames[index])) {
+            return discoveredNames[index];
+        }
+        return "arg" + index;
+    }
+
+    private Map<String, Map<String, Object>> fieldsSchema(Class<?> type) {
+        Map<String, Map<String, Object>> fields = new LinkedHashMap<>();
+        Class<?> currentType = type;
+        while (currentType != null && currentType != Object.class) {
+            for (Field field : currentType.getDeclaredFields()) {
+                if (!Modifier.isStatic(field.getModifiers()) && !field.isSynthetic()
+                        && !fields.containsKey(field.getName())) {
+                    fields.put(field.getName(), fieldSchema(field));
+                }
+            }
+            currentType = currentType.getSuperclass();
+        }
+        return fields;
+    }
+
     private Map<String, Object> fieldSchema(Field field) {
+        return valueSchema(field.getType(), field,
+                field.getAnnotation(NotNull.class) != null || field.getAnnotation(NotBlank.class) != null);
+    }
+
+    private Map<String, Object> valueSchema(Class<?> type,
+                                            AnnotatedElement annotatedElement,
+                                            boolean required) {
         Map<String, Object> schema = new LinkedHashMap<>();
-        schema.put("type", jsonType(field.getType()));
-        schema.put("required", field.getAnnotation(NotNull.class) != null
-                || field.getAnnotation(NotBlank.class) != null);
-        Min minimum = field.getAnnotation(Min.class);
-        Max maximum = field.getAnnotation(Max.class);
-        Size size = field.getAnnotation(Size.class);
+        schema.put("type", jsonType(type));
+        schema.put("required", required);
+        Min minimum = annotatedElement.getAnnotation(Min.class);
+        Max maximum = annotatedElement.getAnnotation(Max.class);
+        Size size = annotatedElement.getAnnotation(Size.class);
         if (minimum != null) {
             schema.put("minimum", minimum.value());
         }

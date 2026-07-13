@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -95,6 +97,7 @@ class AssistantAgentCoreTest {
 
         assertThat(result.answer()).contains("控制盐摄入");
         assertThat(result.awaitingApproval()).isFalse();
+        verify(tools, never()).capabilityHintsForRole(anyInt(), any());
         verify(tools, never()).specificationsForRole(anyInt());
         verify(tools, never()).handle(any(), any());
     }
@@ -115,9 +118,26 @@ class AssistantAgentCoreTest {
         when(memory.resolveConversationId(null)).thenReturn("conversation-agent");
         when(memory.load(any(), any(), any())).thenReturn(List.of());
         when(tools.specificationsForRole(2)).thenReturn(List.of(mock(ToolSpecification.class)));
-        when(kimiClient.chat(anyList(), anyList(), anyInt())).thenReturn(
-                ChatResponse.builder().aiMessage(AiMessage.from(toolRequest)).build(),
-                ChatResponse.builder().aiMessage(AiMessage.from("当前可见老人档案共 26 条。")).build());
+        when(tools.capabilityHintsForRole(2, "查询当前系统老人档案总数")).thenReturn(List.of(
+                Map.of("method", "GET", "path", "/api/elders",
+                        "queryParameters", Map.of("pageSize", Map.of("type", "integer")))));
+        AtomicInteger modelCalls = new AtomicInteger();
+        when(kimiClient.chat(anyList(), anyList(), anyInt())).thenAnswer(invocation -> {
+            List<ChatMessage> messages = invocation.getArgument(0);
+            if (modelCalls.getAndIncrement() == 0) {
+                assertThat(messages.stream()
+                        .filter(SystemMessage.class::isInstance)
+                        .map(SystemMessage.class::cast)
+                        .map(SystemMessage::text))
+                        .anyMatch(text -> text.contains("本次请求预检")
+                                && text.contains("/api/elders")
+                                && text.contains("queryParameters"));
+                return ChatResponse.builder().aiMessage(AiMessage.from(toolRequest)).build();
+            }
+            return ChatResponse.builder()
+                    .aiMessage(AiMessage.from("当前可见老人档案共 26 条。"))
+                    .build();
+        });
         when(tools.handle(any(), any())).thenReturn(
                 new AssistantToolHandlingResult("{\"total\":26}", null));
         when(kimiClient.modelName()).thenReturn("kimi-for-coding");
@@ -133,7 +153,8 @@ class AssistantAgentCoreTest {
 
         assertThat(result.answer()).contains("26");
         assertThat(events).containsExactly("step", "tool", "tool_result", "delta", "done");
-        verify(tools).handle(any(), any());
+        verify(tools).capabilityHintsForRole(2, "查询当前系统老人档案总数");
+        verify(tools).handle(argThat(requestValue -> "query_site_api".equals(requestValue.name())), any());
     }
 
     @Test
