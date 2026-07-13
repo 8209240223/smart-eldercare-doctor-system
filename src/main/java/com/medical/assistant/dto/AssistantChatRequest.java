@@ -2,7 +2,6 @@ package com.medical.assistant.dto;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Pattern;
 import javax.validation.constraints.Size;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,15 +18,10 @@ public class AssistantChatRequest {
     @Size(max = 64, message = "会话ID不能超过64个字符")
     private String conversationId;
 
-    @Pattern(regexp = "auto|qa|agent", message = "助手模式只能是auto、qa或agent")
-    private String mode = "auto";
-
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }
     public List<AssistantHistoryMessage> getHistory() { return history; }
     public void setHistory(List<AssistantHistoryMessage> history) { this.history = history; }
     public String getConversationId() { return conversationId; }
     public void setConversationId(String conversationId) { this.conversationId = conversationId; }
-    public String getMode() { return mode; }
-    public void setMode(String mode) { this.mode = mode; }
 }

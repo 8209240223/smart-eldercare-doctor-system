@@ -22,7 +22,6 @@ import org.springframework.util.StringUtils;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 @Service
@@ -92,10 +91,8 @@ public class AssistantAgentService {
         List<ChatMessage> messages = new ArrayList<>();
         messages.add(SystemMessage.from(SYSTEM_PROMPT
                 + "\n当前用户ID：" + userId
-                + "\n当前角色：" + roleName(role)
-                + "\n当前助手模式：" + normalizedMode(request.getMode())));
-        boolean siteToolsRequired = requestModeResolver.requiresSiteTools(
-                request.getMessage(), request.getMode());
+                + "\n当前角色：" + roleName(role)));
+        boolean siteToolsRequired = requestModeResolver.requiresSiteTools(request.getMessage());
         if (siteToolsRequired) {
             List<Map<String, Object>> capabilityHints = toolRegistry.capabilityHintsForRole(
                     role, request.getMessage());
@@ -273,10 +270,4 @@ public class AssistantAgentService {
         };
     }
 
-    private String normalizedMode(String mode) {
-        if (!StringUtils.hasText(mode)) {
-            return "auto";
-        }
-        return mode.trim().toLowerCase(Locale.ROOT);
-    }
 }

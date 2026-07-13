@@ -28,19 +28,6 @@ public class AssistantRequestModeResolver {
     private static final List<String> EXPLANATION_INTENTS = List.of(
             "是什么", "为什么", "请解释", "介绍一下", "如何使用", "怎么用", "怎样使用");
 
-    public boolean requiresSiteTools(String message, String requestedMode) {
-        String mode = StringUtils.hasText(requestedMode)
-                ? requestedMode.trim().toLowerCase(Locale.ROOT)
-                : "auto";
-        if ("qa".equals(mode)) {
-            return false;
-        }
-        if ("agent".equals(mode)) {
-            return true;
-        }
-        return requiresSiteTools(message);
-    }
-
     public boolean requiresSiteTools(String message) {
         if (!StringUtils.hasText(message)) {
             return false;

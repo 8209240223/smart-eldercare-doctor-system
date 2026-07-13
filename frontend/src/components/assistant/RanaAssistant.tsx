@@ -25,14 +25,6 @@ interface Message {
   actionStatus?: "pending" | "completed" | "cancelled" | "failed";
 }
 
-type AssistantMode = "auto" | "qa" | "agent";
-
-const ASSISTANT_MODES: Array<{ value: AssistantMode; label: string }> = [
-  { value: "auto", label: "自动" },
-  { value: "qa", label: "普通问答" },
-  { value: "agent", label: "站内 Agent" },
-];
-
 function progressLabel(event: AssistantProgressEvent) {
   if (event.type === "step") return `步骤 ${event.step || ""}：分析请求并选择工具`;
   if (event.type === "tool") return `调用站内工具：${event.name || "系统能力"}`;
@@ -106,11 +98,7 @@ function AssistantMarkdown({ content }: { content: string }) {
   );
 }
 
-const QUICK_QUESTIONS: Record<AssistantMode, string[]> = {
-  auto: ["今天有哪些重点健康事项？", "高血压饮食要注意什么？", "查看我的未读协同消息"],
-  qa: ["高血压饮食要注意什么？", "血氧饱和度正常范围是什么？", "怎样预防老年人跌倒？"],
-  agent: ["今天有哪些重点健康事项？", "帮我整理高风险老人关注重点", "查看我的未读协同消息"],
-};
+const QUICK_QUESTIONS = ["今天有哪些重点健康事项？", "高血压饮食要注意什么？", "查看我的未读协同消息"];
 const IDLE_ACTIONS: PetAction[] = ["waving", "jumping", "review", "waiting", "runningLeft", "runningRight"];
 const PET_WIDTH = 112;
 const PET_HEIGHT = 122;
@@ -170,7 +158,6 @@ export default function RanaAssistant() {
   const [online, setOnline] = useState<boolean | null>(null);
   const [statusText, setStatusText] = useState("医疗工作助手");
   const [conversationId, setConversationId] = useState<string>();
-  const [assistantMode, setAssistantMode] = useState<AssistantMode>("auto");
   const [error, setError] = useState<string | null>(null);
   const [petPosition, setPetPosition] = useState<PetPosition>(initialPetPosition);
   const [messages, setMessages] = useState<Message[]>([
@@ -310,7 +297,7 @@ export default function RanaAssistant() {
         content: content.slice(0, 1000),
       }));
       const reply = await streamAssistantMessage(
-        { message: text, mode: assistantMode, history, conversationId },
+        { message: text, history, conversationId },
         (chunk) => {
           streamedContent += chunk;
           setMessages((current) => current.map((message) =>
@@ -338,9 +325,7 @@ export default function RanaAssistant() {
           ? { ...message, content: streamedContent || reply.content, approval: reply.approval || message.approval }
           : message));
       setOnline(true);
-      setStatusText(reply.approval
-        ? "等待操作确认"
-        : assistantMode === "qa" ? "普通问答在线" : "站内 Agent 在线");
+      setStatusText(reply.approval ? "等待操作确认" : "AI 助手在线");
       setAction(Math.random() > 0.5 ? "review" : "jumping");
     } catch (requestError) {
       const textMessage = requestError instanceof Error ? requestError.message : "助手暂时无法回答";
@@ -491,21 +476,8 @@ export default function RanaAssistant() {
             </div>
 
             <footer className="border-t border-slate-100 bg-white p-4 pt-3">
-              <div className="rana-mode-switch" role="group" aria-label="助手模式">
-                {ASSISTANT_MODES.map((mode) => (
-                  <button
-                    key={mode.value}
-                    type="button"
-                    className={assistantMode === mode.value ? "is-active" : ""}
-                    onClick={() => setAssistantMode(mode.value)}
-                    disabled={sending}
-                  >
-                    {mode.label}
-                  </button>
-                ))}
-              </div>
               <div className="rana-quick-list mb-3 flex gap-2 overflow-x-auto pb-1">
-                {QUICK_QUESTIONS[assistantMode].map((question) => (
+                {QUICK_QUESTIONS.map((question) => (
                   <button key={question} type="button" className="shrink-0 rounded-full border border-medical-100 bg-medical-50 px-3 py-1.5 text-xs text-medical-700 hover:bg-medical-100 disabled:opacity-50" onClick={() => void submit(question)} disabled={sending}>
                     {question}
                   </button>
