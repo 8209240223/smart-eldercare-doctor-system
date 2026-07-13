@@ -2,6 +2,7 @@ package com.medical.service.impl;
 
 import com.medical.common.exception.BusinessException;
 import com.medical.entity.ElderInfo;
+import com.medical.entity.HealthRecord;
 import com.medical.entity.SysUser;
 import com.medical.mapper.ElderInfoMapper;
 import com.medical.mapper.HealthRecordMapper;
@@ -15,8 +16,10 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -65,6 +68,39 @@ class ElderServiceImplTest {
         BusinessException exception = assertThrows(BusinessException.class, () -> service.create(elder));
 
         assertEquals("出生日期必须与身份证号中的出生日期一致", exception.getMessage());
+    }
+
+    @Test
+    void healthRecordRejectsNumericDisabilityStatus() {
+        ElderServiceImpl service = createService(mock(ElderInfoMapper.class));
+        HealthRecord record = new HealthRecord();
+        record.setDisabilityStatus("885");
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.saveHealthRecord(27L, record));
+
+        assertEquals("残疾/失能情况必须从系统提供的选项中选择", exception.getMessage());
+    }
+
+    @Test
+    void healthRecordNormalizesNoDisabilityAndSanitizesLegacyInvalidValue() {
+        HealthRecordMapper healthRecordMapper = mock(HealthRecordMapper.class);
+        ElderServiceImpl service = new ElderServiceImpl();
+        ReflectionTestUtils.setField(service, "healthRecordMapper", healthRecordMapper);
+        HealthRecord legacy = new HealthRecord();
+        legacy.setElderId(27L);
+        legacy.setDisabilityStatus("325");
+        when(healthRecordMapper.selectOne(any())).thenReturn(legacy, null);
+
+        HealthRecord returned = service.getHealthRecord(27L);
+        HealthRecord valid = new HealthRecord();
+        valid.setDisabilityStatus("无残疾");
+        valid.setLivingAbility(2);
+        service.saveHealthRecord(28L, valid);
+
+        assertNull(returned.getDisabilityStatus());
+        verify(healthRecordMapper).insert(argThat(record ->
+                record.getElderId().equals(28L) && "无".equals(record.getDisabilityStatus())));
     }
 
     private ElderServiceImpl createService(ElderInfoMapper elderMapper) {

@@ -5,10 +5,12 @@ import com.medical.entity.FollowPlan;
 import com.medical.entity.FollowRecord;
 import com.medical.entity.ElderInfo;
 import com.medical.entity.ElderRiskProfile;
+import com.medical.entity.MedicalHistory;
 import com.medical.mapper.ElderInfoMapper;
 import com.medical.mapper.ElderRiskProfileMapper;
 import com.medical.mapper.FollowPlanMapper;
 import com.medical.mapper.FollowRecordMapper;
+import com.medical.mapper.MedicalHistoryMapper;
 import com.medical.service.ElderReferenceService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -154,6 +156,7 @@ class FollowUpServiceImplTest {
         assertEquals(1, result.get("createdCount"));
         verify(planMapper).insert(org.mockito.ArgumentMatchers.argThat(plan ->
                 plan.getElderId().equals(21L)
+                        && plan.getDiseaseType() == 7
                         && plan.getFrequencyType() == 4
                         && plan.getTotalCount() == 2
                         && plan.getStatus() == 1));
@@ -193,6 +196,50 @@ class FollowUpServiceImplTest {
         verify(planMapper, never()).insert(any(FollowPlan.class));
     }
 
+    @Test
+    void targetedGenerationUsesMedicalHistoryAndCorrectsLegacyAutoPlan() {
+        FollowPlanMapper planMapper = mock(FollowPlanMapper.class);
+        FollowRecordMapper recordMapper = mock(FollowRecordMapper.class);
+        ElderRiskProfileMapper riskMapper = mock(ElderRiskProfileMapper.class);
+        ElderInfoMapper elderMapper = mock(ElderInfoMapper.class);
+        MedicalHistoryMapper historyMapper = mock(MedicalHistoryMapper.class);
+        FollowUpServiceImpl service = createService(planMapper, recordMapper);
+        ReflectionTestUtils.setField(service, "elderRiskProfileMapper", riskMapper);
+        ReflectionTestUtils.setField(service, "elderInfoMapper", elderMapper);
+        ReflectionTestUtils.setField(service, "medicalHistoryMapper", historyMapper);
+
+        ElderRiskProfile profile = new ElderRiskProfile();
+        profile.setElderId(27L);
+        profile.setRiskLevel(2);
+        profile.setRiskScore(45);
+        profile.setRiskTags("近30天预警次数>=3");
+        ElderInfo elder = new ElderInfo();
+        elder.setId(27L);
+        elder.setName("测试老人");
+        elder.setDoctorId(2L);
+        elder.setDeleted(0);
+        MedicalHistory history = new MedicalHistory();
+        history.setElderId(27L);
+        history.setDiseaseName("冠心病");
+        history.setIsCured(0);
+        FollowPlan existing = plan(100L, 1, 0, 4);
+        existing.setElderId(27L);
+        existing.setDiseaseType(6);
+        existing.setRemark("[AUTO_RISK_FOLLOWUP] 旧版错误病种");
+
+        when(riskMapper.selectList(any())).thenReturn(List.of(profile));
+        when(elderMapper.selectById(27L)).thenReturn(elder);
+        when(historyMapper.selectList(any())).thenReturn(List.of(history));
+        when(planMapper.selectLatestActiveByElderForUpdate(27L)).thenReturn(existing);
+
+        Map<String, Object> result = service.generateRiskFollowPlans(2L, 27L);
+
+        assertEquals(1, result.get("reusedCount"));
+        assertEquals(3, existing.getDiseaseType());
+        verify(planMapper).updateById(existing);
+        verify(planMapper, never()).insert(any(FollowPlan.class));
+    }
+
     private FollowUpServiceImpl createService(FollowPlanMapper planMapper, FollowRecordMapper recordMapper) {
         FollowUpServiceImpl service = new FollowUpServiceImpl();
         ElderReferenceService elderReferenceService = mock(ElderReferenceService.class);
@@ -203,6 +250,7 @@ class FollowUpServiceImplTest {
         ReflectionTestUtils.setField(service, "followPlanMapper", planMapper);
         ReflectionTestUtils.setField(service, "followRecordMapper", recordMapper);
         ReflectionTestUtils.setField(service, "elderReferenceService", elderReferenceService);
+        ReflectionTestUtils.setField(service, "medicalHistoryMapper", mock(MedicalHistoryMapper.class));
         return service;
     }
 
