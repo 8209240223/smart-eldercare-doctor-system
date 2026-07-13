@@ -60,6 +60,50 @@ function statusMeta(status: number) {
   return { label: "已忽略", className: "bg-slate-100 text-slate-600" };
 }
 
+const warningLogEventTypeLabels: Record<number, string> = {
+  1: "生成",
+  2: "推送",
+  3: "已读",
+  4: "处理",
+  5: "忽略",
+  6: "超时",
+};
+
+function warningLogDetailText(log: Record<string, unknown>) {
+  const detail =
+    log.eventDetail ||
+    log.action ||
+    log.operation ||
+    log.content ||
+    log.handleResult;
+  return detail == null ? "" : String(detail).trim();
+}
+
+function warningLogDetailSemantic(log: Record<string, unknown>) {
+  const detail = warningLogDetailText(log);
+  if (!detail) return "";
+  if (detail.includes("处理中")) return "处理中";
+  if (detail.includes("已读")) return "已读";
+  if (detail.includes("忽略")) return "忽略";
+  if (detail.includes("超时")) return "超时";
+  if (detail.includes("推送")) return "推送";
+  if (detail.includes("生成")) return "生成";
+  if (detail.includes("处理")) return "处理";
+  return "";
+}
+
+function warningLogEventTypeText(log: Record<string, unknown>) {
+  const detailSemantic = warningLogDetailSemantic(log);
+  if (detailSemantic) return detailSemantic;
+
+  const backendText =
+    log.eventTypeText == null ? "" : String(log.eventTypeText).trim();
+  if (backendText) return backendText;
+
+  const eventType = Number(log.eventType);
+  return warningLogEventTypeLabels[eventType] || "";
+}
+
 export default function Warnings() {
   const userInfo = useAuthStore((state) => state.userInfo);
   const canManageWarnings = getUserRole(userInfo) === "doctor";
@@ -539,35 +583,30 @@ export default function Warnings() {
               <h3 className="text-sm font-semibold">处理日志</h3>
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {logs.map((log, index) => (
-                <div
-                  key={String(log.id || index)}
-                  className="rounded-lg border border-violet-100 bg-violet-50/40 p-4"
-                >
-                  <p className="text-sm font-medium leading-6 text-foreground">
-                    {String(
-                      log.eventDetail ||
-                        log.action ||
-                        log.operation ||
-                        log.content ||
-                        log.handleResult ||
-                        log.eventTypeText ||
-                        "预警状态发生变化",
-                    )}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                    {Boolean(log.eventTypeText) && (
-                      <span>{String(log.eventTypeText)}</span>
-                    )}
-                    {Boolean(log.operatorName) && (
-                      <span>操作人：{String(log.operatorName)}</span>
-                    )}
+              {logs.map((log, index) => {
+                const eventTypeText = warningLogEventTypeText(log);
+                return (
+                  <div
+                    key={String(log.id || index)}
+                    className="rounded-lg border border-violet-100 bg-violet-50/40 p-4"
+                  >
+                    <p className="text-sm font-medium leading-6 text-foreground">
+                      {warningLogDetailText(log) ||
+                        eventTypeText ||
+                        "预警状态发生变化"}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      {eventTypeText && <span>{eventTypeText}</span>}
+                      {Boolean(log.operatorName) && (
+                        <span>操作人：{String(log.operatorName)}</span>
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {String(log.createTime || log.time || "时间未记录")}
+                    </p>
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {String(log.createTime || log.time || "时间未记录")}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

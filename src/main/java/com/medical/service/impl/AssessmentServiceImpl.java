@@ -4,6 +4,7 @@ import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.exception.BusinessException;
+import com.medical.common.utils.DisabilityStatusSupport;
 import com.medical.entity.*;
 import com.medical.mapper.*;
 import com.medical.service.AssessmentService;
@@ -159,7 +160,7 @@ public class AssessmentServiceImpl implements AssessmentService {
             healthInfo.put("medicalHistory", hr.getMedicalHistory());
             healthInfo.put("allergyHistory", hr.getAllergyHistory());
             healthInfo.put("currentMedication", hr.getCurrentMedication());
-            healthInfo.put("disabilityStatus", hr.getDisabilityStatus());
+            healthInfo.put("disabilityStatus", toReportSafeDisabilityStatus(hr.getDisabilityStatus()));
             report.put("healthRecord", healthInfo);
         }
 
@@ -257,6 +258,13 @@ public class AssessmentServiceImpl implements AssessmentService {
         report.put("meta", meta);
 
         return report;
+    }
+
+    private String toReportSafeDisabilityStatus(String disabilityStatus) {
+        if (!DisabilityStatusSupport.isValid(disabilityStatus)) {
+            return null;
+        }
+        return DisabilityStatusSupport.normalize(disabilityStatus);
     }
 
     /**

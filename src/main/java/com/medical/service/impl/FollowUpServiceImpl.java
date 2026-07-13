@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class FollowUpServiceImpl implements FollowUpService {
@@ -107,10 +108,14 @@ public class FollowUpServiceImpl implements FollowUpService {
     @Override
     @Transactional
     public Map<String, Object> generateRiskFollowPlans(Long doctorId, Long elderId) {
+        if (doctorId == null || doctorId <= 0) {
+            throw new BusinessException(400, "当前医生ID不正确");
+        }
         if (elderId == null) {
             riskProfileService.calculateAllRisk();
         } else {
-            elderReferenceService.requireActive(elderId);
+            ElderInfo elder = elderReferenceService.requireActive(elderId);
+            requireDoctorResponsibility(elder, doctorId);
             riskProfileService.calculateRisk(elderId);
         }
         LambdaQueryWrapper<ElderRiskProfile> riskWrapper = new LambdaQueryWrapper<>();
@@ -128,13 +133,17 @@ public class FollowUpServiceImpl implements FollowUpService {
                 skippedReasons.add("老人ID " + profile.getElderId() + " 不存在或已删除");
                 continue;
             }
-            if (doctorId != null && elder.getDoctorId() != null && !doctorId.equals(elder.getDoctorId())) {
-                skippedReasons.add(elder.getName() + " 不属于当前医生，已跳过");
+            if (!Objects.equals(doctorId, elder.getDoctorId())) {
+                skippedReasons.add(elder.getName() + " 未明确分配给当前医生，已跳过");
                 continue;
             }
             Integer inferredDiseaseType = inferDiseaseType(profile.getElderId(), profile.getRiskTags());
             FollowPlan existing = followPlanMapper.selectLatestActiveByElderForUpdate(profile.getElderId());
             if (existing != null) {
+                if (!Objects.equals(doctorId, existing.getDoctorId())) {
+                    skippedReasons.add(elder.getName() + " 的活动随访计划不属于当前医生，已跳过");
+                    continue;
+                }
                 if (existing.getRemark() != null && existing.getRemark().startsWith(AUTO_RISK_MARK)
                         && !inferredDiseaseType.equals(existing.getDiseaseType())) {
                     existing.setDiseaseType(inferredDiseaseType);
@@ -144,7 +153,7 @@ public class FollowUpServiceImpl implements FollowUpService {
                 continue;
             }
 
-            FollowPlan plan = buildRiskFollowPlan(profile, elder, doctorId, inferredDiseaseType);
+            FollowPlan plan = buildRiskFollowPlan(profile, elder, inferredDiseaseType);
             followPlanMapper.insert(plan);
             createdPlans.add(toGeneratedPlanView(plan, profile, elder));
         }
@@ -335,13 +344,12 @@ public class FollowUpServiceImpl implements FollowUpService {
         return endDate;
     }
 
-    private FollowPlan buildRiskFollowPlan(ElderRiskProfile profile, ElderInfo elder, Long requestDoctorId,
-                                           Integer diseaseType) {
+    private FollowPlan buildRiskFollowPlan(ElderRiskProfile profile, ElderInfo elder, Integer diseaseType) {
         Integer riskLevel = profile.getRiskLevel() == null ? 1 : profile.getRiskLevel();
         LocalDate startDate = LocalDate.now();
         FollowPlan plan = new FollowPlan();
         plan.setElderId(profile.getElderId());
-        plan.setDoctorId(elder.getDoctorId() != null ? elder.getDoctorId() : requestDoctorId);
+        plan.setDoctorId(elder.getDoctorId());
         plan.setPlanName(getRiskLevelText(riskLevel) + "风险随访计划-" + elder.getName());
         plan.setDiseaseType(diseaseType);
         plan.setFrequencyType(frequencyForRiskLevel(riskLevel));
@@ -461,6 +469,12 @@ public class FollowUpServiceImpl implements FollowUpService {
         }
         if (plan.getStatus() != null) {
             validateStatus(plan.getStatus());
+        }
+    }
+
+    private void requireDoctorResponsibility(ElderInfo elder, Long doctorId) {
+        if (!Objects.equals(elder.getDoctorId(), doctorId)) {
+            throw new BusinessException(403, "只能为当前医生明确负责的老人生成随访计划");
         }
     }
 

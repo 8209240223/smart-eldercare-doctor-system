@@ -80,4 +80,64 @@ class InterventionServiceImplTest {
         assertEquals(403, error.getCode());
         verify(interventionMapper, never()).insert(any(InterventionRecord.class));
     }
+
+    @Test
+    void rejectsFollowRecordWithoutResponsibleDoctor() {
+        InterventionRecordMapper interventionMapper = mock(InterventionRecordMapper.class);
+        FollowRecordMapper followRecordMapper = mock(FollowRecordMapper.class);
+        InterventionServiceImpl service = new InterventionServiceImpl();
+        ReflectionTestUtils.setField(service, "interventionRecordMapper", interventionMapper);
+        ReflectionTestUtils.setField(service, "followRecordMapper", followRecordMapper);
+        ReflectionTestUtils.setField(service, "elderReferenceService", mock(ElderReferenceService.class));
+        ReflectionTestUtils.setField(service, "timelineService", mock(TimelineService.class));
+
+        FollowRecord followRecord = new FollowRecord();
+        followRecord.setId(31L);
+        followRecord.setElderId(1L);
+        followRecord.setDoctorId(null);
+        when(followRecordMapper.selectById(31L)).thenReturn(followRecord);
+
+        InterventionRecord record = new InterventionRecord();
+        record.setElderId(1L);
+        record.setDoctorId(2L);
+        record.setFollowRecordId(31L);
+        record.setInterventionType(1);
+        record.setInterventionTitle("用药调整");
+        record.setInterventionContent("调整剂量");
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.create(record));
+
+        assertEquals(403, error.getCode());
+        verify(interventionMapper, never()).insert(any(InterventionRecord.class));
+    }
+
+    @Test
+    void acceptsFollowRecordOwnedBySameDoctorAndElder() {
+        InterventionRecordMapper interventionMapper = mock(InterventionRecordMapper.class);
+        FollowRecordMapper followRecordMapper = mock(FollowRecordMapper.class);
+        InterventionServiceImpl service = new InterventionServiceImpl();
+        ReflectionTestUtils.setField(service, "interventionRecordMapper", interventionMapper);
+        ReflectionTestUtils.setField(service, "followRecordMapper", followRecordMapper);
+        ReflectionTestUtils.setField(service, "elderReferenceService", mock(ElderReferenceService.class));
+        ReflectionTestUtils.setField(service, "timelineService", mock(TimelineService.class));
+
+        FollowRecord followRecord = new FollowRecord();
+        followRecord.setId(32L);
+        followRecord.setElderId(1L);
+        followRecord.setDoctorId(2L);
+        when(followRecordMapper.selectById(32L)).thenReturn(followRecord);
+
+        InterventionRecord record = new InterventionRecord();
+        record.setElderId(1L);
+        record.setDoctorId(2L);
+        record.setFollowRecordId(32L);
+        record.setInterventionType(1);
+        record.setInterventionTitle("用药调整");
+        record.setInterventionContent("调整剂量");
+
+        service.create(record);
+
+        verify(interventionMapper).insert(record);
+    }
 }

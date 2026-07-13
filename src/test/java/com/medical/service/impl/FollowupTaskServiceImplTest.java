@@ -6,12 +6,15 @@ import com.medical.dto.FollowupTaskGenerationResult;
 import com.medical.entity.ElderInfo;
 import com.medical.entity.ElderRiskProfile;
 import com.medical.entity.FollowPlan;
+import com.medical.entity.FollowRecord;
 import com.medical.entity.FollowupTask;
 import com.medical.mapper.ElderInfoMapper;
 import com.medical.mapper.ElderRiskProfileMapper;
 import com.medical.mapper.FollowPlanMapper;
+import com.medical.mapper.FollowRecordMapper;
 import com.medical.mapper.FollowupTaskMapper;
 import com.medical.service.ElderReferenceService;
+import com.medical.service.TimelineService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -51,6 +54,7 @@ class FollowupTaskServiceImplTest {
         assertEquals(1, count);
         ArgumentCaptor<QueryWrapper<FollowPlan>> planQuery = ArgumentCaptor.forClass(QueryWrapper.class);
         verify(fixture.followPlanMapper).selectList(planQuery.capture());
+        assertTrue(planQuery.getValue().getSqlSegment().contains("start_date <="));
         assertTrue(planQuery.getValue().getSqlSegment().contains("end_date IS NULL"));
         assertTrue(planQuery.getValue().getSqlSegment().contains("end_date >="));
         verify(fixture.elderReferenceService).requireActiveDoctor(2L);
@@ -58,6 +62,42 @@ class FollowupTaskServiceImplTest {
                 Long.valueOf(40L).equals(task.getPlanId())
                         && Long.valueOf(12L).equals(task.getElderId())
                         && Long.valueOf(2L).equals(task.getDoctorId())));
+    }
+
+    @Test
+    void autoGenerationSkipsElderWithoutResponsibleDoctor() {
+        Fixture fixture = fixture();
+        FollowPlan plan = plan(41L, 13L);
+        ElderInfo elder = elder(13L);
+        elder.setDoctorId(null);
+
+        when(fixture.followPlanMapper.selectList(any())).thenReturn(java.util.List.of(plan));
+        when(fixture.elderInfoMapper.selectById(13L)).thenReturn(elder);
+
+        int count = fixture.service.generateAutoTasks(2L, 13L);
+
+        assertEquals(0, count);
+        verify(fixture.followupTaskMapper, never()).insert(any(FollowupTask.class));
+    }
+
+    @Test
+    void autoGenerationSkipsPlansOutsideExecutionWindow() {
+        Fixture fixture = fixture();
+        FollowPlan futurePlan = plan(42L, 14L);
+        futurePlan.setStartDate(LocalDate.now().plusDays(1));
+        futurePlan.setEndDate(LocalDate.now().plusDays(30));
+        FollowPlan expiredPlan = plan(43L, 15L);
+        expiredPlan.setStartDate(LocalDate.now().minusDays(30));
+        expiredPlan.setEndDate(LocalDate.now().minusDays(1));
+
+        when(fixture.followPlanMapper.selectList(any())).thenReturn(java.util.List.of(futurePlan, expiredPlan));
+        when(fixture.elderInfoMapper.selectById(14L)).thenReturn(elder(14L));
+        when(fixture.elderInfoMapper.selectById(15L)).thenReturn(elder(15L));
+
+        int count = fixture.service.generateAutoTasks(2L, null);
+
+        assertEquals(0, count);
+        verify(fixture.followupTaskMapper, never()).insert(any(FollowupTask.class));
     }
 
     @Test
@@ -77,10 +117,57 @@ class FollowupTaskServiceImplTest {
     }
 
     @Test
+    void doctorCannotFinishUnassignedTask() {
+        Fixture fixture = fixture();
+        FollowupTask task = task(72L, 10L, 30L, null);
+        when(fixture.followupTaskMapper.selectById(72L)).thenReturn(task);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> fixture.service.finishTask(72L, 82L, 2L));
+
+        assertEquals(403, error.getCode());
+        verify(fixture.followRecordMapper, never()).selectById(any());
+        verify(fixture.followupTaskMapper, never()).updateById(any(FollowupTask.class));
+    }
+
+    @Test
+    void doctorCannotFinishTaskWithFollowRecordOwnedByAnotherDoctor() {
+        Fixture fixture = fixture();
+        FollowupTask task = task(70L, 10L, 30L, 2L);
+        FollowRecord followRecord = followRecord(80L, 10L, 30L, 3L);
+        when(fixture.followupTaskMapper.selectById(70L)).thenReturn(task);
+        when(fixture.followRecordMapper.selectById(80L)).thenReturn(followRecord);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> fixture.service.finishTask(70L, 80L, 2L));
+
+        assertEquals(403, error.getCode());
+        verify(fixture.followupTaskMapper, never()).updateById(any(FollowupTask.class));
+    }
+
+    @Test
+    void doctorCannotFinishTaskWithUnownedFollowRecord() {
+        Fixture fixture = fixture();
+        FollowupTask task = task(71L, 10L, 30L, 2L);
+        FollowRecord followRecord = followRecord(81L, 10L, 30L, null);
+        when(fixture.followupTaskMapper.selectById(71L)).thenReturn(task);
+        when(fixture.followRecordMapper.selectById(81L)).thenReturn(followRecord);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> fixture.service.finishTask(71L, 81L, 2L));
+
+        assertEquals(403, error.getCode());
+        verify(fixture.followupTaskMapper, never()).updateById(any(FollowupTask.class));
+    }
+
+    @Test
     void generateForElderCreatesTaskLinkedToPlanId() {
         Fixture fixture = fixture();
         ElderInfo elder = elder(10L);
         FollowPlan plan = plan(30L, 10L);
+        plan.setStartDate(LocalDate.now());
+        plan.setEndDate(LocalDate.now());
+        plan.setNextFollowDate(LocalDate.now());
         ElderRiskProfile risk = new ElderRiskProfile();
         risk.setElderId(10L);
         risk.setRiskLevel(2);
@@ -124,19 +211,98 @@ class FollowupTaskServiceImplTest {
         verify(fixture.followupTaskMapper, never()).insert(any(FollowupTask.class));
     }
 
+    @Test
+    void generateForElderRejectsElderWithoutResponsibleDoctor() {
+        Fixture fixture = fixture();
+        ElderInfo elder = elder(10L);
+        elder.setDoctorId(null);
+        when(fixture.elderReferenceService.requireActive(10L)).thenReturn(elder);
+        when(fixture.followPlanMapper.selectByIdForUpdate(30L)).thenReturn(plan(30L, 10L));
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> fixture.service.generateForElder(10L, 2L, 30L));
+
+        assertEquals(403, error.getCode());
+        verify(fixture.followupTaskMapper, never()).insert(any(FollowupTask.class));
+    }
+
+    @Test
+    void generateForElderRejectsPausedPlan() {
+        Fixture fixture = fixture();
+        FollowPlan plan = plan(30L, 10L);
+        plan.setStatus(0);
+        when(fixture.elderReferenceService.requireActive(10L)).thenReturn(elder(10L));
+        when(fixture.followPlanMapper.selectByIdForUpdate(30L)).thenReturn(plan);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> fixture.service.generateForElder(10L, 2L, 30L));
+
+        assertEquals(400, error.getCode());
+        verify(fixture.followupTaskMapper, never()).insert(any(FollowupTask.class));
+    }
+
+    @Test
+    void generateForElderRejectsPlanThatHasNotStarted() {
+        Fixture fixture = fixture();
+        FollowPlan plan = plan(30L, 10L);
+        plan.setStartDate(LocalDate.now().plusDays(1));
+        when(fixture.elderReferenceService.requireActive(10L)).thenReturn(elder(10L));
+        when(fixture.followPlanMapper.selectByIdForUpdate(30L)).thenReturn(plan);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> fixture.service.generateForElder(10L, 2L, 30L));
+
+        assertEquals(400, error.getCode());
+        verify(fixture.followupTaskMapper, never()).insert(any(FollowupTask.class));
+    }
+
+    @Test
+    void generateForElderRejectsPlanWithoutStartDate() {
+        Fixture fixture = fixture();
+        FollowPlan plan = plan(30L, 10L);
+        plan.setStartDate(null);
+        when(fixture.elderReferenceService.requireActive(10L)).thenReturn(elder(10L));
+        when(fixture.followPlanMapper.selectByIdForUpdate(30L)).thenReturn(plan);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> fixture.service.generateForElder(10L, 2L, 30L));
+
+        assertEquals(400, error.getCode());
+        verify(fixture.followupTaskMapper, never()).insert(any(FollowupTask.class));
+    }
+
+    @Test
+    void generateForElderRejectsExpiredPlan() {
+        Fixture fixture = fixture();
+        FollowPlan plan = plan(30L, 10L);
+        plan.setEndDate(LocalDate.now().minusDays(1));
+        when(fixture.elderReferenceService.requireActive(10L)).thenReturn(elder(10L));
+        when(fixture.followPlanMapper.selectByIdForUpdate(30L)).thenReturn(plan);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> fixture.service.generateForElder(10L, 2L, 30L));
+
+        assertEquals(400, error.getCode());
+        verify(fixture.followupTaskMapper, never()).insert(any(FollowupTask.class));
+    }
+
     private Fixture fixture() {
         Fixture fixture = new Fixture();
         fixture.service = new FollowupTaskServiceImpl();
         fixture.followupTaskMapper = mock(FollowupTaskMapper.class);
         fixture.elderInfoMapper = mock(ElderInfoMapper.class);
         fixture.followPlanMapper = mock(FollowPlanMapper.class);
+        fixture.followRecordMapper = mock(FollowRecordMapper.class);
         fixture.riskProfileMapper = mock(ElderRiskProfileMapper.class);
         fixture.elderReferenceService = mock(ElderReferenceService.class);
+        fixture.timelineService = mock(TimelineService.class);
         ReflectionTestUtils.setField(fixture.service, "followupTaskMapper", fixture.followupTaskMapper);
         ReflectionTestUtils.setField(fixture.service, "elderInfoMapper", fixture.elderInfoMapper);
         ReflectionTestUtils.setField(fixture.service, "followPlanMapper", fixture.followPlanMapper);
+        ReflectionTestUtils.setField(fixture.service, "followRecordMapper", fixture.followRecordMapper);
         ReflectionTestUtils.setField(fixture.service, "elderRiskProfileMapper", fixture.riskProfileMapper);
         ReflectionTestUtils.setField(fixture.service, "elderReferenceService", fixture.elderReferenceService);
+        ReflectionTestUtils.setField(fixture.service, "timelineService", fixture.timelineService);
         return fixture;
     }
 
@@ -155,8 +321,29 @@ class FollowupTaskServiceImplTest {
         plan.setDoctorId(2L);
         plan.setPlanName("健康随访计划");
         plan.setStatus(1);
+        plan.setStartDate(LocalDate.now().minusDays(1));
+        plan.setEndDate(LocalDate.now().plusDays(30));
         plan.setNextFollowDate(LocalDate.now().plusDays(7));
         return plan;
+    }
+
+    private FollowupTask task(Long id, Long elderId, Long planId, Long doctorId) {
+        FollowupTask task = new FollowupTask();
+        task.setId(id);
+        task.setElderId(elderId);
+        task.setPlanId(planId);
+        task.setDoctorId(doctorId);
+        task.setStatus(0);
+        return task;
+    }
+
+    private FollowRecord followRecord(Long id, Long elderId, Long planId, Long doctorId) {
+        FollowRecord record = new FollowRecord();
+        record.setId(id);
+        record.setElderId(elderId);
+        record.setPlanId(planId);
+        record.setDoctorId(doctorId);
+        return record;
     }
 
     private static class Fixture {
@@ -164,7 +351,9 @@ class FollowupTaskServiceImplTest {
         FollowupTaskMapper followupTaskMapper;
         ElderInfoMapper elderInfoMapper;
         FollowPlanMapper followPlanMapper;
+        FollowRecordMapper followRecordMapper;
         ElderRiskProfileMapper riskProfileMapper;
         ElderReferenceService elderReferenceService;
+        TimelineService timelineService;
     }
 }

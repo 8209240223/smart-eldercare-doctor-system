@@ -57,17 +57,28 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
     @Transactional
     public int generateAutoTasks(Long doctorId, Long elderId) {
         int taskCount = 0;
+        LocalDate today = LocalDate.now();
         QueryWrapper<FollowPlan> planWrapper = new QueryWrapper<>();
         planWrapper.eq("status", 1);
         planWrapper.eq("deleted", 0);
-        planWrapper.and(wrapper -> wrapper.isNull("end_date").or().ge("end_date", LocalDate.now()));
+        planWrapper.le("start_date", today);
+        planWrapper.and(wrapper -> wrapper.isNull("end_date").or().ge("end_date", today));
         planWrapper.eq(doctorId != null, "doctor_id", doctorId);
         planWrapper.eq(elderId != null, "elder_id", elderId);
         List<FollowPlan> activePlans = followPlanMapper.selectList(planWrapper);
 
         for (FollowPlan plan : activePlans) {
+            if (!isPlanExecutable(plan, today)) {
+                continue;
+            }
             ElderInfo elder = elderInfoMapper.selectById(plan.getElderId());
             if (elder == null || Integer.valueOf(1).equals(elder.getDeleted())) {
+                continue;
+            }
+            Long responsibleDoctorId = elder.getDoctorId();
+            if (responsibleDoctorId == null
+                    || !Objects.equals(responsibleDoctorId, plan.getDoctorId())
+                    || (doctorId != null && !Objects.equals(responsibleDoctorId, doctorId))) {
                 continue;
             }
             if (followupTaskMapper.selectPendingByPlanId(plan.getElderId(), plan.getId()) != null) {
@@ -77,20 +88,19 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
                     new QueryWrapper<ElderRiskProfile>().eq("elder_id", plan.getElderId()));
             int riskLevel = profile == null || profile.getRiskLevel() == null ? 1 : profile.getRiskLevel();
             int riskScore = profile == null || profile.getRiskScore() == null ? 0 : profile.getRiskScore();
-            LocalDate nextFollowDate = plan.getNextFollowDate() == null ? LocalDate.now() : plan.getNextFollowDate();
-            int overdueDays = nextFollowDate.isBefore(LocalDate.now())
-                    ? (int) ChronoUnit.DAYS.between(nextFollowDate, LocalDate.now())
+            LocalDate nextFollowDate = plan.getNextFollowDate() == null ? today : plan.getNextFollowDate();
+            int overdueDays = nextFollowDate.isBefore(today)
+                    ? (int) ChronoUnit.DAYS.between(nextFollowDate, today)
                     : 0;
 
             FollowupTask task = new FollowupTask();
             task.setElderId(plan.getElderId());
             task.setPlanId(plan.getId());
-            Long responsibleDoctorId = plan.getDoctorId() != null ? plan.getDoctorId() : elder.getDoctorId();
             elderReferenceService.requireActiveDoctor(responsibleDoctorId);
             task.setDoctorId(responsibleDoctorId);
             task.setTaskType(overdueDays > 7 ? 2 : 1);
             task.setPriority(Math.max(priorityForRiskLevel(riskLevel), overdueDays >= 14 ? 3 : 1));
-            task.setDueDate(nextFollowDate.isBefore(LocalDate.now()) ? LocalDate.now() : nextFollowDate);
+            task.setDueDate(nextFollowDate.isBefore(today) ? today : nextFollowDate);
             task.setStatus(0);
             task.setSource(overdueDays > 7 ? "OVERDUE_AUTO" : "PLAN_AUTO");
             task.setTaskReason(overdueDays > 7
@@ -117,14 +127,16 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
         }
 
         ElderInfo elder = elderReferenceService.requireActive(elderId);
+        requireResponsibleDoctor(elder, doctorId);
 
         FollowPlan plan = followPlanMapper.selectByIdForUpdate(planId);
         if (plan == null || !elderId.equals(plan.getElderId())) {
             throw new BusinessException(404, "随访计划不存在或不属于该老人");
         }
-        if (plan.getStatus() != null && plan.getStatus() >= 2) {
-            throw new BusinessException(400, "已完成或已终止的随访计划不能生成任务");
+        if (!Objects.equals(plan.getDoctorId(), doctorId)) {
+            throw new BusinessException(403, "只能为当前医生负责的随访计划生成任务");
         }
+        validateExecutablePlan(plan, LocalDate.now());
 
         FollowupTask existing = followupTaskMapper.selectPendingByPlanId(elderId, planId);
         if (existing != null) {
@@ -139,8 +151,7 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
         FollowupTask task = new FollowupTask();
         task.setElderId(elderId);
         task.setPlanId(planId);
-        task.setDoctorId(doctorId != null ? doctorId
-                : (plan.getDoctorId() != null ? plan.getDoctorId() : elder.getDoctorId()));
+        task.setDoctorId(doctorId);
         task.setTaskType(1);
         task.setPriority(priorityForRiskLevel(riskLevel));
         LocalDate dueDate = plan.getNextFollowDate() == null ? LocalDate.now() : plan.getNextFollowDate();
@@ -188,7 +199,7 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
         if (task == null || task.getStatus() != 0) {
             return false;
         }
-        if (task.getDoctorId() != null && !task.getDoctorId().equals(doctorId)) {
+        if (!Objects.equals(task.getDoctorId(), doctorId)) {
             throw new BusinessException(403, "只能完成分配给当前医生的随访任务");
         }
 
@@ -197,11 +208,14 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
         if (followRecord == null) {
             throw new BusinessException(404, "关联的随访记录不存在");
         }
-        if (!task.getElderId().equals(followRecord.getElderId())) {
+        if (!Objects.equals(task.getElderId(), followRecord.getElderId())) {
             throw new BusinessException(400, "随访任务与随访记录必须属于同一老人");
         }
-        if (task.getPlanId() != null && !task.getPlanId().equals(followRecord.getPlanId())) {
+        if (!Objects.equals(task.getPlanId(), followRecord.getPlanId())) {
             throw new BusinessException(400, "随访任务与随访记录必须属于同一随访计划");
+        }
+        if (!Objects.equals(doctorId, followRecord.getDoctorId())) {
+            throw new BusinessException(403, "只能使用当前医生本人创建的随访记录完成任务");
         }
 
         task.setStatus(2); // 已完成
@@ -293,5 +307,33 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
             case 2: return 2;
             default: return 1;
         }
+    }
+
+    private void requireResponsibleDoctor(ElderInfo elder, Long doctorId) {
+        if (doctorId == null || !Objects.equals(elder.getDoctorId(), doctorId)) {
+            throw new BusinessException(403, "只能为当前医生明确负责的老人生成随访任务");
+        }
+    }
+
+    private void validateExecutablePlan(FollowPlan plan, LocalDate today) {
+        if (!Integer.valueOf(1).equals(plan.getStatus())) {
+            throw new BusinessException(400, "只有进行中的随访计划可以生成任务");
+        }
+        if (plan.getStartDate() == null) {
+            throw new BusinessException(400, "随访计划开始日期不能为空");
+        }
+        if (plan.getStartDate().isAfter(today)) {
+            throw new BusinessException(400, "尚未开始的随访计划不能生成任务");
+        }
+        if (plan.getEndDate() != null && plan.getEndDate().isBefore(today)) {
+            throw new BusinessException(400, "已过期的随访计划不能生成任务");
+        }
+    }
+
+    private boolean isPlanExecutable(FollowPlan plan, LocalDate today) {
+        return Integer.valueOf(1).equals(plan.getStatus())
+                && plan.getStartDate() != null
+                && !plan.getStartDate().isAfter(today)
+                && (plan.getEndDate() == null || !plan.getEndDate().isBefore(today));
     }
 }

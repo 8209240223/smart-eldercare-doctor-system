@@ -104,6 +104,19 @@ class CareWorkflowServiceTest {
         verify(fixture.riskProfileService, never()).calculateRisk(8L);
     }
 
+    @Test
+    void generateRejectsElderOwnedByAnotherDoctor() {
+        Fixture fixture = fixture();
+        when(fixture.elderReferenceService.requireActive(8L)).thenReturn(elder());
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> fixture.service.generate(8L, 3L, 2));
+
+        assertEquals(403, exception.getCode());
+        verify(fixture.riskProfileService, never()).calculateRisk(8L);
+        verify(fixture.followUpService, never()).generateRiskFollowPlans(any(), any());
+    }
+
     private Fixture fixture() {
         Fixture fixture = new Fixture();
         fixture.service = new CareWorkflowService();

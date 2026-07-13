@@ -86,6 +86,10 @@ function followTypeText(type?: number) {
   );
 }
 
+function medicationComplianceText(compliance?: number) {
+  return ["", "规律", "间断", "未服药"][compliance || 0] || "-";
+}
+
 const diseaseLabels = [
   "",
   "高血压",
@@ -805,6 +809,12 @@ export default function FollowUp() {
                   label: "当前用药",
                   value: recordDetail.currentMedication || "-",
                   wide: true,
+                },
+                {
+                  label: "服药依从性",
+                  value: medicationComplianceText(
+                    recordDetail.medicationCompliance,
+                  ),
                 },
                 {
                   label: "随访结论",
