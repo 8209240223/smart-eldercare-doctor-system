@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { api, unwrap, type ApiResponse } from "@/lib/api";
 import ElderMasterSelect from "@/components/workflow/ElderMasterSelect";
 import WorkflowNavigationDialog, {
   type WorkflowNavigationOption,
@@ -44,6 +46,12 @@ import {
   type NursingRecord,
 } from "@/hooks/useApi";
 import { getUserRole, useAuthStore } from "@/store/auth";
+
+interface DoctorOption {
+  id: number;
+  realName?: string;
+  username?: string;
+}
 
 const emptyRecord: NursingRecord = {
   elderId: 0,
@@ -102,6 +110,13 @@ export default function NurseRecords() {
   );
   const { data: stats } = useNurseRecordStats();
   const { data: eldersData } = useElders(1, 500);
+  const { data: doctorOptions = [] } = useQuery<DoctorOption[]>({
+    queryKey: ["elders", "doctor-options"],
+    queryFn: async () =>
+      unwrap(
+        await api<ApiResponse<DoctorOption[]>>("/api/elders/options/doctors"),
+      ),
+  });
   const { data: detail, isLoading: detailLoading } =
     useNurseRecordDetail(detailId);
   const createRecord = useCreateNurseRecord();
@@ -113,6 +128,21 @@ export default function NurseRecords() {
   const elderNames = new Map(
     (eldersData?.records || []).map((elder) => [elder.id, elder.name]),
   );
+  const doctorNames = new Map(
+    doctorOptions.map((doctor) => [
+      doctor.id,
+      doctor.realName || doctor.username || `医生 #${doctor.id}`,
+    ]),
+  );
+  const selectedFormElder = (eldersData?.records || []).find(
+    (elder) => elder.id === form.elderId,
+  );
+  const assignedDoctorId = selectedFormElder
+    ? selectedFormElder.doctorId
+    : form.doctorId;
+  const targetDoctorId = assignedDoctorId && doctorNames.has(assignedDoctorId)
+    ? assignedDoctorId
+    : undefined;
 
   useEffect(() => {
     setElderId(requestedElderId);
@@ -130,15 +160,39 @@ export default function NurseRecords() {
 
   const updateForm = (field: keyof NursingRecord, value: string | number) =>
     setForm((current) => ({ ...current, [field]: value }));
+  const updateFormElder = (value?: number) => {
+    const elder = (eldersData?.records || []).find((item) => item.id === value);
+    setForm((current) => ({
+      ...current,
+      elderId: value || 0,
+      doctorId: elder?.doctorId,
+    }));
+  };
+  const openCreateForm = () => {
+    const initialElderId = elderId ? Number(elderId) : 0;
+    const initialElder = (eldersData?.records || []).find(
+      (item) => item.id === initialElderId,
+    );
+    setForm({
+      ...emptyRecord,
+      elderId: initialElderId,
+      nurseId: currentNurseId || undefined,
+      doctorId: initialElder?.doctorId,
+    });
+    setFormOpen(true);
+  };
   const save = async () => {
     const payload = {
       ...form,
       nurseId: form.nurseId || currentNurseId,
+      doctorId: targetDoctorId,
     };
     if (!payload.elderId || !payload.recordTitle.trim())
       return toast.error("老人和记录标题不能为空");
     if (!payload.nurseId)
       return toast.error("无法识别当前护士账号，请重新登录");
+    if (!payload.doctorId)
+      return toast.error("该老人尚未分配启用中的责任医生，不能保存护理记录");
     try {
       if (payload.id) await updateRecord.mutateAsync(payload);
       else await createRecord.mutateAsync(payload);
@@ -316,7 +370,10 @@ export default function NurseRecords() {
               查询
             </Button>
             {canManageNursingRecords && (
-              <Button onClick={() => { setForm({ ...emptyRecord, elderId: elderId ? Number(elderId) : 0, nurseId: currentNurseId || undefined }); setFormOpen(true); }} className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white">
+              <Button
+                onClick={openCreateForm}
+                className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white"
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 新增护理记录
               </Button>
@@ -361,7 +418,7 @@ export default function NurseRecords() {
                         <p className="mt-2 text-sm text-muted-foreground">
                           {elderNames.get(record.elderId) ||
                             "姓名未同步"}{" "}
-                          · {record.recordDate || record.createTime || "-"}
+                          · 目标医生 {record.doctorId ? doctorNames.get(record.doctorId) || `医生 #${record.doctorId}` : "待分配"} · {record.recordDate || record.createTime || "-"}
                         </p>
                         <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
                           {record.recordContent || record.observation || "-"}
@@ -459,9 +516,17 @@ export default function NurseRecords() {
             <ElderMasterSelect
               elders={eldersData?.records || []}
               value={form.elderId}
-              onChange={(value) => updateForm("elderId", value || 0)}
+              onChange={updateFormElder}
               allowAll={false}
             />
+            <div className="flex h-9 items-center justify-between rounded-md border border-input bg-muted/30 px-3 text-sm">
+              <span className="text-muted-foreground">目标责任医生</span>
+              <span className="font-medium">
+                {targetDoctorId
+                  ? doctorNames.get(targetDoctorId)
+                  : "未分配有效医生"}
+              </span>
+            </div>
             <select
               value={form.recordType || 1}
               onChange={(event) =>
@@ -585,6 +650,13 @@ export default function NurseRecords() {
                 {
                   label: "记录类型",
                   value: typeLabels[detail.recordType || 0],
+                },
+                {
+                  label: "目标责任医生",
+                  value: detail.doctorId
+                    ? doctorNames.get(detail.doctorId) ||
+                      `医生 #${detail.doctorId}`
+                    : "未分配",
                 },
                 { label: "记录标题", value: detail.recordTitle, wide: true },
                 {

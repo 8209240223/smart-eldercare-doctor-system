@@ -220,6 +220,15 @@ public class ElderServiceImpl implements ElderService {
         if (elderInfo.getDoctorId() != null && elderInfo.getDoctorId() <= 0) {
             throw new BusinessException(400, "责任医生ID必须为正整数");
         }
+        if (elderInfo.getDoctorId() != null) {
+            SysUser doctor = sysUserMapper.selectById(elderInfo.getDoctorId());
+            if (doctor == null
+                    || !Integer.valueOf(2).equals(doctor.getUserType())
+                    || !Integer.valueOf(1).equals(doctor.getStatus())
+                    || Integer.valueOf(1).equals(doctor.getDeleted())) {
+                throw new BusinessException(400, "责任医生必须选择启用中的真实医生账号");
+            }
+        }
     }
 
     private void validateIdCard(String idCard) {

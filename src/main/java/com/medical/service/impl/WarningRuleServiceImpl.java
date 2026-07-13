@@ -9,6 +9,7 @@ import com.medical.mapper.WarningRuleMapper;
 import com.medical.service.TimelineService;
 import com.medical.service.WarningRuleService;
 import com.medical.service.WarningService;
+import com.medical.service.ElderReferenceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -66,6 +67,9 @@ public class WarningRuleServiceImpl implements WarningRuleService {
     @Autowired
     private TimelineService timelineService;
 
+    @Autowired
+    private ElderReferenceService elderReferenceService;
+
     @Override
     public List<WarningRule> listRules(Long doctorId) {
         LambdaQueryWrapper<WarningRule> wrapper = new LambdaQueryWrapper<>();
@@ -110,6 +114,7 @@ public class WarningRuleServiceImpl implements WarningRuleService {
     @Override
     public int evaluateVitalSigns(Long elderId, Map<String, BigDecimal> vitalData) {
         validateVitalData(elderId, vitalData);
+        elderReferenceService.requireActive(elderId);
         // 获取所有启用的规则
         LambdaQueryWrapper<WarningRule> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(WarningRule::getEnabled, 1);

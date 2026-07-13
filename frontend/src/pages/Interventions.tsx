@@ -11,13 +11,13 @@ import InterventionDialog from "@/components/interventions/InterventionDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createElderNameMap, resolveElderName } from "@/lib/elderName";
 import {
   useCreateIntervention,
   useDeleteIntervention,
   useElders,
+  useFollowupRecords,
   useInterventionDetail,
   useInterventions,
   useInterventionStats,
@@ -45,6 +45,13 @@ export default function Interventions() {
   const { data, isLoading, refetch } = useInterventions(page, 10, elderId ? Number(elderId) : undefined, type, followRecordId ? Number(followRecordId) : undefined);
   const { data: stats } = useInterventionStats();
   const { data: eldersData } = useElders(1, 100);
+  const { data: followRecordsData, isLoading: followRecordsLoading } = useFollowupRecords(
+    1,
+    500,
+    undefined,
+    elderId ? Number(elderId) : undefined,
+    !!elderId,
+  );
   const { data: detail, isLoading: detailLoading } = useInterventionDetail(detailId);
   const createIntervention = useCreateIntervention();
   const updateIntervention = useUpdateIntervention();
@@ -96,8 +103,8 @@ export default function Interventions() {
           <StatCard title="已评价" value={Number(stats?.evaluated || 0)} icon={Stethoscope} iconClassName="from-lavender-400 to-lavender-500" delay={2} />
         </div>
         <Card className="border-border/40 bg-white/80 shadow-card backdrop-blur-sm"><CardContent className="flex flex-wrap items-end gap-3 p-4">
-          <div className="min-w-[150px]"><label className="text-sm font-medium text-muted-foreground">老人</label><select className="mt-2 h-9 w-full rounded-xl border border-border/60 bg-white/70 px-3 text-sm" value={elderId} onChange={(event) => { setElderId(event.target.value); setPage(1); }}><option value="">全部老人</option>{eldersData?.records.map((elder) => <option key={elder.id} value={elder.id}>{elder.name}</option>)}</select></div>
-          <div className="min-w-[170px]"><label className="text-sm font-medium text-muted-foreground">关联随访记录ID</label><Input className="mt-2 rounded-xl bg-white/70" value={followRecordId} onChange={(event) => setFollowRecordId(event.target.value)} /></div>
+          <div className="min-w-[150px]"><label className="text-sm font-medium text-muted-foreground">老人</label><select className="mt-2 h-9 w-full rounded-xl border border-border/60 bg-white/70 px-3 text-sm" value={elderId} onChange={(event) => { setElderId(event.target.value); setFollowRecordId(""); setPage(1); }}><option value="">全部老人</option>{eldersData?.records.map((elder) => <option key={elder.id} value={elder.id}>{elder.name}</option>)}</select></div>
+          <div className="min-w-[260px]"><label className="text-sm font-medium text-muted-foreground">关联随访记录</label><select className="mt-2 h-9 w-full rounded-xl border border-border/60 bg-white/70 px-3 text-sm" value={followRecordId} onChange={(event) => { setFollowRecordId(event.target.value); setPage(1); }} disabled={!elderId || followRecordsLoading}><option value="">{!elderId ? "请先选择老人" : followRecordsLoading ? "正在加载随访记录" : "全部随访记录"}</option>{(followRecordsData?.records || []).map((record) => <option key={record.id} value={record.id}>#{record.id} · {record.followDate || "未填写日期"} · {record.followResult || "未填写结果"}</option>)}</select></div>
           <div className="min-w-[160px]"><label className="text-sm font-medium text-muted-foreground">干预类型</label><select className="mt-2 h-9 w-full rounded-xl border border-border/60 bg-white/70 px-3 text-sm" value={type ?? ""} onChange={(event) => setType(event.target.value ? Number(event.target.value) : undefined)}><option value="">全部类型</option>{typeLabels.slice(1).map((label, index) => <option key={label} value={index + 1}>{label}</option>)}</select></div>
           <Button variant="outline" className="rounded-xl" onClick={() => refetch()}>查询</Button>
           {canManageInterventions && <Button onClick={() => { setEditing(undefined); setFormOpen(true); }} className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white"><Plus className="mr-2 h-4 w-4" />新增干预记录</Button>}
@@ -108,7 +115,8 @@ export default function Interventions() {
       </div>
       <InterventionDialog open={formOpen} onOpenChange={setFormOpen} initialData={editing} elders={eldersData?.records || []} onSubmit={save} isSubmitting={createIntervention.isPending || updateIntervention.isPending} />
       <DetailDialog open={!!detailId} onOpenChange={(open) => !open && setDetailId(undefined)} title="干预记录详情" loading={detailLoading} fields={detail ? [
-        { label: "老人", value: resolveElderName(detail.elderName, detail.elderId, elderNames) }, { label: "干预类型", value: typeLabels[detail.interventionType] || "其他" }, { label: "关联随访记录", value: detail.followRecordId || "未关联" }, { label: "干预日期", value: detail.interventionDate || detail.createTime || "-" }, { label: "干预标题", value: detail.interventionTitle, wide: true }, { label: "干预内容", value: detail.interventionContent, wide: true }, { label: "用药调整", value: detail.medicationAdjust || "-", wide: true }, { label: "生活方式指导", value: detail.lifestyleGuidance || "-", wide: true }, { label: "健康教育", value: detail.healthEducation || "-", wide: true }, { label: "效果评价", value: effectLabels[detail.effectEvaluation || 0] }, { label: "效果说明", value: detail.effectDesc || "-", wide: true }, { label: "下次计划", value: detail.nextPlan || "-", wide: true },
+        { label: "干预记录 ID", value: detail.id || "-" }, { label: "老人 ID", value: detail.elderId || "-" }, { label: "医生 ID", value: detail.doctorId || "-" }, { label: "状态", value: detail.status === 0 ? "已取消" : "正常" },
+        { label: "老人", value: resolveElderName(detail.elderName, detail.elderId, elderNames) }, { label: "干预类型", value: typeLabels[detail.interventionType] || "其他" }, { label: "关联随访记录 ID", value: detail.followRecordId || "未关联" }, { label: "干预日期", value: detail.interventionDate || detail.createTime || "-" }, { label: "干预标题", value: detail.interventionTitle, wide: true }, { label: "干预内容", value: detail.interventionContent, wide: true }, { label: "用药调整", value: detail.medicationAdjust || "-", wide: true }, { label: "生活方式指导", value: detail.lifestyleGuidance || "-", wide: true }, { label: "健康教育", value: detail.healthEducation || "-", wide: true }, { label: "效果评价", value: effectLabels[detail.effectEvaluation || 0] }, { label: "效果说明", value: detail.effectDesc || "-", wide: true }, { label: "下次计划", value: detail.nextPlan || "-", wide: true },
       ] : []} />
       <ConfirmDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)} title="删除干预记录" description={`确定删除“${deleteTarget?.interventionTitle || "该干预记录"}”吗？`} confirmText="确认删除" destructive pending={deleteIntervention.isPending} onConfirm={remove} />
     </PageShell>

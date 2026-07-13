@@ -18,6 +18,7 @@ import com.medical.mapper.FollowRecordMapper;
 import com.medical.mapper.MedicalHistoryMapper;
 import com.medical.service.FollowUpService;
 import com.medical.service.ElderReferenceService;
+import com.medical.service.RiskProfileService;
 import com.medical.service.TimelineService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -57,6 +58,9 @@ public class FollowUpServiceImpl implements FollowUpService {
 
     @Autowired
     private ElderReferenceService elderReferenceService;
+
+    @Autowired
+    private RiskProfileService riskProfileService;
 
     @Override
     public Page<FollowPlan> listPlans(Integer pageNum, Integer pageSize, Integer status, Integer diseaseType, Long elderId) {
@@ -103,9 +107,14 @@ public class FollowUpServiceImpl implements FollowUpService {
     @Override
     @Transactional
     public Map<String, Object> generateRiskFollowPlans(Long doctorId, Long elderId) {
+        if (elderId == null) {
+            riskProfileService.calculateAllRisk();
+        } else {
+            elderReferenceService.requireActive(elderId);
+            riskProfileService.calculateRisk(elderId);
+        }
         LambdaQueryWrapper<ElderRiskProfile> riskWrapper = new LambdaQueryWrapper<>();
         riskWrapper.eq(elderId != null, ElderRiskProfile::getElderId, elderId)
-                .ge(elderId == null, ElderRiskProfile::getRiskLevel, 3)
                 .orderByDesc(ElderRiskProfile::getRiskLevel)
                 .orderByDesc(ElderRiskProfile::getRiskScore);
         List<ElderRiskProfile> profiles = elderRiskProfileMapper.selectList(riskWrapper);
@@ -446,6 +455,9 @@ public class FollowUpServiceImpl implements FollowUpService {
         }
         if (plan.getStartDate() != null && plan.getNextFollowDate() != null && plan.getNextFollowDate().isBefore(plan.getStartDate())) {
             throw new BusinessException(400, "下次随访日期不能早于开始日期");
+        }
+        if (plan.getEndDate() != null && plan.getNextFollowDate() != null && plan.getNextFollowDate().isAfter(plan.getEndDate())) {
+            throw new BusinessException(400, "下次随访日期不能晚于结束日期");
         }
         if (plan.getStatus() != null) {
             validateStatus(plan.getStatus());

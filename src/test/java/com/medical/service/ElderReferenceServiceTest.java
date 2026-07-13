@@ -2,7 +2,9 @@ package com.medical.service;
 
 import com.medical.common.exception.BusinessException;
 import com.medical.entity.ElderInfo;
+import com.medical.entity.SysUser;
 import com.medical.mapper.ElderInfoMapper;
+import com.medical.mapper.SysUserMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -47,10 +49,40 @@ class ElderReferenceServiceTest {
         assertSame(elder, service.requireActive(1L));
     }
 
+    @Test
+    void acceptsOnlyEnabledDoctorAccountsAsResponsibleDoctors() {
+        ElderInfoMapper elderMapper = mock(ElderInfoMapper.class);
+        SysUserMapper userMapper = mock(SysUserMapper.class);
+        ElderReferenceService service = createService(elderMapper, userMapper);
+
+        SysUser admin = user(1L, 1, 1, 0);
+        when(userMapper.selectById(1L)).thenReturn(admin);
+        assertEquals(400, assertThrows(BusinessException.class,
+                () -> service.requireActiveDoctor(1L)).getCode());
+
+        SysUser doctor = user(2L, 2, 1, 0);
+        when(userMapper.selectById(2L)).thenReturn(doctor);
+        service.requireActiveDoctor(2L);
+    }
+
     private ElderReferenceService createService(ElderInfoMapper mapper) {
+        return createService(mapper, mock(SysUserMapper.class));
+    }
+
+    private ElderReferenceService createService(ElderInfoMapper mapper, SysUserMapper userMapper) {
         ElderReferenceService service = new ElderReferenceService();
         ReflectionTestUtils.setField(service, "elderInfoMapper", mapper);
+        ReflectionTestUtils.setField(service, "sysUserMapper", userMapper);
         return service;
+    }
+
+    private SysUser user(Long id, Integer userType, Integer status, Integer deleted) {
+        SysUser user = new SysUser();
+        user.setId(id);
+        user.setUserType(userType);
+        user.setStatus(status);
+        user.setDeleted(deleted);
+        return user;
     }
 
     private ElderInfo elder(Long id, Integer deleted, Integer accountStatus) {

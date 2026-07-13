@@ -231,7 +231,6 @@ export default function FollowUp() {
     try {
       const selectedElderId = elderId ? Number(elderId) : undefined;
       const result = await generatePlans.mutateAsync({
-        doctorId: Number(userInfo?.userId || userInfo?.id || 0) || undefined,
         elderId: selectedElderId,
       });
       if (Number(result?.createdCount || 0) > 0) {

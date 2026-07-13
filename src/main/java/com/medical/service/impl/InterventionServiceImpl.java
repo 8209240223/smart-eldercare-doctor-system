@@ -150,6 +150,10 @@ public class InterventionServiceImpl implements InterventionService {
         if (!record.getElderId().equals(followRecord.getElderId())) {
             throw new BusinessException(400, "干预记录与关联随访记录不属于同一位老人");
         }
+        if (record.getDoctorId() != null && followRecord.getDoctorId() != null
+                && !record.getDoctorId().equals(followRecord.getDoctorId())) {
+            throw new BusinessException(403, "只能关联当前医生负责的随访记录");
+        }
     }
 
     private void addInterventionTimeline(InterventionRecord record) {

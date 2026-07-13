@@ -2,6 +2,7 @@ package com.medical.controller;
 
 import com.medical.common.annotation.RequireRole;
 import com.medical.common.annotation.OperationLog;
+import com.medical.common.exception.BusinessException;
 import com.medical.common.result.R;
 import com.medical.service.ReviewService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,8 +26,11 @@ public class ReviewController {
 
     @GetMapping("/records")
     public R<?> listPendingRecords(@RequestParam(defaultValue = "1") Integer pageNum,
-                                   @RequestParam(defaultValue = "10") Integer pageSize) {
-        return R.ok(reviewService.listPendingRecords(pageNum, pageSize));
+                                   @RequestParam(defaultValue = "10") Integer pageSize,
+                                   HttpServletRequest request) {
+        Integer userType = (Integer) request.getAttribute("currentUserType");
+        Long doctorId = userType != null && userType == 2 ? (Long) request.getAttribute("currentUserId") : null;
+        return R.ok(reviewService.listPendingRecords(pageNum, pageSize, doctorId));
     }
 
     @GetMapping("/records/history")
@@ -46,7 +50,7 @@ public class ReviewController {
                               HttpServletRequest request) {
         Long doctorId = (Long) request.getAttribute("currentUserId");
         String comment = body != null ? body.getOrDefault("comment", "") : "";
-        reviewService.reviewRecord(id, doctorId != null ? doctorId : 2L, comment, 1);
+        reviewService.reviewRecord(id, requireCurrentUserId(doctorId), comment, 1);
         return R.ok("审核通过，已处理该异常记录");
     }
 
@@ -58,7 +62,7 @@ public class ReviewController {
                              HttpServletRequest request) {
         Long doctorId = (Long) request.getAttribute("currentUserId");
         String comment = body != null ? body.getOrDefault("comment", "") : "";
-        reviewService.reviewRecord(id, doctorId != null ? doctorId : 2L, comment, 2);
+        reviewService.reviewRecord(id, requireCurrentUserId(doctorId), comment, 2);
         return R.ok("已驳回，请护士重新提交");
     }
 
@@ -87,7 +91,7 @@ public class ReviewController {
     @OperationLog(module = "护士审核", type = "审核通过", desc = "审核通过护理计划")
     public R<?> approvePlan(@PathVariable Long id, HttpServletRequest request) {
         Long doctorId = (Long) request.getAttribute("currentUserId");
-        reviewService.reviewPlan(id, doctorId != null ? doctorId : 2L, 1);
+        reviewService.reviewPlan(id, requireCurrentUserId(doctorId), 1);
         return R.ok("审核通过，护理计划已生效");
     }
 
@@ -96,7 +100,7 @@ public class ReviewController {
     @OperationLog(module = "护士审核", type = "驳回", desc = "驳回护理计划")
     public R<?> rejectPlan(@PathVariable Long id, HttpServletRequest request) {
         Long doctorId = (Long) request.getAttribute("currentUserId");
-        reviewService.reviewPlan(id, doctorId != null ? doctorId : 2L, 2);
+        reviewService.reviewPlan(id, requireCurrentUserId(doctorId), 2);
         return R.ok("已驳回该护理计划");
     }
 
@@ -105,5 +109,12 @@ public class ReviewController {
         Integer userType = (Integer) request.getAttribute("currentUserType");
         Long doctorId = userType != null && userType == 2 ? (Long) request.getAttribute("currentUserId") : null;
         return R.ok(reviewService.getReviewStats(doctorId));
+    }
+
+    private Long requireCurrentUserId(Long currentUserId) {
+        if (currentUserId == null) {
+            throw new BusinessException(401, "登录身份已失效，请重新登录");
+        }
+        return currentUserId;
     }
 }

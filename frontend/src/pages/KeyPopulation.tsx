@@ -60,8 +60,6 @@ export default function KeyPopulation() {
     Number(searchParams.get("elderId") || 0) || undefined;
   const userInfo = useAuthStore((state) => state.userInfo);
   const canManageRisk = getUserRole(userInfo) === "doctor";
-  const currentDoctorId =
-    Number(userInfo?.userId || userInfo?.id || 0) || undefined;
   const [page, setPage] = useState(1);
   const [riskLevel, setRiskLevel] = useState<number | undefined>();
   const [keyword, setKeyword] = useState("");
@@ -145,7 +143,6 @@ export default function KeyPopulation() {
     try {
       const result = await generatePlans.mutateAsync({
         elderId,
-        doctorId: currentDoctorId,
       });
       if (Number(result?.createdCount || 0) > 0)
         toast.success(`已生成 ${result.createdCount} 条风险随访计划`);

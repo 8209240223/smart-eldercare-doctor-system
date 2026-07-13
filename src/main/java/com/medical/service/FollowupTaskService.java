@@ -17,7 +17,7 @@ public interface FollowupTaskService {
      * 根据风险等级和逾期情况自动生成
      * @return 生成的任务数量
      */
-    int generateAutoTasks();
+    int generateAutoTasks(Long doctorId, Long elderId);
 
     /**
      * 为指定老人和随访计划生成任务；已有待执行任务时直接复用。
@@ -46,7 +46,7 @@ public interface FollowupTaskService {
      * @param followRecordId 关联的随访记录ID
      * @return 是否成功
      */
-    boolean finishTask(Long taskId, Long followRecordId);
+    boolean finishTask(Long taskId, Long followRecordId, Long doctorId);
 
     /**
      * 取消随访任务
@@ -54,7 +54,7 @@ public interface FollowupTaskService {
      * @param reason 取消原因
      * @return 是否成功
      */
-    boolean cancelTask(Long taskId, String reason);
+    boolean cancelTask(Long taskId, String reason, Long doctorId);
 
     /**
      * 统计待执行任务数量

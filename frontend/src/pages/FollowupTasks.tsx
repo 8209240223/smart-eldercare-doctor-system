@@ -6,7 +6,7 @@ import {
   RefreshCw,
   XCircle,
 } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import PageShell from "@/components/layout/PageShell";
 import EmptyState from "@/components/common/EmptyState";
@@ -21,7 +21,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import ElderMasterSelect from "@/components/workflow/ElderMasterSelect";
 import WorkflowNavigationDialog, {
@@ -31,6 +30,7 @@ import { useElderWorkflowTasks } from "@/hooks/useCareWorkflow";
 import {
   useCancelFollowupTask,
   useFinishFollowupTask,
+  useFollowupRecords,
   useFollowupTasks,
   useGenerateFollowupTasks,
   useElders,
@@ -55,6 +55,7 @@ function statusClass(status?: number) {
 }
 
 export default function FollowupTasks() {
+  const navigate = useNavigate();
   const canManageTasks = getUserRole(useAuthStore((state) => state.userInfo)) === "doctor";
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedElderId = Number(searchParams.get("elderId") || 0) || undefined;
@@ -91,6 +92,15 @@ export default function FollowupTasks() {
   const generateTasks = useGenerateFollowupTasks();
   const finishTask = useFinishFollowupTask();
   const cancelTask = useCancelFollowupTask();
+  const { data: finishRecordsData, isLoading: finishRecordsLoading } =
+    useFollowupRecords(
+      1,
+      500,
+      finishTarget?.planId,
+      finishTarget?.elderId,
+      !!finishTarget,
+    );
+  const finishRecordOptions = finishRecordsData?.records || [];
 
   const elderNames = new Map(
     (eldersData?.records || []).map((elder) => [elder.id, elder.name]),
@@ -160,7 +170,7 @@ export default function FollowupTasks() {
 
   const generate = async () => {
     try {
-      const count = await generateTasks.mutateAsync();
+      const count = await generateTasks.mutateAsync({ elderId: selectedElderId });
       toast.success(`已生成 ${count || 0} 条随访任务`);
       refetch();
       setNavigationState({
@@ -175,7 +185,7 @@ export default function FollowupTasks() {
 
   const submitFinish = async () => {
     if (!finishTarget?.id || !followRecordId) {
-      toast.error("请填写关联随访记录ID");
+      toast.error("请选择本次任务对应的随访记录");
       return;
     }
     try {
@@ -381,7 +391,10 @@ export default function FollowupTasks() {
                             size="sm"
                             variant="outline"
                             className="rounded-lg"
-                            onClick={() => setFinishTarget(task)}
+                            onClick={() => {
+                              setFollowRecordId("");
+                              setFinishTarget(task);
+                            }}
                           >
                             <CheckCircle2 className="mr-1 h-4 w-4" />
                             完成
@@ -439,18 +452,44 @@ export default function FollowupTasks() {
           <DialogHeader>
             <DialogTitle>完成随访任务</DialogTitle>
           </DialogHeader>
-          <Input
-            value={followRecordId}
-            onChange={(event) => setFollowRecordId(event.target.value)}
-            placeholder="关联随访记录ID"
-          />
+          {finishRecordsLoading ? (
+            <Skeleton className="h-10 w-full" />
+          ) : finishRecordOptions.length > 0 ? (
+            <select
+              value={followRecordId}
+              onChange={(event) => setFollowRecordId(event.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">请选择随访记录</option>
+              {finishRecordOptions.map((record) => (
+                <option key={record.id} value={record.id}>
+                  #{record.id} · {record.followDate || "未填写日期"} · {record.followResult || "未填写结果"}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              <p>该任务对应的计划还没有随访记录，请先录入本次随访结果。</p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const elderId = finishTarget?.elderId;
+                  setFinishTarget(null);
+                  navigate(elderId ? `/followup?elderId=${elderId}` : "/followup");
+                }}
+              >
+                前往新增随访记录
+              </Button>
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setFinishTarget(null)}>
               取消
             </Button>
             <Button
               onClick={submitFinish}
-              disabled={finishTask.isPending}
+              disabled={finishTask.isPending || finishRecordsLoading || finishRecordOptions.length === 0}
               className="bg-gradient-to-r from-medical-400 to-medical-600 text-white"
             >
               确认完成

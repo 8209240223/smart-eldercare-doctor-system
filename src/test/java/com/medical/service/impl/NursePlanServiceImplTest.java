@@ -39,6 +39,7 @@ class NursePlanServiceImplTest {
         assertEquals(0, plan.getCompletedCount());
         assertEquals(0, plan.getDoctorApproval());
         assertEquals(2L, plan.getDoctorId());
+        verify(elderReferenceService).requireActiveDoctor(2L);
         verify(mapper).insert(plan);
     }
 

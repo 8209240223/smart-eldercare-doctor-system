@@ -5,6 +5,7 @@ import cn.hutool.core.bean.copier.CopyOptions;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.exception.BusinessException;
+import com.medical.entity.ElderInfo;
 import com.medical.entity.NursingRecord;
 import com.medical.entity.TimelineEvent;
 import com.medical.mapper.NursingRecordMapper;
@@ -76,7 +77,8 @@ public class NurseRecordServiceImpl implements NurseRecordService {
     @Override
     public Long create(NursingRecord record) {
         validateRequired(record);
-        elderReferenceService.requireActive(record.getElderId());
+        ElderInfo elder = elderReferenceService.requireActive(record.getElderId());
+        record.setDoctorId(requireResponsibleDoctor(elder, "创建护理记录"));
         record.setDeleted(0);
         record.setReportStatus(0);
         record.setDoctorReview(0);
@@ -101,7 +103,7 @@ public class NurseRecordServiceImpl implements NurseRecordService {
             throw new BusinessException(400, "护理记录不能为空");
         }
         Long elderId = record.getElderId() != null ? record.getElderId() : existing.getElderId();
-        elderReferenceService.requireActive(elderId);
+        ElderInfo elder = elderReferenceService.requireActive(elderId);
         // 已上报的记录不能修改
         if (existing.getReportStatus() != null && existing.getReportStatus() == 1) {
             throw new BusinessException(400, "已上报的记录不能修改");
@@ -109,7 +111,8 @@ public class NurseRecordServiceImpl implements NurseRecordService {
         BeanUtil.copyProperties(record, existing, CopyOptions.create()
                 .ignoreNullValue()
                 .setIgnoreProperties("id", "nurseId", "createTime", "updateTime", "deleted",
-                        "reportStatus", "doctorReview", "reviewDoctorId", "reviewComment", "reviewTime"));
+                        "doctorId", "reportStatus", "doctorReview", "reviewDoctorId", "reviewComment", "reviewTime"));
+        existing.setDoctorId(requireResponsibleDoctor(elder, "更新护理记录"));
         if (record.getIsAbnormal() != null && record.getIsAbnormal() == 1) {
             existing.setIsAbnormal(1);
             existing.setAbnormalDesc(record.getAbnormalDesc());
@@ -133,7 +136,8 @@ public class NurseRecordServiceImpl implements NurseRecordService {
     @Override
     public void reportAbnormal(Long id, String abnormalDesc) {
         NursingRecord record = getById(id);
-        elderReferenceService.requireActive(record.getElderId());
+        ElderInfo elder = elderReferenceService.requireActive(record.getElderId());
+        record.setDoctorId(requireResponsibleDoctor(elder, "上报护理记录"));
         record.setIsAbnormal(1);
         record.setAbnormalDesc(abnormalDesc);
         record.setReportStatus(1);
@@ -209,10 +213,18 @@ public class NurseRecordServiceImpl implements NurseRecordService {
         }
     }
 
+    private Long requireResponsibleDoctor(ElderInfo elder, String action) {
+        if (elder.getDoctorId() == null) {
+            throw new BusinessException(400, "该老人尚未分配责任医生，不能" + action);
+        }
+        elderReferenceService.requireActiveDoctor(elder.getDoctorId());
+        return elder.getDoctorId();
+    }
+
     private void addNursingRecordTimeline(NursingRecord record) {
         TimelineEvent event = new TimelineEvent();
         event.setElderId(record.getElderId());
-        event.setDoctorId(record.getReviewDoctorId());
+        event.setDoctorId(record.getDoctorId());
         event.setEventType(5);
         event.setEventTitle("护理记录：" + record.getRecordTitle());
         event.setEventContent((record.getRecordContent() == null ? "" : record.getRecordContent())

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.medical.common.exception.BusinessException;
 import com.medical.entity.WarningRule;
 import com.medical.mapper.WarningRuleMapper;
+import com.medical.service.ElderReferenceService;
 import com.medical.service.TimelineService;
 import com.medical.service.WarningService;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,6 +43,24 @@ class WarningRuleServiceImplTest {
         assertEquals(1, count);
         verify(warningService).create(any());
         verify(timelineService).addEvent(any());
+    }
+
+    @Test
+    void rejectsManualEvaluationForElderOutsideMasterData() {
+        ElderReferenceService elderReferenceService = mock(ElderReferenceService.class);
+        WarningRuleServiceImpl service = createService(
+                mock(WarningRuleMapper.class),
+                mock(WarningService.class),
+                mock(TimelineService.class),
+                elderReferenceService);
+        doThrow(new BusinessException(404, "老人不存在或已删除"))
+                .when(elderReferenceService).requireActive(999L);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.evaluateVitalSigns(999L,
+                        Map.of("heartRate", BigDecimal.valueOf(80))));
+
+        assertEquals(404, error.getCode());
     }
 
     @Test
@@ -141,10 +161,17 @@ class WarningRuleServiceImplTest {
 
     private WarningRuleServiceImpl createService(WarningRuleMapper mapper, WarningService warningService,
                                                  TimelineService timelineService) {
+        return createService(mapper, warningService, timelineService, mock(ElderReferenceService.class));
+    }
+
+    private WarningRuleServiceImpl createService(WarningRuleMapper mapper, WarningService warningService,
+                                                 TimelineService timelineService,
+                                                 ElderReferenceService elderReferenceService) {
         WarningRuleServiceImpl service = new WarningRuleServiceImpl();
         ReflectionTestUtils.setField(service, "warningRuleMapper", mapper);
         ReflectionTestUtils.setField(service, "warningService", warningService);
         ReflectionTestUtils.setField(service, "timelineService", timelineService);
+        ReflectionTestUtils.setField(service, "elderReferenceService", elderReferenceService);
         return service;
     }
 

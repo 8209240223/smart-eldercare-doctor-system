@@ -220,6 +220,7 @@ export default function Warnings() {
           data={realtimeStats}
           isLoading={realtimeStatsLoading}
           elders={eldersData?.records || []}
+          canHandle={canManageWarnings}
           onView={(warning) => setDetailId(warning.id)}
           onHandle={setHandleTarget}
         />
