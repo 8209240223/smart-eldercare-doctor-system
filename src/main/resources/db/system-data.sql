@@ -139,7 +139,7 @@ INSERT IGNORE INTO assessment_rule (rule_code, rule_name, category, indicator, d
 ('DRINK_EXCESSIVE','饮酒量偏大','生活方式','drinkingStatus','aggregate','>=',2,2,'饮酒量偏大，可能与降压药、降糖药产生相互作用，增加肝损伤风险','建议将饮酒量减至最低或完全戒酒。空腹不饮酒，不与药物同服',2),
 ('EXERCISE_INSUFFICIENT','运动量不足','生活方式','exerciseFrequency','aggregate','<=',1,1,'运动量不足，不利于慢性病控制和身体功能维持','建议每周≥150分钟中等强度运动（快走、太极拳、健身操等），循序渐进',3),
 
-('LIVING_ABILITY_LOW','生活自理能力下降','生活能力','livingAbility','aggregate','<=',2,2,'生活自理能力下降，需评估照护需求','评估居家环境安全性。必要时申请长期护理保险，安排居家照护或社区日间照料',1),
+('LIVING_ABILITY_LOW','生活自理能力下降','生活能力','livingAbility','aggregate','>=',3,2,'生活自理能力下降，需评估照护需求','评估居家环境安全性。必要时申请长期护理保险，安排居家照护或社区日间照料',1),
 ('DISABILITY_EXISTS','存在残疾情况','生活能力','hasDisability','aggregate','==',1,1,'存在残疾情况，需个性化照护方案','评估无障碍设施需求（扶手、坡道、助行器等）。制定个性化康复计划',2),
 ('FALL_RISK','跌倒高风险','生活能力','fallRisk','aggregate','==',1,2,'年龄较大且生活能力下降，跌倒风险较高','居家安全评估：加装扶手、浴室防滑垫、夜灯照明。鞋子防滑，起床遵循三部曲',3),
 
@@ -163,3 +163,7 @@ INSERT IGNORE INTO assessment_rule (rule_code, rule_name, category, indicator, d
 
 ('DEVICE_BOUND','已绑定监测设备','设备','hasDevice','aggregate','==',1,1,'已绑定{deviceNames}，体征数据持续回传中','定期查看设备数据，关注异常告警。确保设备电量充足、佩戴正确',1),
 ('DEVICE_NONE_ABNORMAL','异常体征未监测','设备','deviceGap','aggregate','==',1,1,'存在异常体征但未绑定对应监测设备，存在监测盲区','建议绑定血压计/血糖仪等设备，实现居家数据连续监测',2);
+
+UPDATE assessment_rule
+SET operator = '>=', threshold = 3
+WHERE rule_code = 'LIVING_ABILITY_LOW';

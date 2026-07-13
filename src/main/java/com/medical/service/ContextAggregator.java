@@ -3,6 +3,7 @@ package com.medical.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.medical.entity.*;
 import com.medical.mapper.*;
+import com.medical.common.utils.DisabilityStatusSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -66,8 +67,9 @@ public class ContextAggregator {
             ctx.put("smokingStatus", record.getSmokingStatus());      // 0不吸烟 1吸烟 2已戒烟
             ctx.put("drinkingStatus", record.getDrinkingStatus());    // 0不饮酒 1偶尔 2经常
             ctx.put("exerciseFrequency", record.getExerciseFrequency());// 0无 1偶尔 2规律
-            ctx.put("livingAbility", record.getLivingAbility());      // 越大越好
-            ctx.put("hasDisability", record.getDisabilityStatus() != null && !record.getDisabilityStatus().isEmpty() ? 1 : 0);
+            ctx.put("livingAbility", record.getLivingAbility());      // 数值越大，生活依赖程度越重
+            ctx.put("hasDisability", DisabilityStatusSupport.hasConfirmedDisability(
+                    record.getDisabilityStatus()) ? 1 : 0);
 
             // 身高体重从 health_record 或 physical_exam 取
             if (record.getHeight() != null) ctx.put("height", record.getHeight());
@@ -328,7 +330,7 @@ public class ContextAggregator {
         // 生活能力下降但无护理计划
         Integer livingAbility = (Integer) ctx.get("livingAbility");
         if (livingAbility != null) {
-            ctx.put("nursingGap", (livingAbility <= 2 && activeNursingPlans.isEmpty()) ? 1 : 0);
+            ctx.put("nursingGap", (livingAbility >= 3 && activeNursingPlans.isEmpty()) ? 1 : 0);
         }
 
         // ===== 16. 转诊（进行中的） =====
@@ -362,7 +364,7 @@ public class ContextAggregator {
         Object livingObj = ctx.get("livingAbility");
         Integer living = livingObj instanceof Number ? ((Number) livingObj).intValue() : null;
         if (age != null && living != null) {
-            ctx.put("fallRisk", (age >= 75 && living <= 2) ? 1 : 0);
+            ctx.put("fallRisk", (age >= 75 && living >= 3) ? 1 : 0);
         }
 
         LinkedHashSet<String> uniqueMissingData = new LinkedHashSet<>(missingData);

@@ -17,6 +17,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ElderInfo, HealthRecordInfo, PhysicalExam } from "@/hooks/useApi";
+import {
+  disabilityStatusOptions,
+  livingAbilityOptions,
+} from "@/lib/healthRecordOptions";
 import { extractBirthDateFromIdCard, validateIdCard } from "@/lib/idCard";
 
 export interface ElderOnboardingPayload {
@@ -543,15 +547,15 @@ export default function ElderOnboardingDialog({
                   }
                   options={[
                     ["", "未知"],
-                    [1, "完全自理"],
-                    [2, "基本自理"],
-                    [3, "部分依赖"],
-                    [4, "完全依赖"],
+                    ...livingAbilityOptions.map((option) => [
+                      option.value,
+                      option.label,
+                    ] as [number, string]),
                   ]}
                 />
               </Field>
               <Field label="残疾/失能情况">
-                <Input
+                <select
                   value={health.disabilityStatus}
                   onChange={(event) =>
                     setHealth((current) => ({
@@ -559,7 +563,13 @@ export default function ElderOnboardingDialog({
                       disabilityStatus: event.target.value,
                     }))
                   }
-                />
+                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                >
+                  <option value="">未知</option>
+                  {disabilityStatusOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
               </Field>
               <Field label="主要慢性病">
                 <Input

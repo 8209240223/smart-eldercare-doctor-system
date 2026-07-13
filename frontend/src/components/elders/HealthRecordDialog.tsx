@@ -13,6 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  disabilityStatusOptions,
+  livingAbilityOptions,
+} from "@/lib/healthRecordOptions";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import {
   useAddHealthDetailRecord,
@@ -483,7 +487,7 @@ export default function HealthRecordDialog({
                     </div>
                     <div className="space-y-2">
                       <Label>失能情况</Label>
-                      <Input
+                      <select
                         value={String(form.disabilityStatus || "")}
                         onChange={(event) =>
                           setForm((value) => ({
@@ -491,7 +495,13 @@ export default function HealthRecordDialog({
                             disabilityStatus: event.target.value,
                           }))
                         }
-                      />
+                        className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      >
+                        <option value="">未填写</option>
+                        {disabilityStatusOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="space-y-2">
                       <Label>生活能力</Label>
@@ -508,9 +518,9 @@ export default function HealthRecordDialog({
                         className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                       >
                         <option value="">未填写</option>
-                        <option value={1}>完全自理</option>
-                        <option value={2}>部分自理</option>
-                        <option value={3}>不能自理</option>
+                        {livingAbilityOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
                       </select>
                     </div>
                     <div className="space-y-2 md:col-span-3">

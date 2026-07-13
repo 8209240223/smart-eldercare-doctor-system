@@ -9,11 +9,13 @@ import com.medical.entity.ElderInfo;
 import com.medical.entity.ElderRiskProfile;
 import com.medical.entity.FollowPlan;
 import com.medical.entity.FollowRecord;
+import com.medical.entity.MedicalHistory;
 import com.medical.entity.TimelineEvent;
 import com.medical.mapper.ElderInfoMapper;
 import com.medical.mapper.ElderRiskProfileMapper;
 import com.medical.mapper.FollowPlanMapper;
 import com.medical.mapper.FollowRecordMapper;
+import com.medical.mapper.MedicalHistoryMapper;
 import com.medical.service.FollowUpService;
 import com.medical.service.ElderReferenceService;
 import com.medical.service.TimelineService;
@@ -46,6 +48,9 @@ public class FollowUpServiceImpl implements FollowUpService {
 
     @Autowired
     private ElderInfoMapper elderInfoMapper;
+
+    @Autowired
+    private MedicalHistoryMapper medicalHistoryMapper;
 
     @Autowired
     private TimelineService timelineService;
@@ -118,13 +123,19 @@ public class FollowUpServiceImpl implements FollowUpService {
                 skippedReasons.add(elder.getName() + " 不属于当前医生，已跳过");
                 continue;
             }
+            Integer inferredDiseaseType = inferDiseaseType(profile.getElderId(), profile.getRiskTags());
             FollowPlan existing = followPlanMapper.selectLatestActiveByElderForUpdate(profile.getElderId());
             if (existing != null) {
+                if (existing.getRemark() != null && existing.getRemark().startsWith(AUTO_RISK_MARK)
+                        && !inferredDiseaseType.equals(existing.getDiseaseType())) {
+                    existing.setDiseaseType(inferredDiseaseType);
+                    followPlanMapper.updateById(existing);
+                }
                 reusedPlans.add(toGeneratedPlanView(existing, profile, elder));
                 continue;
             }
 
-            FollowPlan plan = buildRiskFollowPlan(profile, elder, doctorId);
+            FollowPlan plan = buildRiskFollowPlan(profile, elder, doctorId, inferredDiseaseType);
             followPlanMapper.insert(plan);
             createdPlans.add(toGeneratedPlanView(plan, profile, elder));
         }
@@ -315,14 +326,15 @@ public class FollowUpServiceImpl implements FollowUpService {
         return endDate;
     }
 
-    private FollowPlan buildRiskFollowPlan(ElderRiskProfile profile, ElderInfo elder, Long requestDoctorId) {
+    private FollowPlan buildRiskFollowPlan(ElderRiskProfile profile, ElderInfo elder, Long requestDoctorId,
+                                           Integer diseaseType) {
         Integer riskLevel = profile.getRiskLevel() == null ? 1 : profile.getRiskLevel();
         LocalDate startDate = LocalDate.now();
         FollowPlan plan = new FollowPlan();
         plan.setElderId(profile.getElderId());
         plan.setDoctorId(elder.getDoctorId() != null ? elder.getDoctorId() : requestDoctorId);
         plan.setPlanName(getRiskLevelText(riskLevel) + "风险随访计划-" + elder.getName());
-        plan.setDiseaseType(inferDiseaseType(profile.getRiskTags()));
+        plan.setDiseaseType(diseaseType);
         plan.setFrequencyType(frequencyForRiskLevel(riskLevel));
         plan.setStartDate(startDate);
         plan.setNextFollowDate(startDate.plusDays(initialDueDaysForRiskLevel(riskLevel)));
@@ -350,14 +362,27 @@ public class FollowUpServiceImpl implements FollowUpService {
         return item;
     }
 
-    private Integer inferDiseaseType(String riskTags) {
-        String tags = riskTags == null ? "" : riskTags;
-        if (tags.contains("糖尿病")) return 2;
-        if (tags.contains("精神") || tags.contains("抑郁") || tags.contains("认知")) return 3;
-        if (tags.contains("冠心病")) return 4;
-        if (tags.contains("脑卒中")) return 5;
-        if (tags.contains("高血压")) return 1;
-        return 6;
+    private Integer inferDiseaseType(Long elderId, String riskTags) {
+        List<MedicalHistory> histories = medicalHistoryMapper.selectList(
+                new LambdaQueryWrapper<MedicalHistory>()
+                        .eq(MedicalHistory::getElderId, elderId)
+                        .and(wrapper -> wrapper.isNull(MedicalHistory::getIsCured)
+                                .or().eq(MedicalHistory::getIsCured, 0)));
+        StringBuilder source = new StringBuilder(riskTags == null ? "" : riskTags);
+        if (histories != null) {
+            histories.stream()
+                    .map(MedicalHistory::getDiseaseName)
+                    .filter(StringUtils::hasText)
+                    .forEach(name -> source.append(',').append(name));
+        }
+        String text = source.toString();
+        if (text.contains("糖尿病")) return 2;
+        if (text.contains("高血压")) return 1;
+        if (text.contains("冠心病")) return 3;
+        if (text.contains("脑卒中") || text.contains("脑梗") || text.contains("脑出血")) return 4;
+        if (text.contains("慢阻肺") || text.contains("慢性阻塞性肺")) return 5;
+        if (text.contains("阿尔茨海默") || text.contains("阿尔兹海默") || text.contains("痴呆")) return 6;
+        return 7;
     }
 
     private int frequencyForRiskLevel(int riskLevel) {

@@ -5,6 +5,7 @@ import cn.hutool.core.bean.copier.CopyOptions;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.exception.BusinessException;
+import com.medical.common.utils.DisabilityStatusSupport;
 import com.medical.entity.ElderInfo;
 import com.medical.entity.FollowPlan;
 import com.medical.entity.HealthRecord;
@@ -110,12 +111,18 @@ public class ElderServiceImpl implements ElderService {
 
     @Override
     public HealthRecord getHealthRecord(Long elderId) {
-        return healthRecordMapper.selectOne(
+        HealthRecord record = healthRecordMapper.selectOne(
                 new LambdaQueryWrapper<HealthRecord>().eq(HealthRecord::getElderId, elderId));
+        if (record != null && !DisabilityStatusSupport.isValid(record.getDisabilityStatus())) {
+            record.setDisabilityStatus(null);
+        }
+        return record;
     }
 
     @Override
     public void saveHealthRecord(Long elderId, HealthRecord record) {
+        validateHealthRecord(record);
+        record.setDisabilityStatus(DisabilityStatusSupport.normalize(record.getDisabilityStatus()));
         record.setElderId(elderId);
         HealthRecord existing = healthRecordMapper.selectOne(
                 new LambdaQueryWrapper<HealthRecord>().eq(HealthRecord::getElderId, elderId));
@@ -125,10 +132,24 @@ public class ElderServiceImpl implements ElderService {
                     .setIgnoreProperties("id", "elderId", "recordNo", "createTime", "updateTime"));
             existing.setElderId(elderId);
             existing.setRecordNo(record.getRecordNo() != null ? record.getRecordNo() : existing.getRecordNo());
+            existing.setDisabilityStatus(record.getDisabilityStatus());
             healthRecordMapper.updateById(existing);
         } else {
             record.setRecordNo("HR" + System.currentTimeMillis());
             healthRecordMapper.insert(record);
+        }
+    }
+
+    private void validateHealthRecord(HealthRecord record) {
+        if (record == null) {
+            throw new BusinessException(400, "健康档案不能为空");
+        }
+        if (record.getLivingAbility() != null
+                && (record.getLivingAbility() < 1 || record.getLivingAbility() > 4)) {
+            throw new BusinessException(400, "生活自理能力只能选择完全自理、基本自理、部分依赖或完全依赖");
+        }
+        if (!DisabilityStatusSupport.isValid(record.getDisabilityStatus())) {
+            throw new BusinessException(400, "残疾/失能情况必须从系统提供的选项中选择");
         }
     }
 
