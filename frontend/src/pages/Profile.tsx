@@ -41,8 +41,8 @@ const allowedAvatarTypes = new Set(["image/jpeg", "image/png", "image/gif", "ima
 const rolePermissions: Record<UserRole, { manage: string[]; readOnly: string[]; restrictions: string[] }> = {
   doctor: {
     manage: ["老人档案", "预警处置", "随访与干预", "评估与转诊", "体检管理", "预警规则", "护理质控"],
-    readOnly: ["重点人群", "生命体征", "健康时间轴", "AI 报告"],
-    restrictions: ["不能修改系统 AI 配置", "不能创建或维护护理记录和护理计划", "不能执行管理员账号管理"],
+    readOnly: ["重点人群", "生命体征", "健康时间轴", "Kimi AI 报告"],
+    restrictions: ["不能创建或维护护理记录和护理计划", "不能执行管理员账号管理", "只能查看职责范围内的老人数据"],
   },
   nurse: {
     manage: ["护理记录", "护理计划", "生命体征", "体检管理"],
@@ -50,8 +50,8 @@ const rolePermissions: Record<UserRole, { manage: string[]; readOnly: string[]; 
     restrictions: ["不能新增或删除老人主档", "不能处理预警或维护预警规则", "不能审核护理记录和护理计划"],
   },
   admin: {
-    manage: ["管理员工作台", "AI 配置"],
-    readOnly: ["老人档案", "预警中心", "评估与体检", "生命体征", "护理数据", "健康时间轴", "AI 报告"],
+    manage: ["管理员工作台", "账号治理", "注册审核", "操作审计", "消息协同"],
+    readOnly: ["老人档案", "预警中心", "评估与体检", "生命体征", "护理数据", "健康时间轴", "Kimi AI 报告"],
     restrictions: ["不能执行医生临床处置", "不能创建或修改护理业务数据", "不能通过公开注册创建管理员账号"],
   },
 };
@@ -59,7 +59,7 @@ const rolePermissions: Record<UserRole, { manage: string[]; readOnly: string[]; 
 export default function Profile() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
-  const { token, userInfo, setAuth, logout } = useAuthStore();
+  const { token, tokenId, userInfo, setAuth, logout } = useAuthStore();
   const role = getUserRole(userInfo);
   const permissionProfile = rolePermissions[role];
   const userId = Number(userInfo?.userId || userInfo?.id || 0) || undefined;
@@ -104,7 +104,7 @@ export default function Profile() {
     try {
       await updateInfo.mutateAsync(profile);
       if (token && userInfo) {
-        setAuth(token, { ...userInfo, ...profile });
+        setAuth(token, { ...userInfo, ...profile }, tokenId || undefined);
       }
       toast.success("个人资料已保存");
     } catch (err) {
@@ -127,7 +127,7 @@ export default function Profile() {
       const nextProfile = { ...profile, avatar: result.avatar };
       setProfile(nextProfile);
       if (token && userInfo) {
-        setAuth(token, { ...userInfo, avatar: result.avatar });
+        setAuth(token, { ...userInfo, avatar: result.avatar }, tokenId || undefined);
       }
       toast.success("头像已上传");
     } catch (err) {
@@ -139,7 +139,7 @@ export default function Profile() {
     try {
       await updateInfo.mutateAsync({ avatar: "" });
       setProfile((value) => ({ ...value, avatar: "" }));
-      if (token && userInfo) setAuth(token, { ...userInfo, avatar: "" });
+      if (token && userInfo) setAuth(token, { ...userInfo, avatar: "" }, tokenId || undefined);
       toast.success("头像已清除");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "清除头像失败");

@@ -1,4 +1,4 @@
--- 系统基础初始化数据：仅包含账号、角色、医生、规则和 AI 配置。
+-- 系统基础初始化数据：仅包含账号、角色、医生和规则。
 -- 老人及老人业务演示数据不在应用启动时自动写入。
 
 -- ============================================
@@ -44,40 +44,6 @@ INSERT IGNORE INTO warning_rule (id, rule_name, rule_type, metric_code, conditio
 (6, '血氧偏低',            6, 'bloodOxygen',         'bloodOxygen<=90',           3, '血氧饱和度低于90%，需紧急处理', 1),
 (7, '舒张压偏高',          1, 'diastolic',          'diastolic>=100',            2, '舒张压超过100mmHg，请关注', 1),
 (8, '餐后血糖偏高',        2, 'bloodSugarPostprandial','bloodSugarPostprandial>=11',2, '餐后2小时血糖超过11mmol/L', 1);
-
--- ============================================
--- -- AI 健康评估模块 — 种子数据
--- ============================================
-
--- AI 配置默认值
-INSERT IGNORE INTO ai_config (config_key, config_value, config_desc) VALUES
-('ai.api_key', '', 'AI API Key'),
-('ai.base_url', 'https://open.bigmodel.cn/api/paas/v4/chat/completions', 'API 基础地址'),
-('ai.model', 'glm-4.7-flash', '模型名称'),
-('ai.mock_enabled', 'true', '是否启用Mock模式'),
-('ai.max_per_day', '20', '每个医生每日最大AI调用次数'),
-('ai.timeout_seconds', '60', 'AI调用超时时间(秒)'),
-('ai.max_retries', '2', 'AI调用失败重试次数');
-
-UPDATE ai_config
-SET config_desc = 'AI API Key'
-WHERE config_key = 'ai.api_key'
-  AND config_desc = 'DeepSeek API Key';
-
-UPDATE ai_config
-SET config_value = 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
-WHERE config_key = 'ai.base_url'
-  AND config_value IN ('https://api.deepseek.com', 'https://api.deepseek.com/v1', 'https://api.deepseek.com/v1/chat/completions');
-
-UPDATE ai_config
-SET config_value = 'glm-4.7-flash'
-WHERE config_key = 'ai.model'
-  AND config_value = 'deepseek-chat';
-
-UPDATE ai_config
-SET config_value = '60'
-WHERE config_key = 'ai.timeout_seconds'
-  AND config_value = '30';
 
 -- 评估规则（60条）
 INSERT IGNORE INTO assessment_rule (rule_code, rule_name, category, indicator, data_source, operator, threshold, severity, finding_text, advice_text, sort_order) VALUES

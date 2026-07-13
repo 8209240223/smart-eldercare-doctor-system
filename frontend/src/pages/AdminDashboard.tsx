@@ -3,9 +3,9 @@ import { Link } from "react-router-dom";
 import {
   Activity,
   ArrowRightLeft,
-  Bot,
   ClipboardCheck,
   FileHeart,
+  History,
   RefreshCw,
   Settings,
   ShieldAlert,
@@ -89,7 +89,7 @@ export default function AdminDashboard() {
   return (
     <PageShell
       title="管理员工作台"
-      subtitle="总览平台数据、系统配置、AI 配置、预警规则和审核待办"
+      subtitle="总览平台数据、账号治理、审计日志、预警规则和协同待办"
     >
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -231,15 +231,11 @@ export default function AdminDashboard() {
                   预警规则配置
                 </Link>
               </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="h-20 justify-start rounded-xl px-5"
-              >
-                <Link to="/admin-ai-config">
-                  <Bot className="mr-3 h-5 w-5 text-medical-500" />
-                  AI 配置管理
-                </Link>
+              <Button asChild variant="outline" className="h-20 justify-start rounded-xl px-5">
+                <Link to="/admin/users"><Users className="mr-3 h-5 w-5 text-medical-500" />用户治理</Link>
+              </Button>
+              <Button asChild variant="outline" className="h-20 justify-start rounded-xl px-5">
+                <Link to="/admin/operation-logs"><History className="mr-3 h-5 w-5 text-medical-500" />操作审计</Link>
               </Button>
               <Button
                 asChild

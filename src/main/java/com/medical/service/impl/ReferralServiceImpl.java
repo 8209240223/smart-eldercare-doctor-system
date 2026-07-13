@@ -6,6 +6,7 @@ import com.medical.common.exception.BusinessException;
 import com.medical.entity.ReferralOrder;
 import com.medical.entity.TimelineEvent;
 import com.medical.mapper.ReferralOrderMapper;
+import com.medical.message.service.MessageService;
 import com.medical.service.ElderReferenceService;
 import com.medical.service.ReferralService;
 import com.medical.service.TimelineService;
@@ -28,6 +29,9 @@ public class ReferralServiceImpl implements ReferralService {
 
     @Autowired
     private ElderReferenceService elderReferenceService;
+
+    @Autowired(required = false)
+    private MessageService messageService;
 
     @Override
     public ReferralOrder createReferral(ReferralOrder order) {
@@ -55,6 +59,9 @@ public class ReferralServiceImpl implements ReferralService {
         event.setDoctorId(order.getFromDoctorId());
         event.setEventTime(LocalDateTime.now());
         timelineService.addEvent(event);
+
+        notifyReferralUsers(order, order.getFromDoctorId(), "收到新的转诊协同",
+                "你收到一条新的转诊单，请及时查看并处理。", 2);
 
         return order;
     }
@@ -127,6 +134,7 @@ public class ReferralServiceImpl implements ReferralService {
         order.setAcceptTime(LocalDateTime.now());
         order.setUpdateTime(LocalDateTime.now());
         referralOrderMapper.updateById(order);
+        notifyReferralUsers(order, currentUserId, "转诊单已接收", "相关转诊单已被接收，协同流程进入处理中。", 1);
     }
 
     @Override
@@ -151,6 +159,7 @@ public class ReferralServiceImpl implements ReferralService {
         event.setSourceId(order.getId());
         event.setEventTime(LocalDateTime.now());
         timelineService.addEvent(event);
+        notifyReferralUsers(order, currentUserId, "转诊流程已完成", "相关转诊单已完成，请查看出院小结和后续安排。", 2);
     }
 
     @Override
@@ -163,6 +172,7 @@ public class ReferralServiceImpl implements ReferralService {
         order.setRejectReason(reason);
         order.setUpdateTime(LocalDateTime.now());
         referralOrderMapper.updateById(order);
+        notifyReferralUsers(order, currentUserId, "转诊单已被拒绝", "相关转诊单未被接收，请查看拒绝原因并重新协调。", 3);
     }
 
     @Override
@@ -175,6 +185,28 @@ public class ReferralServiceImpl implements ReferralService {
         order.setCancelReason(reason);
         order.setUpdateTime(LocalDateTime.now());
         referralOrderMapper.updateById(order);
+        notifyReferralUsers(order, currentUserId, "转诊单已取消", "相关转诊单已由发起方取消。", 2);
+    }
+
+    private void notifyReferralUsers(ReferralOrder order,
+                                     Long actorUserId,
+                                     String title,
+                                     String content,
+                                     int priority) {
+        if (messageService == null || order == null) {
+            return;
+        }
+        java.util.Set<Long> recipients = new java.util.LinkedHashSet<>();
+        if (order.getFromDoctorId() != null) recipients.add(order.getFromDoctorId());
+        if (order.getToDoctorId() != null) recipients.add(order.getToDoctorId());
+        recipients.remove(actorUserId);
+        for (Long recipient : recipients) {
+            try {
+                messageService.sendSystemNotification(recipient, title, content, 4, priority, "/referrals");
+            } catch (Exception ignored) {
+                // 协同通知失败不能回滚转诊业务。
+            }
+        }
     }
 
     @Override

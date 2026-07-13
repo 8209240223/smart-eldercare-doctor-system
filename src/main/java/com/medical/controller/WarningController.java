@@ -1,13 +1,17 @@
 package com.medical.controller;
 
+import com.medical.auth.session.AuthSessionService;
 import com.medical.common.annotation.RequireRole;
 import com.medical.common.annotation.OperationLog;
 import com.medical.common.result.R;
 import com.medical.common.utils.JwtUtils;
 import com.medical.entity.HealthWarning;
+import com.medical.entity.SysUser;
+import com.medical.mapper.SysUserMapper;
 import com.medical.service.SseService;
 import com.medical.service.WarningService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -29,6 +33,12 @@ public class WarningController {
 
     @Autowired
     private JwtUtils jwtUtils;
+
+    @Autowired
+    private AuthSessionService authSessionService;
+
+    @Autowired
+    private SysUserMapper sysUserMapper;
 
     @GetMapping
     public R<?> list(@RequestParam(defaultValue = "1") Integer pageNum,
@@ -109,10 +119,13 @@ public class WarningController {
      * 需要传递 token 作为查询参数进行鉴权
      */
     @GetMapping("/stream")
-    public SseEmitter stream(@RequestParam String token) {
+    public SseEmitter stream(@RequestParam String token,
+                             @RequestParam(required = false) String tokenId,
+                             @RequestHeader(value = "X-Token-Id", required = false) String headerTokenId) {
+        String effectiveTokenId = StringUtils.hasText(headerTokenId) ? headerTokenId : tokenId;
         // 从 token 中解析 doctorId
         Long doctorId = null;
-        if (token != null && jwtUtils.validateToken(token)) {
+        if (StringUtils.hasText(effectiveTokenId) && token != null && jwtUtils.validateToken(token)) {
             doctorId = jwtUtils.getUserIdFromToken(token);
         }
         if (doctorId == null) {
@@ -126,7 +139,30 @@ public class WarningController {
             emitter.complete();
             return emitter;
         }
+        if (!authSessionService.validateSession(doctorId, effectiveTokenId, token)) {
+            return invalidSessionEmitter();
+        }
+        SysUser user = sysUserMapper.selectById(doctorId);
+        if (user == null || !Integer.valueOf(1).equals(user.getStatus())
+                || Integer.valueOf(1).equals(user.getDeleted())) {
+            try {
+                authSessionService.revokeAllSessions(doctorId);
+            } catch (RuntimeException ignored) {
+            }
+            return invalidSessionEmitter();
+        }
+        authSessionService.refreshSession(doctorId, effectiveTokenId);
         return sseService.connect(doctorId, token);
+    }
+
+    private SseEmitter invalidSessionEmitter() {
+        SseEmitter emitter = new SseEmitter(0L);
+        try {
+            emitter.send(SseEmitter.event().name("error").data(R.fail(401, "会话无效")));
+        } catch (Exception ignored) {
+        }
+        emitter.complete();
+        return emitter;
     }
 
     private Long currentUserId(HttpServletRequest request) {

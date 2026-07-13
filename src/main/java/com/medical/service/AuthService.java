@@ -38,7 +38,7 @@ public interface AuthService {
     void register(String username, String password, String realName, String phone, Integer userType);
 
     /**
-     * 登出（从Redis移除Token）
+     * 登出并撤销当前会话
      */
-    void logout(String tokenId);
+    void logout(Long userId, String tokenId);
 }

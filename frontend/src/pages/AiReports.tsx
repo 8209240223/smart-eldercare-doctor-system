@@ -32,7 +32,6 @@ import {
   useAiReportDetail,
   useAiReports,
   useConfirmAiReport,
-  useDeepAnalysisAiReport,
   useElders,
   useGenerateAiReport,
   useRejectAiReport,
@@ -80,7 +79,6 @@ export default function AiReports() {
   const { data: detail, isLoading: detailLoading } =
     useAiReportDetail(detailId);
   const generateReport = useGenerateAiReport();
-  const deepAnalysis = useDeepAnalysisAiReport();
   const confirmReport = useConfirmAiReport();
   const rejectReport = useRejectAiReport();
   const records = data?.records || [];
@@ -136,19 +134,10 @@ export default function AiReports() {
     if (!selectedElderId) return toast.error("请先选择老人");
     try {
       await generateReport.mutateAsync(selectedElderId);
-      toast.success("规则评估报告已生成");
+      toast.success("Kimi 健康报告已生成");
       refetch();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "生成报告失败");
-    }
-  };
-  const deep = async (id: number) => {
-    try {
-      await deepAnalysis.mutateAsync(id);
-      toast.success("AI 深度分析完成");
-      refetch();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "AI 分析失败");
     }
   };
   const confirm = async () => {
@@ -366,8 +355,7 @@ export default function AiReports() {
                               "暂无结构化摘要"}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {item.modelName ||
-                              (item.source === 2 ? "AI 引擎" : "规则引擎")}{" "}
+                            {item.modelName || "Kimi 医疗分析"}{" "}
                             · {item.createTime}
                           </p>
                         </div>
@@ -380,19 +368,6 @@ export default function AiReports() {
                             <Eye className="mr-1 h-4 w-4" />
                             查看
                           </Button>
-                          {canOperateReports &&
-                            item.source === 1 &&
-                            item.status === 0 && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => deep(item.id)}
-                                disabled={deepAnalysis.isPending}
-                              >
-                                <Sparkles className="mr-1 h-4 w-4" />
-                                AI 增强分析
-                              </Button>
-                            )}
                           {canOperateReports && item.status === 0 && (
                             <Button
                               size="sm"

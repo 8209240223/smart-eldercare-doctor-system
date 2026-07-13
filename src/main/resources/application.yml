@@ -92,20 +92,21 @@ file:
   upload-path: ./upload
   allowed-types: jpg,jpeg,png,gif,pdf,xlsx,xls,doc,docx
 
-# AI 健康评估配置
-ai:
-  deepseek:
-    api-key: ${AI_API_KEY:${DEEPSEEK_API_KEY:}}
-    base-url: https://open.bigmodel.cn/api/paas/v4/chat/completions
-    model: glm-4.7-flash
-  mock:
-    enabled: true        # 开发阶段启用 Mock，上线后改为 false
-  rate-limit:
-    max-per-day: 20      # 每个医生每日最大 AI 调用次数
-  timeout:
-    seconds: 60          # AI 调用超时时间
-  retry:
-    max-attempts: 2      # 调用失败重试次数
+# 站内协同消息与可选SMTP通知
+notification:
+  sse:
+    timeout-ms: ${NOTIFICATION_SSE_TIMEOUT_MS:1800000}
+  mail:
+    enabled: ${NOTIFICATION_MAIL_ENABLED:false}
+    host: ${NOTIFICATION_MAIL_HOST:}
+    port: ${NOTIFICATION_MAIL_PORT:25}
+    username: ${NOTIFICATION_MAIL_USERNAME:}
+    password: ${NOTIFICATION_MAIL_PASSWORD:}
+    from: ${NOTIFICATION_MAIL_FROM:}
+    auth: ${NOTIFICATION_MAIL_AUTH:false}
+    start-tls: ${NOTIFICATION_MAIL_START_TLS:false}
+    timeout-ms: ${NOTIFICATION_MAIL_TIMEOUT_MS:5000}
+    subject-prefix: "${NOTIFICATION_MAIL_SUBJECT_PREFIX:智慧医养通知：}"
 
 # 日志配置
 logging:

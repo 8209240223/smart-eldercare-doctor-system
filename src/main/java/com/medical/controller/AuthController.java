@@ -49,9 +49,9 @@ public class AuthController {
 
     @PostMapping("/logout")
     public R<?> logout(HttpServletRequest request) {
-        // 从请求中获取 tokenId（前端可在登出时携带 tokenId 参数）
-        String tokenId = request.getParameter("tokenId");
-        authService.logout(tokenId);
+        Long userId = (Long) request.getAttribute("currentUserId");
+        String tokenId = request.getHeader("X-Token-Id");
+        authService.logout(userId, tokenId);
         return R.ok("退出成功");
     }
 
@@ -84,7 +84,7 @@ public class AuthController {
                 dto.getRealName(), dto.getPhone(), dto.getUserType());
         authService.register(dto.getUsername(), dto.getPassword(),
                 dto.getRealName(), dto.getPhone(), dto.getUserType());
-        return R.ok("注册成功，请登录");
+        return R.ok("注册申请已提交，请等待管理员审核");
     }
 
     /**

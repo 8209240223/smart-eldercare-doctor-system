@@ -9,6 +9,7 @@ import com.medical.entity.ElderInfo;
 import com.medical.entity.NursingRecord;
 import com.medical.entity.TimelineEvent;
 import com.medical.mapper.NursingRecordMapper;
+import com.medical.message.service.MessageService;
 import com.medical.service.ElderReferenceService;
 import com.medical.service.NurseRecordService;
 import com.medical.service.TimelineService;
@@ -33,6 +34,9 @@ public class NurseRecordServiceImpl implements NurseRecordService {
 
     @Autowired
     private ElderReferenceService elderReferenceService;
+
+    @Autowired(required = false)
+    private MessageService messageService;
 
     @Override
     public Page<NursingRecord> list(Integer pageNum, Integer pageSize, Long elderId, Long nurseId,
@@ -142,6 +146,19 @@ public class NurseRecordServiceImpl implements NurseRecordService {
         record.setAbnormalDesc(abnormalDesc);
         record.setReportStatus(1);
         nursingRecordMapper.updateById(record);
+        notifyUser(record.getDoctorId(), "收到护理异常上报",
+                "护士上报了一条异常护理记录，请及时查看并完成审核。", 3, "/nurse-review");
+    }
+
+    private void notifyUser(Long userId, String title, String content, int priority, String actionUrl) {
+        if (messageService == null || userId == null) {
+            return;
+        }
+        try {
+            messageService.sendSystemNotification(userId, title, content, 3, priority, actionUrl);
+        } catch (Exception ignored) {
+            // 协同通知失败不能回滚护理记录业务。
+        }
     }
 
     @Override

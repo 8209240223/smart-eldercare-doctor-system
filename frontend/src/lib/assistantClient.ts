@@ -10,6 +10,7 @@ export interface AssistantStatus {
 
 export interface AssistantChatRequest {
   message: string;
+  conversationId?: string;
   history?: Array<{
     role: "user" | "assistant";
     content: string;
@@ -19,12 +20,43 @@ export interface AssistantChatRequest {
 export interface AssistantChatReply {
   content: string;
   conversationId?: string;
+  approval?: AssistantApproval;
 }
 
-interface AssistantStreamEvent {
-  type?: "delta" | "done" | "error";
+export interface AssistantApproval {
+  token: string;
+  actionId?: string;
+  tool?: string;
+  summary?: string;
+  expiresInSeconds?: number;
+}
+
+export interface AssistantProgressEvent {
+  type?: "step" | "tool" | "tool_result" | "approval_required" | "delta" | "done" | "error";
   content?: string;
   model?: string;
+  conversationId?: string;
+  status?: string;
+  step?: number;
+  phase?: string;
+  id?: string;
+  name?: string;
+  arguments?: unknown;
+  result?: unknown;
+  error?: string;
+  code?: number;
+  token?: string;
+  actionId?: string;
+  tool?: string;
+  summary?: string;
+  expiresInSeconds?: number;
+}
+
+export interface AssistantActionReply {
+  actionId?: string;
+  tool?: string;
+  result?: unknown;
+  replayed?: boolean;
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -113,6 +145,7 @@ export async function sendAssistantMessage(
 export async function streamAssistantMessage(
   request: AssistantChatRequest,
   onDelta: (chunk: string) => void,
+  onEvent?: (event: AssistantProgressEvent) => void,
 ): Promise<AssistantChatReply> {
   const token = localStorage.getItem("token");
   const tokenId = localStorage.getItem("tokenId");
@@ -144,13 +177,26 @@ export async function streamAssistantMessage(
   let buffer = "";
   let dataLines: string[] = [];
   let content = "";
+  let conversationId: string | undefined;
+  let approval: AssistantApproval | undefined;
 
   const handleEvent = () => {
     if (dataLines.length === 0) return;
     const raw = dataLines.join("\n");
     dataLines = [];
-    const event = JSON.parse(raw) as AssistantStreamEvent;
+    const event = JSON.parse(raw) as AssistantProgressEvent;
     if (event.type === "error") throw new Error(event.content || "AI 助手流式回答失败");
+    onEvent?.(event);
+    if (event.conversationId) conversationId = event.conversationId;
+    if (event.type === "approval_required" && event.token) {
+      approval = {
+        token: event.token,
+        actionId: event.actionId,
+        tool: event.tool,
+        summary: event.summary,
+        expiresInSeconds: event.expiresInSeconds,
+      };
+    }
     if (event.type === "delta" && event.content) {
       content += event.content;
       onDelta(event.content);
@@ -178,6 +224,26 @@ export async function streamAssistantMessage(
     if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
   }
   handleEvent();
+  if (!content.trim() && approval) {
+    content = `操作已准备完成，请确认后执行：${approval.summary || approval.tool || "站内操作"}`;
+  }
   if (!content.trim()) throw new Error("助手没有返回有效回答");
-  return { content: content.trim() };
+  return { content: content.trim(), conversationId, approval };
+}
+
+export async function confirmAssistantAction(token: string): Promise<AssistantActionReply> {
+  const response = await apiClient.post(`/api/assistant/actions/${encodeURIComponent(token)}/confirm`);
+  const payload = unwrapPayload(response.data);
+  if (!isRecord(payload)) return {};
+  return {
+    actionId: firstString(payload, ["actionId", "id"]),
+    tool: firstString(payload, ["tool", "name"]),
+    result: payload.result,
+    replayed: Boolean(payload.replayed),
+  };
+}
+
+export async function cancelAssistantAction(token: string): Promise<void> {
+  const response = await apiClient.delete(`/api/assistant/actions/${encodeURIComponent(token)}`);
+  unwrapPayload(response.data);
 }
