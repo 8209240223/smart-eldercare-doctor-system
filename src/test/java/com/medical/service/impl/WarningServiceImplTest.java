@@ -116,6 +116,22 @@ class WarningServiceImplTest {
     }
 
     @Test
+    void eventLogsLabelLegacyProcessingRecordsByTheirDetail() {
+        WarningEventLogMapper logMapper = mock(WarningEventLogMapper.class);
+        when(logMapper.selectList(any())).thenReturn(List.of(
+                eventLog(1L, "预警标记为处理中"),
+                eventLog(1L, "医生查看并标记预警为已读")));
+
+        WarningServiceImpl service = new WarningServiceImpl();
+        ReflectionTestUtils.setField(service, "warningEventLogMapper", logMapper);
+
+        List<Map<String, Object>> logs = service.getEventLogs(1L);
+
+        assertEquals("处理中", logs.get(0).get("eventTypeText"));
+        assertEquals("已读", logs.get(1).get("eventTypeText"));
+    }
+
+    @Test
     void markingAnAlreadyReadWarningDoesNotInsertDuplicateLog() {
         HealthWarningMapper warningMapper = mock(HealthWarningMapper.class);
         WarningEventLogMapper logMapper = mock(WarningEventLogMapper.class);

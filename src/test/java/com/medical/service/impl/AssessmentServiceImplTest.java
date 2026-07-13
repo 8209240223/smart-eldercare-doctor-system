@@ -5,6 +5,7 @@ import com.medical.entity.AllergyRecord;
 import com.medical.entity.AssessmentRecord;
 import com.medical.entity.ElderInfo;
 import com.medical.entity.FamilyHistory;
+import com.medical.entity.HealthRecord;
 import com.medical.entity.MedicationRecord;
 import com.medical.mapper.AiHealthReportMapper;
 import com.medical.mapper.AllergyRecordMapper;
@@ -41,10 +42,11 @@ class AssessmentServiceImplTest {
         MedicationRecordMapper medicationMapper = mock(MedicationRecordMapper.class);
         AllergyRecordMapper allergyMapper = mock(AllergyRecordMapper.class);
         FamilyHistoryMapper familyHistoryMapper = mock(FamilyHistoryMapper.class);
+        HealthRecordMapper healthRecordMapper = mock(HealthRecordMapper.class);
         ElderReferenceService elderReferenceService = mock(ElderReferenceService.class);
         AssessmentServiceImpl service = new AssessmentServiceImpl();
         ReflectionTestUtils.setField(service, "assessmentRecordMapper", assessmentMapper);
-        ReflectionTestUtils.setField(service, "healthRecordMapper", mock(HealthRecordMapper.class));
+        ReflectionTestUtils.setField(service, "healthRecordMapper", healthRecordMapper);
         ReflectionTestUtils.setField(service, "medicalHistoryMapper", emptyMedicalHistoryMapper());
         ReflectionTestUtils.setField(service, "medicationRecordMapper", medicationMapper);
         ReflectionTestUtils.setField(service, "allergyRecordMapper", allergyMapper);
@@ -59,6 +61,10 @@ class AssessmentServiceImplTest {
         elder.setName("测试老人");
         elder.setGender(1);
         when(elderReferenceService.requireActive(1L)).thenReturn(elder);
+
+        HealthRecord legacyHealthRecord = new HealthRecord();
+        legacyHealthRecord.setDisabilityStatus("1");
+        when(healthRecordMapper.selectOne(any())).thenReturn(legacyHealthRecord);
 
         AssessmentRecord typeSix = assessment(6, "15");
         AssessmentRecord typeNine = assessment(9, "88");
@@ -90,6 +96,9 @@ class AssessmentServiceImplTest {
         assertEquals(1, ((List<?>) result.get("medications")).size());
         assertEquals(1, ((List<?>) result.get("allergies")).size());
         assertEquals(1, ((List<?>) result.get("familyHistories")).size());
+        Map<?, ?> healthRecord = (Map<?, ?>) result.get("healthRecord");
+        assertNull(healthRecord.get("disabilityStatus"));
+        assertEquals("1", legacyHealthRecord.getDisabilityStatus());
     }
 
     private AssessmentRecord assessment(int type, String score) {

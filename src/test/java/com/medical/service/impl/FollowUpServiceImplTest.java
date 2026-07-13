@@ -182,6 +182,56 @@ class FollowUpServiceImplTest {
     }
 
     @Test
+    void targetedGenerationRejectsUnassignedElder() {
+        FollowPlanMapper planMapper = mock(FollowPlanMapper.class);
+        FollowRecordMapper recordMapper = mock(FollowRecordMapper.class);
+        ElderReferenceService elderReferenceService = mock(ElderReferenceService.class);
+        RiskProfileService riskProfileService = mock(RiskProfileService.class);
+        FollowUpServiceImpl service = createService(planMapper, recordMapper);
+        ReflectionTestUtils.setField(service, "elderReferenceService", elderReferenceService);
+        ReflectionTestUtils.setField(service, "riskProfileService", riskProfileService);
+
+        ElderInfo elder = new ElderInfo();
+        elder.setId(21L);
+        elder.setName("未分配老人");
+        elder.setDoctorId(null);
+        elder.setDeleted(0);
+        when(elderReferenceService.requireActive(21L)).thenReturn(elder);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.generateRiskFollowPlans(2L, 21L));
+
+        assertEquals(403, error.getCode());
+        verify(riskProfileService, never()).calculateRisk(21L);
+        verify(planMapper, never()).insert(any(FollowPlan.class));
+    }
+
+    @Test
+    void targetedGenerationRejectsElderOwnedByAnotherDoctor() {
+        FollowPlanMapper planMapper = mock(FollowPlanMapper.class);
+        FollowRecordMapper recordMapper = mock(FollowRecordMapper.class);
+        ElderReferenceService elderReferenceService = mock(ElderReferenceService.class);
+        RiskProfileService riskProfileService = mock(RiskProfileService.class);
+        FollowUpServiceImpl service = createService(planMapper, recordMapper);
+        ReflectionTestUtils.setField(service, "elderReferenceService", elderReferenceService);
+        ReflectionTestUtils.setField(service, "riskProfileService", riskProfileService);
+
+        ElderInfo elder = new ElderInfo();
+        elder.setId(22L);
+        elder.setName("其他医生老人");
+        elder.setDoctorId(3L);
+        elder.setDeleted(0);
+        when(elderReferenceService.requireActive(22L)).thenReturn(elder);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.generateRiskFollowPlans(2L, 22L));
+
+        assertEquals(403, error.getCode());
+        verify(riskProfileService, never()).calculateRisk(22L);
+        verify(planMapper, never()).insert(any(FollowPlan.class));
+    }
+
+    @Test
     void bulkGenerationIncludesLowRiskProfilesAfterRefreshingAllElders() {
         FollowPlanMapper planMapper = mock(FollowPlanMapper.class);
         FollowRecordMapper recordMapper = mock(FollowRecordMapper.class);
@@ -211,6 +261,46 @@ class FollowUpServiceImplTest {
         assertEquals(1, result.get("createdCount"));
         verify(riskProfileService).calculateAllRisk();
         verify(planMapper).insert(any(FollowPlan.class));
+    }
+
+    @Test
+    void bulkGenerationSkipsUnassignedElderWithoutAffectingAssignedElder() {
+        FollowPlanMapper planMapper = mock(FollowPlanMapper.class);
+        FollowRecordMapper recordMapper = mock(FollowRecordMapper.class);
+        ElderRiskProfileMapper riskMapper = mock(ElderRiskProfileMapper.class);
+        ElderInfoMapper elderMapper = mock(ElderInfoMapper.class);
+        FollowUpServiceImpl service = createService(planMapper, recordMapper);
+        ReflectionTestUtils.setField(service, "elderRiskProfileMapper", riskMapper);
+        ReflectionTestUtils.setField(service, "elderInfoMapper", elderMapper);
+
+        ElderRiskProfile unassignedRisk = new ElderRiskProfile();
+        unassignedRisk.setElderId(31L);
+        unassignedRisk.setRiskLevel(3);
+        ElderRiskProfile assignedRisk = new ElderRiskProfile();
+        assignedRisk.setElderId(32L);
+        assignedRisk.setRiskLevel(2);
+        ElderInfo unassignedElder = new ElderInfo();
+        unassignedElder.setId(31L);
+        unassignedElder.setName("未分配老人");
+        unassignedElder.setDoctorId(null);
+        unassignedElder.setDeleted(0);
+        ElderInfo assignedElder = new ElderInfo();
+        assignedElder.setId(32L);
+        assignedElder.setName("当前医生老人");
+        assignedElder.setDoctorId(2L);
+        assignedElder.setDeleted(0);
+
+        when(riskMapper.selectList(any())).thenReturn(List.of(unassignedRisk, assignedRisk));
+        when(elderMapper.selectById(31L)).thenReturn(unassignedElder);
+        when(elderMapper.selectById(32L)).thenReturn(assignedElder);
+        when(planMapper.selectLatestActiveByElderForUpdate(32L)).thenReturn(null);
+
+        Map<String, Object> result = service.generateRiskFollowPlans(2L, null);
+
+        assertEquals(1, result.get("createdCount"));
+        assertEquals(1, result.get("skippedCount"));
+        verify(planMapper).insert(org.mockito.ArgumentMatchers.argThat(plan ->
+                Long.valueOf(32L).equals(plan.getElderId()) && Long.valueOf(2L).equals(plan.getDoctorId())));
     }
 
     @Test
@@ -294,10 +384,13 @@ class FollowUpServiceImplTest {
     private FollowUpServiceImpl createService(FollowPlanMapper planMapper, FollowRecordMapper recordMapper) {
         FollowUpServiceImpl service = new FollowUpServiceImpl();
         ElderReferenceService elderReferenceService = mock(ElderReferenceService.class);
-        ElderInfo elder = new ElderInfo();
-        elder.setId(1L);
-        elder.setDoctorId(2L);
-        when(elderReferenceService.requireActive(1L)).thenReturn(elder);
+        when(elderReferenceService.requireActive(any())).thenAnswer(invocation -> {
+            ElderInfo elder = new ElderInfo();
+            elder.setId(invocation.getArgument(0));
+            elder.setDoctorId(2L);
+            elder.setDeleted(0);
+            return elder;
+        });
         ReflectionTestUtils.setField(service, "followPlanMapper", planMapper);
         ReflectionTestUtils.setField(service, "followRecordMapper", recordMapper);
         ReflectionTestUtils.setField(service, "elderReferenceService", elderReferenceService);

@@ -341,7 +341,7 @@ public class WarningServiceImpl implements WarningService {
             Map<String, Object> map = new HashMap<>();
             map.put("id", log.getId());
             map.put("eventType", log.getEventType());
-            map.put("eventTypeText", getEventTypeText(log.getEventType()));
+            map.put("eventTypeText", getEventTypeText(log.getEventType(), log.getEventDetail()));
             map.put("operatorName", log.getOperatorName());
             map.put("eventDetail", log.getEventDetail());
             map.put("createTime", log.getCreateTime() != null ?
@@ -480,6 +480,9 @@ public class WarningServiceImpl implements WarningService {
     }
 
     private String getEventTypeText(Integer eventType) {
+        if (eventType == null) {
+            return "未知";
+        }
         switch (eventType) {
             case 1: return "生成";
             case 2: return "推送";
@@ -489,5 +492,12 @@ public class WarningServiceImpl implements WarningService {
             case 6: return "超时";
             default: return "未知";
         }
+    }
+
+    private String getEventTypeText(Integer eventType, String eventDetail) {
+        if (eventType != null && eventType == 3 && eventDetail != null && eventDetail.contains("处理中")) {
+            return "处理中";
+        }
+        return getEventTypeText(eventType);
     }
 }

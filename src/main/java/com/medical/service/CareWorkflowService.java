@@ -51,6 +51,9 @@ public class CareWorkflowService {
         if (responsibleDoctorId == null) {
             throw new BusinessException(400, "请先为老人分配责任医生，再生成健康管理流程");
         }
+        if (!responsibleDoctorId.equals(currentUserId)) {
+            throw new BusinessException(403, "只能为当前医生明确负责的老人生成健康管理流程");
+        }
 
         ElderRiskProfile previousRisk = findRisk(elderId);
         ElderRiskProfile risk = riskProfileService.calculateRisk(elderId);

@@ -1,9 +1,10 @@
 package com.medical.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.medical.common.utils.DisabilityStatusSupport;
 import com.medical.entity.*;
 import com.medical.mapper.*;
-import com.medical.common.utils.DisabilityStatusSupport;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -61,7 +62,7 @@ public class ContextAggregator {
         // ===== 2. 健康档案 =====
         HealthRecord record = healthRecordMapper.selectOne(
                 new LambdaQueryWrapper<HealthRecord>().eq(HealthRecord::getElderId, elderId));
-        ctx.put("healthRecord", record);
+        ctx.put("healthRecord", toReportSafeHealthRecord(record));
         if (record != null) {
             ctx.put("hasHealthRecord", 1);
             ctx.put("smokingStatus", record.getSmokingStatus());      // 0不吸烟 1吸烟 2已戒烟
@@ -385,5 +386,18 @@ public class ContextAggregator {
         ctx.put("missingData", new ArrayList<>(uniqueMissingData));
 
         return ctx;
+    }
+
+    private HealthRecord toReportSafeHealthRecord(HealthRecord record) {
+        if (record == null) {
+            return null;
+        }
+        HealthRecord safeRecord = new HealthRecord();
+        BeanUtils.copyProperties(record, safeRecord);
+        String disabilityStatus = record.getDisabilityStatus();
+        safeRecord.setDisabilityStatus(DisabilityStatusSupport.isValid(disabilityStatus)
+                ? DisabilityStatusSupport.normalize(disabilityStatus)
+                : null);
+        return safeRecord;
     }
 }

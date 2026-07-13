@@ -2,6 +2,7 @@ package com.medical.service;
 
 import com.medical.entity.ElderInfo;
 import com.medical.entity.FollowPlan;
+import com.medical.entity.HealthRecord;
 import com.medical.mapper.AllergyRecordMapper;
 import com.medical.mapper.AssessmentRecordMapper;
 import com.medical.mapper.FamilyHistoryMapper;
@@ -28,6 +29,8 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -83,6 +86,55 @@ class ContextAggregatorTest {
         assertTrue(((List<?>) context.get("missingData")).contains("健康档案"));
         Map<?, ?> completeness = (Map<?, ?>) context.get("dataCompleteness");
         assertEquals(20, completeness.get("score"));
+    }
+
+    @Test
+    void aiContextHidesLegacyInvalidDisabilityStatusWithoutMutatingStoredRecord() {
+        ContextAggregator aggregator = new ContextAggregator();
+        ElderReferenceService elderReferenceService = mock(ElderReferenceService.class);
+        ElderInfo elder = new ElderInfo();
+        elder.setId(1L);
+        elder.setBirthDate(LocalDate.now().minusYears(75));
+        when(elderReferenceService.requireActive(1L)).thenReturn(elder);
+        ReflectionTestUtils.setField(aggregator, "elderReferenceService", elderReferenceService);
+
+        HealthRecord legacyRecord = new HealthRecord();
+        legacyRecord.setElderId(1L);
+        legacyRecord.setLivingAbility(3);
+        legacyRecord.setDisabilityStatus("1");
+        HealthRecordMapper healthRecordMapper = mock(HealthRecordMapper.class);
+        when(healthRecordMapper.selectOne(any())).thenReturn(legacyRecord);
+        ReflectionTestUtils.setField(aggregator, "healthRecordMapper", healthRecordMapper);
+        ReflectionTestUtils.setField(aggregator, "physicalExamMapper", mock(PhysicalExamMapper.class));
+
+        VitalSignDataMapper vitalMapper = mock(VitalSignDataMapper.class);
+        when(vitalMapper.selectList(any())).thenReturn(Collections.emptyList());
+        ReflectionTestUtils.setField(aggregator, "vitalSignDataMapper", vitalMapper);
+
+        setEmptyListMapper(aggregator, "medicalHistoryMapper", mock(MedicalHistoryMapper.class));
+        setEmptyListMapper(aggregator, "medicationRecordMapper", mock(MedicationRecordMapper.class));
+        setEmptyListMapper(aggregator, "allergyRecordMapper", mock(AllergyRecordMapper.class));
+        setEmptyListMapper(aggregator, "familyHistoryMapper", mock(FamilyHistoryMapper.class));
+        setEmptyListMapper(aggregator, "healthWarningMapper", mock(HealthWarningMapper.class));
+        setEmptyListMapper(aggregator, "followRecordMapper", mock(FollowRecordMapper.class));
+        setEmptyListMapper(aggregator, "interventionRecordMapper", mock(InterventionRecordMapper.class));
+        setEmptyListMapper(aggregator, "assessmentRecordMapper", mock(AssessmentRecordMapper.class));
+        setEmptyListMapper(aggregator, "nursingRecordMapper", mock(NursingRecordMapper.class));
+        setEmptyListMapper(aggregator, "nursingPlanMapper", mock(NursingPlanMapper.class));
+        setEmptyListMapper(aggregator, "referralOrderMapper", mock(ReferralOrderMapper.class));
+        setEmptyListMapper(aggregator, "wearableDeviceMapper", mock(WearableDeviceMapper.class));
+        FollowPlanMapper followPlanMapper = mock(FollowPlanMapper.class);
+        when(followPlanMapper.selectList(any())).thenReturn(Collections.emptyList());
+        ReflectionTestUtils.setField(aggregator, "followPlanMapper", followPlanMapper);
+
+        Map<String, Object> context = aggregator.gather(1L);
+
+        HealthRecord exposedRecord = (HealthRecord) context.get("healthRecord");
+        assertNotSame(legacyRecord, exposedRecord);
+        assertNull(exposedRecord.getDisabilityStatus());
+        assertEquals("1", legacyRecord.getDisabilityStatus());
+        assertEquals(0, context.get("hasDisability"));
+        assertEquals(3, context.get("livingAbility"));
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})

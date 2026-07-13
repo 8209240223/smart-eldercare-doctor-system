@@ -20,6 +20,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class InterventionServiceImpl implements InterventionService {
@@ -150,8 +151,7 @@ public class InterventionServiceImpl implements InterventionService {
         if (!record.getElderId().equals(followRecord.getElderId())) {
             throw new BusinessException(400, "干预记录与关联随访记录不属于同一位老人");
         }
-        if (record.getDoctorId() != null && followRecord.getDoctorId() != null
-                && !record.getDoctorId().equals(followRecord.getDoctorId())) {
+        if (record.getDoctorId() == null || !Objects.equals(record.getDoctorId(), followRecord.getDoctorId())) {
             throw new BusinessException(403, "只能关联当前医生负责的随访记录");
         }
     }

@@ -11,6 +11,7 @@ import com.medical.service.VitalSignService;
 import com.medical.service.WarningRuleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -34,8 +35,8 @@ public class VitalSignServiceImpl implements VitalSignService {
     private ElderReferenceService elderReferenceService;
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public synchronized WearableDevice bindDevice(WearableDevice device) {
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.SERIALIZABLE)
+    public WearableDevice bindDevice(WearableDevice device) {
         if (device == null) {
             throw new BusinessException(400, "设备信息不能为空");
         }
@@ -55,11 +56,7 @@ public class VitalSignServiceImpl implements VitalSignService {
         }
         elderReferenceService.requireActive(device.getElderId());
 
-        List<WearableDevice> sameSerialDevices = wearableDeviceMapper.selectList(
-                new LambdaQueryWrapper<WearableDevice>()
-                        .eq(WearableDevice::getDeviceSn, deviceSn)
-                        .orderByDesc(WearableDevice::getBindTime)
-                        .orderByDesc(WearableDevice::getCreateTime));
+        List<WearableDevice> sameSerialDevices = wearableDeviceMapper.selectByDeviceSnForUpdate(deviceSn);
         WearableDevice activeDevice = sameSerialDevices.stream()
                 .filter(item -> Integer.valueOf(1).equals(item.getBindStatus()))
                 .findFirst()
@@ -73,6 +70,7 @@ public class VitalSignServiceImpl implements VitalSignService {
 
         LocalDateTime now = LocalDateTime.now();
         WearableDevice reusable = sameSerialDevices.stream().findFirst().orElse(null);
+        WearableDevice boundDevice;
         if (reusable != null) {
             reusable.setElderId(device.getElderId());
             reusable.setDeviceName(deviceName);
@@ -81,16 +79,29 @@ public class VitalSignServiceImpl implements VitalSignService {
             reusable.setBindStatus(1);
             reusable.setBindTime(now);
             wearableDeviceMapper.updateById(reusable);
-            return reusable;
+            boundDevice = reusable;
+        } else {
+            device.setDeviceName(deviceName);
+            device.setDeviceSn(deviceSn);
+            device.setBindStatus(1);
+            device.setBindTime(now);
+            device.setCreateTime(now);
+            wearableDeviceMapper.insert(device);
+            boundDevice = device;
         }
 
-        device.setDeviceName(deviceName);
-        device.setDeviceSn(deviceSn);
-        device.setBindStatus(1);
-        device.setBindTime(now);
-        device.setCreateTime(now);
-        wearableDeviceMapper.insert(device);
-        return device;
+        verifySingleActiveBinding(deviceSn, device.getElderId());
+        return boundDevice;
+    }
+
+    private void verifySingleActiveBinding(String deviceSn, Long elderId) {
+        List<WearableDevice> confirmedDevices = wearableDeviceMapper.selectByDeviceSnForUpdate(deviceSn);
+        List<WearableDevice> activeDevices = confirmedDevices.stream()
+                .filter(item -> Integer.valueOf(1).equals(item.getBindStatus()))
+                .toList();
+        if (activeDevices.size() != 1 || !elderId.equals(activeDevices.get(0).getElderId())) {
+            throw new BusinessException(409, "设备序列号绑定冲突，请稍后重试");
+        }
     }
 
     @Override
