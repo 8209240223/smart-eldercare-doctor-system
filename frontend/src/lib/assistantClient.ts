@@ -10,7 +10,6 @@ export interface AssistantStatus {
 
 export interface AssistantChatRequest {
   message: string;
-  mode?: "auto" | "qa" | "agent";
   conversationId?: string;
   history?: Array<{
     role: "user" | "assistant";
