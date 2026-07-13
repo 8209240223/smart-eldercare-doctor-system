@@ -169,7 +169,7 @@ INSERT IGNORE INTO warning_rule (id, rule_name, rule_type, metric_code, conditio
 (3, '空腹血糖危急',        2, 'bloodSugarFasting',  'bloodSugarFasting>=11',     3, '空腹血糖超过11mmol/L，危急值！', 1),
 (4, '空腹血糖偏高',        2, 'bloodSugarFasting',  'bloodSugarFasting>=7',      1, '空腹血糖超过7mmol/L', 1),
 (5, '心率过快',            3, 'heartRate',           'heartRate>=120',            2, '心率超过120bpm，请关注', 1),
-(6, '血氧偏低',            4, 'bloodOxygen',         'bloodOxygen<=90',           3, '血氧饱和度低于90%，需紧急处理', 1),
+(6, '血氧偏低',            6, 'bloodOxygen',         'bloodOxygen<=90',           3, '血氧饱和度低于90%，需紧急处理', 1),
 (7, '舒张压偏高',          1, 'diastolic',          'diastolic>=100',            2, '舒张压超过100mmHg，请关注', 1),
 (8, '餐后血糖偏高',        2, 'bloodSugarPostprandial','bloodSugarPostprandial>=11',2, '餐后2小时血糖超过11mmol/L', 1);
 

@@ -11,6 +11,7 @@ import com.medical.service.VitalSignService;
 import com.medical.service.WarningRuleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -33,14 +34,61 @@ public class VitalSignServiceImpl implements VitalSignService {
     private ElderReferenceService elderReferenceService;
 
     @Override
-    public WearableDevice bindDevice(WearableDevice device) {
+    @Transactional(rollbackFor = Exception.class)
+    public synchronized WearableDevice bindDevice(WearableDevice device) {
         if (device == null) {
             throw new BusinessException(400, "设备信息不能为空");
         }
+        if (device.getElderId() == null) {
+            throw new BusinessException(400, "请选择需要绑定设备的老人");
+        }
+        String deviceName = device.getDeviceName() == null ? "" : device.getDeviceName().trim();
+        String deviceSn = device.getDeviceSn() == null ? "" : device.getDeviceSn().trim().toUpperCase(Locale.ROOT);
+        if (deviceName.isEmpty() || deviceName.length() > 50) {
+            throw new BusinessException(400, "设备名称不能为空且不能超过50个字符");
+        }
+        if (!deviceSn.matches("[A-Z0-9][A-Z0-9._:-]{2,63}")) {
+            throw new BusinessException(400, "设备序列号必须为3到64位字母、数字或 . _ : -");
+        }
+        if (device.getDeviceType() == null || device.getDeviceType() < 1 || device.getDeviceType() > 4) {
+            throw new BusinessException(400, "设备类型不受支持");
+        }
         elderReferenceService.requireActive(device.getElderId());
+
+        List<WearableDevice> sameSerialDevices = wearableDeviceMapper.selectList(
+                new LambdaQueryWrapper<WearableDevice>()
+                        .eq(WearableDevice::getDeviceSn, deviceSn)
+                        .orderByDesc(WearableDevice::getBindTime)
+                        .orderByDesc(WearableDevice::getCreateTime));
+        WearableDevice activeDevice = sameSerialDevices.stream()
+                .filter(item -> Integer.valueOf(1).equals(item.getBindStatus()))
+                .findFirst()
+                .orElse(null);
+        if (activeDevice != null) {
+            if (device.getElderId().equals(activeDevice.getElderId())) {
+                throw new BusinessException(400, "该设备已绑定当前老人，无需重复绑定");
+            }
+            throw new BusinessException(400, "该设备序列号已绑定其他老人，请先解绑后再操作");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        WearableDevice reusable = sameSerialDevices.stream().findFirst().orElse(null);
+        if (reusable != null) {
+            reusable.setElderId(device.getElderId());
+            reusable.setDeviceName(deviceName);
+            reusable.setDeviceSn(deviceSn);
+            reusable.setDeviceType(device.getDeviceType());
+            reusable.setBindStatus(1);
+            reusable.setBindTime(now);
+            wearableDeviceMapper.updateById(reusable);
+            return reusable;
+        }
+
+        device.setDeviceName(deviceName);
+        device.setDeviceSn(deviceSn);
         device.setBindStatus(1);
-        device.setBindTime(LocalDateTime.now());
-        device.setCreateTime(LocalDateTime.now());
+        device.setBindTime(now);
+        device.setCreateTime(now);
         wearableDeviceMapper.insert(device);
         return device;
     }

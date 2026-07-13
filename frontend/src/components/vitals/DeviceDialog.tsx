@@ -52,8 +52,10 @@ export default function DeviceDialog({
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.deviceName.trim()) errs.deviceName = "设备名称不能为空";
-    if (!form.deviceSn.trim()) errs.deviceSn = "设备序列号不能为空";
+    if (!form.deviceName.trim() || form.deviceName.trim().length > 50) errs.deviceName = "设备名称不能为空且不能超过50个字符";
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{2,63}$/.test(form.deviceSn.trim())) {
+      errs.deviceSn = "请输入3到64位字母、数字或 . _ : -";
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -61,7 +63,11 @@ export default function DeviceDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    onSubmit(form);
+    onSubmit({
+      ...form,
+      deviceName: form.deviceName.trim(),
+      deviceSn: form.deviceSn.trim().toUpperCase(),
+    });
   };
 
   const updateField = (field: keyof WearableDevice, value: string | number) => {
@@ -85,6 +91,7 @@ export default function DeviceDialog({
               value={form.deviceName}
               onChange={(e) => updateField("deviceName", e.target.value)}
               placeholder="如：华为手环 9"
+              maxLength={50}
               className={cn("rounded-xl", errors.deviceName && "border-red-400")}
             />
             {errors.deviceName && <p className="text-xs text-red-500">{errors.deviceName}</p>}
@@ -96,6 +103,8 @@ export default function DeviceDialog({
               value={form.deviceSn}
               onChange={(e) => updateField("deviceSn", e.target.value)}
               placeholder="请输入设备序列号"
+              maxLength={64}
+              autoCapitalize="characters"
               className={cn("rounded-xl", errors.deviceSn && "border-red-400")}
             />
             {errors.deviceSn && <p className="text-xs text-red-500">{errors.deviceSn}</p>}

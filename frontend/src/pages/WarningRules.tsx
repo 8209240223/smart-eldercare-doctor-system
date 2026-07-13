@@ -59,6 +59,43 @@ const metricRanges: Record<string, { label: string; min: number; max: number; st
   sleep: { label: "睡眠时长", min: 0, max: 24, step: 0.1 },
 };
 
+const metricRuleTypes: Record<string, number> = {
+  systolic: 1,
+  diastolic: 1,
+  bloodSugarFasting: 2,
+  bloodSugarPostprandial: 2,
+  heartRate: 3,
+  temperature: 4,
+  bmi: 5,
+  spo2: 6,
+  bloodOxygen: 6,
+  steps: 6,
+  sleep: 6,
+};
+
+const defaultMetricByRuleType: Record<number, string> = {
+  1: "systolic",
+  2: "bloodSugarFasting",
+  3: "heartRate",
+  4: "temperature",
+  5: "bmi",
+  6: "spo2",
+};
+
+const defaultConditionByMetric: Record<string, string> = {
+  systolic: "systolic >= 160",
+  diastolic: "diastolic >= 100",
+  heartRate: "heartRate >= 120",
+  bloodSugarFasting: "bloodSugarFasting >= 7",
+  bloodSugarPostprandial: "bloodSugarPostprandial >= 11",
+  spo2: "spo2 <= 90",
+  bloodOxygen: "bloodOxygen <= 90",
+  temperature: "temperature >= 38",
+  bmi: "bmi >= 28",
+  steps: "steps <= 1000",
+  sleep: "sleep <= 5",
+};
+
 function ruleTypeText(type?: number) {
   return ["", "血压", "血糖", "心率", "体温", "BMI", "综合"][type || 0] || "预警规则";
 }
@@ -95,13 +132,38 @@ export default function WarningRules() {
   const enabledCount = rules.filter((item) => item.enabled !== 0).length;
 
   const openCreate = () => {
-    setForm(emptyRule);
+    setForm({ ...emptyRule });
     setFormOpen(true);
   };
 
   const openEdit = (rule: WarningRule) => {
-    setForm({ ...emptyRule, ...rule });
+    const metricCode = rule.metricCode || emptyRule.metricCode || "systolic";
+    setForm({
+      ...emptyRule,
+      ...rule,
+      metricCode,
+      ruleType: metricRuleTypes[metricCode] || rule.ruleType || 6,
+    });
     setFormOpen(true);
+  };
+
+  const changeRuleType = (ruleType: number) => {
+    const metricCode = defaultMetricByRuleType[ruleType] || "spo2";
+    setForm((value) => ({
+      ...value,
+      ruleType,
+      metricCode,
+      conditionExpr: defaultConditionByMetric[metricCode],
+    }));
+  };
+
+  const changeMetric = (metricCode: string) => {
+    setForm((value) => ({
+      ...value,
+      metricCode,
+      ruleType: metricRuleTypes[metricCode] || 6,
+      conditionExpr: defaultConditionByMetric[metricCode] || `${metricCode} >= 0`,
+    }));
   };
 
   const saveRule = async () => {
@@ -273,7 +335,7 @@ export default function WarningRules() {
           </DialogHeader>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Input className="md:col-span-2" value={form.ruleName || ""} onChange={(event) => setForm((value) => ({ ...value, ruleName: event.target.value }))} placeholder="规则名称" />
-            <select value={form.ruleType || 1} onChange={(event) => setForm((value) => ({ ...value, ruleType: Number(event.target.value) }))} className="h-9 rounded-md border border-input bg-transparent px-3 text-sm">
+            <select value={form.ruleType || 1} onChange={(event) => changeRuleType(Number(event.target.value))} className="h-9 rounded-md border border-input bg-transparent px-3 text-sm">
               <option value="1">血压</option>
               <option value="2">血糖</option>
               <option value="3">心率</option>
@@ -286,7 +348,7 @@ export default function WarningRules() {
               <option value="2">橙色</option>
               <option value="3">红色</option>
             </select>
-            <select value={form.metricCode || ""} onChange={(event) => setForm((value) => ({ ...value, metricCode: event.target.value }))} className="h-9 rounded-md border border-input bg-transparent px-3 text-sm">
+            <select value={form.metricCode || ""} onChange={(event) => changeMetric(event.target.value)} className="h-9 rounded-md border border-input bg-transparent px-3 text-sm">
               {form.metricCode === "bloodOxygen" && <option value="bloodOxygen">血氧饱和度（兼容旧规则）</option>}
               {metricOptions.map(([value, label]) => <option key={value} value={value}>{label}（{value}）</option>)}
             </select>

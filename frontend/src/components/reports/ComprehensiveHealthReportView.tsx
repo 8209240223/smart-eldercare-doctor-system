@@ -48,13 +48,19 @@ function ReportSection({
   icon,
   title,
   children,
+  pdfPage,
 }: {
   icon: ReactNode;
   title: string;
   children: ReactNode;
+  pdfPage?: number;
 }) {
   return (
-    <section className="min-w-0 rounded-lg border border-border/50 bg-white/75 p-4 shadow-sm">
+    <section
+      data-pdf-section
+      data-pdf-page={pdfPage}
+      className="min-w-0 rounded-lg border border-border/50 bg-white/75 p-4 shadow-sm"
+    >
       <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
           {icon}
@@ -150,7 +156,7 @@ export default function ComprehensiveHealthReportView({
       data-testid="comprehensive-health-report-view"
       className={cn("min-w-0 space-y-4", className)}
     >
-      <div className="overflow-hidden rounded-lg border border-sky-100 bg-gradient-to-r from-sky-50 via-white to-emerald-50 p-4 sm:p-5">
+      <div data-pdf-page="1" className="overflow-hidden rounded-lg border border-sky-100 bg-gradient-to-r from-sky-50 via-white to-emerald-50 p-4 sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-xs font-medium text-sky-700">综合健康档案</p>
@@ -188,7 +194,7 @@ export default function ComprehensiveHealthReportView({
         </div>
       </div>
 
-      <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
+      <div data-pdf-page="1" className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
         <ReportSection
           icon={<UserRound className="h-4 w-4" />}
           title="老人基本资料"
@@ -232,6 +238,7 @@ export default function ComprehensiveHealthReportView({
         <ReportSection
           icon={<HeartPulse className="h-4 w-4" />}
           title="最近生命体征"
+          pdfPage={1}
         >
           <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {recentVitals.map((item, index) => (
@@ -264,7 +271,7 @@ export default function ComprehensiveHealthReportView({
         </ReportSection>
       )}
 
-      <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2">
+      <div data-pdf-page="1" className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2">
         {assessments.length > 0 && (
           <ReportSection
             icon={<ClipboardList className="h-4 w-4" />}
@@ -341,6 +348,7 @@ export default function ComprehensiveHealthReportView({
         <ReportSection
           icon={<ShieldAlert className="h-4 w-4" />}
           title="最近健康预警"
+          pdfPage={2}
         >
           <div className="space-y-2">
             {recentWarnings.map((item, index) => (
@@ -374,6 +382,7 @@ export default function ComprehensiveHealthReportView({
         <ReportSection
           icon={<Sparkles className="h-4 w-4" />}
           title={`AI 健康报告（${document.aiReportCount ?? aiReports.length}）`}
+          pdfPage={2}
         >
           <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
             {aiReports.map((item, index) => {
@@ -424,7 +433,9 @@ export default function ComprehensiveHealthReportView({
           </div>
         )}
 
-      <TechnicalData value={parsed.prettyJson || parsed.rawText} />
+      <div data-pdf-ignore>
+        <TechnicalData value={parsed.prettyJson || parsed.rawText} />
+      </div>
     </div>
   );
 }

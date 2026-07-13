@@ -257,11 +257,11 @@ public class WarningServiceImpl implements WarningService {
 
         // 2. 最近24小时趋势（按小时分组）
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime yesterday = now.minusHours(24);
+        LocalDateTime currentHourStart = now.withMinute(0).withSecond(0).withNano(0);
         List<Map<String, Object>> hourlyTrend = new ArrayList<>();
         for (int i = 23; i >= 0; i--) {
-            LocalDateTime hourStart = now.minusHours(i + 1);
-            LocalDateTime hourEnd = now.minusHours(i);
+            LocalDateTime hourStart = currentHourStart.minusHours(i);
+            LocalDateTime hourEnd = i == 0 ? now : hourStart.plusHours(1);
             long count = healthWarningMapper.selectCount(
                     new LambdaQueryWrapper<HealthWarning>()
                             .ge(HealthWarning::getCreateTime, hourStart)

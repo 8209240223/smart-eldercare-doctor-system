@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
 import {
@@ -71,6 +71,8 @@ export default function Assessments() {
   const [deleteTarget, setDeleteTarget] = useState<Assessment | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportElderId, setReportElderId] = useState(0);
+  const [exportingReport, setExportingReport] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, refetch } = useAssessments(
     page,
@@ -135,17 +137,64 @@ export default function Assessments() {
     setReportOpen(true);
   };
 
-  const exportReport = () => {
-    if (!report || !reportElderId) return;
-    const blob = new Blob([JSON.stringify(report, null, 2)], {
-      type: "application/json;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `health-assessment-${reportElderId}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+  const exportReport = async () => {
+    if (!report || !reportElderId || !reportRef.current || exportingReport) return;
+    setExportingReport(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageWidth = 190;
+      const pageHeight = 277;
+      const pageNumbers = [1, 2].filter((pageNumber) =>
+        reportRef.current?.querySelector(`[data-pdf-page="${pageNumber}"]`),
+      );
+      const pageCanvases = await Promise.all(
+        pageNumbers.map((pageNumber) => html2canvas(reportRef.current!, {
+          backgroundColor: "#ffffff",
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          ignoreElements: (element) => element.hasAttribute("data-pdf-ignore"),
+          onclone: (clonedDocument) => {
+            const clonedReport = clonedDocument.querySelector(
+              '[data-testid="comprehensive-health-report-view"]',
+            );
+            clonedReport?.querySelectorAll<HTMLElement>("[data-pdf-page]")
+              .forEach((element) => {
+                if (element.dataset.pdfPage !== String(pageNumber)) {
+                  element.style.display = "none";
+                }
+              });
+          },
+        })),
+      );
+      pageCanvases.forEach((pageCanvas, pageIndex) => {
+        if (pageIndex > 0) pdf.addPage();
+        const naturalHeight = pageCanvas.height * pageWidth / pageCanvas.width;
+        const scaleToFit = Math.min(1, pageHeight / naturalHeight);
+        const imageWidth = pageWidth * scaleToFit;
+        const imageHeight = naturalHeight * scaleToFit;
+        pdf.addImage(
+          pageCanvas.toDataURL("image/jpeg", 0.94),
+          "JPEG",
+          10 + (pageWidth - imageWidth) / 2,
+          10,
+          imageWidth,
+          imageHeight,
+        );
+      });
+      const elderName = eldersData?.records.find((elder) => Number(elder.id) === reportElderId)?.name || `老人${reportElderId}`;
+      const safeName = elderName.replace(/[\\/:*?"<>|]/g, "-");
+      pdf.save(`综合健康评估报告-${safeName}-${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast.success("客户版 PDF 报告已导出");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "报告导出失败");
+    } finally {
+      setExportingReport(false);
+    }
   };
 
   return (
@@ -413,7 +462,9 @@ export default function Assessments() {
               <Skeleton className="h-56 w-full" />
             </div>
           ) : report ? (
-            <ComprehensiveHealthReportView report={report} />
+            <div ref={reportRef} className="bg-white p-1">
+              <ComprehensiveHealthReportView report={report} />
+            </div>
           ) : (
             <EmptyState
               title="请选择老人"
@@ -426,11 +477,11 @@ export default function Assessments() {
             </Button>
             <Button
               onClick={exportReport}
-              disabled={!report}
+              disabled={!report || exportingReport}
               className="bg-gradient-to-r from-medical-400 to-medical-600 text-white"
             >
               <Download className="mr-2 h-4 w-4" />
-              导出报告
+              {exportingReport ? "正在生成 PDF" : "导出客户版 PDF"}
             </Button>
           </DialogFooter>
         </DialogContent>
