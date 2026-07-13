@@ -15,6 +15,10 @@ public interface RedisKeyConstant {
     // ==================== Token 相关 ====================
     /** 登录 Token 存储 */
     String TOKEN_KEY = PREFIX + SEP + "token" + SEP;
+    /** 用户当前唯一会话 */
+    String USER_SESSION_KEY = PREFIX + SEP + "user" + SEP + "session" + SEP;
+    /** 用户会话切换锁 */
+    String USER_SESSION_LOCK_KEY = PREFIX + SEP + "lock" + SEP + "user-session" + SEP;
     /** Token 过期时间（秒） */
     long TOKEN_TTL = 7200;
 
@@ -67,6 +71,20 @@ public interface RedisKeyConstant {
      */
     static String buildTokenKey(String uuid) {
         return TOKEN_KEY + uuid;
+    }
+
+    /**
+     * 拼接用户当前会话 Key
+     */
+    static String buildUserSessionKey(Long userId) {
+        return USER_SESSION_KEY + userId;
+    }
+
+    /**
+     * 拼接用户会话切换锁 Key
+     */
+    static String buildUserSessionLockKey(Long userId) {
+        return USER_SESSION_LOCK_KEY + userId;
     }
 
     /**

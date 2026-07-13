@@ -15,8 +15,13 @@ public class AssistantChatRequest {
     @Size(max = 12, message = "历史消息最多保留12条")
     private List<AssistantHistoryMessage> history = new ArrayList<>();
 
+    @Size(max = 64, message = "会话ID不能超过64个字符")
+    private String conversationId;
+
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }
     public List<AssistantHistoryMessage> getHistory() { return history; }
     public void setHistory(List<AssistantHistoryMessage> history) { this.history = history; }
+    public String getConversationId() { return conversationId; }
+    public void setConversationId(String conversationId) { this.conversationId = conversationId; }
 }

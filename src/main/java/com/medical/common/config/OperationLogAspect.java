@@ -1,6 +1,6 @@
 package com.medical.common.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.medical.auth.security.SensitiveDataSanitizer;
 import com.medical.common.annotation.OperationLog;
 import com.medical.entity.SysOperationLog;
 import com.medical.mapper.SysOperationLogMapper;
@@ -8,14 +8,18 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 操作日志AOP切面
@@ -24,10 +28,14 @@ import java.time.LocalDateTime;
 @Component
 public class OperationLogAspect {
 
-    @Autowired
-    private SysOperationLogMapper logMapper;
+    private final SysOperationLogMapper logMapper;
+    private final SensitiveDataSanitizer sensitiveDataSanitizer;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    public OperationLogAspect(SysOperationLogMapper logMapper,
+                              SensitiveDataSanitizer sensitiveDataSanitizer) {
+        this.logMapper = logMapper;
+        this.sensitiveDataSanitizer = sensitiveDataSanitizer;
+    }
 
     @Around("@annotation(com.medical.common.annotation.OperationLog)")
     public Object around(ProceedingJoinPoint point) throws Throwable {
@@ -61,8 +69,13 @@ public class OperationLogAspect {
         try {
             Object[] args = point.getArgs();
             if (args != null && args.length > 0) {
-                String params = objectMapper.writeValueAsString(args[0]);
-                log.setRequestParams(params.length() > 500 ? params.substring(0, 500) : params);
+                List<Object> businessArgs = Arrays.stream(args)
+                        .filter(argument -> !(argument instanceof HttpServletRequest))
+                        .filter(argument -> !(argument instanceof HttpServletResponse))
+                        .filter(argument -> !(argument instanceof MultipartFile))
+                        .collect(Collectors.toList());
+                Object params = businessArgs.size() == 1 ? businessArgs.get(0) : businessArgs;
+                log.setRequestParams(sensitiveDataSanitizer.serialize(params, 500));
             }
         } catch (Exception ignored) {}
 
@@ -72,12 +85,11 @@ public class OperationLogAspect {
             result = point.proceed();
             log.setStatus(1);
             try {
-                String res = objectMapper.writeValueAsString(result);
-                log.setResponseResult(res.length() > 500 ? res.substring(0, 500) : res);
+                log.setResponseResult(sensitiveDataSanitizer.serialize(result, 500));
             } catch (Exception ignored) {}
         } catch (Throwable e) {
             log.setStatus(0);
-            log.setErrorMsg(e.getMessage());
+            log.setErrorMsg(sensitiveDataSanitizer.sanitizeStoredText(e.getMessage(), 500));
             throw e;
         } finally {
             log.setDuration(System.currentTimeMillis() - startTime);

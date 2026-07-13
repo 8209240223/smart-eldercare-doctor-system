@@ -2,6 +2,7 @@ package com.medical.service.impl;
 
 import cn.hutool.crypto.digest.BCrypt;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.medical.auth.session.AuthSessionService;
 import com.medical.common.constant.RedisKeyConstant;
 import com.medical.common.exception.BusinessException;
 import com.medical.common.utils.AccountSecurityValidator;
@@ -14,11 +15,12 @@ import com.medical.mapper.SysUserMapper;
 import com.medical.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -35,6 +37,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     private RedisUtils redisUtils;
+
+    @Autowired
+    private AuthSessionService authSessionService;
 
     @Override
     public Map<String, Object> login(String username, String password, String ip) {
@@ -56,8 +61,11 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(400, "用户名或密码错误");
         }
 
-        if (user.getStatus() == 0) {
-            throw new BusinessException(403, "账号已被禁用，请联系管理员");
+        if (Integer.valueOf(2).equals(user.getStatus())) {
+            throw new BusinessException(403, "账号待管理员审核");
+        }
+        if (!Integer.valueOf(1).equals(user.getStatus())) {
+            throw new BusinessException(403, "账号已被封禁，请联系管理员");
         }
 
         // 3. 验证密码（支持明文和BCrypt）
@@ -73,26 +81,26 @@ public class AuthServiceImpl implements AuthService {
         // 4. 登录成功，清除错误计数
         redisUtils.delete(loginErrorKey);
 
-        // 5. 生成Token并存入Redis（分布式会话共享）
+        // 5. 生成 Token，并原子替换该账号的旧会话
         String token = jwtUtils.generateToken(user.getId(), user.getUsername(), user.getUserType());
-        String tokenId = UUID.randomUUID().toString().replace("-", "");
-        String redisTokenKey = RedisKeyConstant.buildTokenKey(tokenId);
+        String tokenId = authSessionService.replaceSession(
+                user.getId(), user.getUsername(), token, ip);
 
-        // 存储 Token 信息到 Redis（包含用户ID、用户名、Token）
-        Map<String, Object> tokenInfo = new HashMap<>();
-        tokenInfo.put("userId", user.getId());
-        tokenInfo.put("username", user.getUsername());
-        tokenInfo.put("token", token);
-        tokenInfo.put("tokenId", tokenId);
-        tokenInfo.put("loginTime", LocalDateTime.now().toString());
-        tokenInfo.put("loginIp", ip);
-
-        redisUtils.setWithSeconds(redisTokenKey, tokenInfo, RedisKeyConstant.TOKEN_TTL);
+        SysUser currentUser = sysUserMapper.selectById(user.getId());
+        if (currentUser == null || !Integer.valueOf(1).equals(currentUser.getStatus())
+                || !Objects.equals(storedPassword, currentUser.getPassword())
+                || !Objects.equals(user.getUserType(), currentUser.getUserType())) {
+            authSessionService.revokeSession(user.getId(), tokenId);
+            throw new BusinessException(401, "账号信息已变化，请重新登录");
+        }
+        user = currentUser;
 
         // 6. 更新登录信息
-        user.setLastLoginTime(LocalDateTime.now());
-        user.setLastLoginIp(ip);
-        sysUserMapper.updateById(user);
+        SysUser loginUpdate = new SysUser();
+        loginUpdate.setId(user.getId());
+        loginUpdate.setLastLoginTime(LocalDateTime.now());
+        loginUpdate.setLastLoginIp(ip);
+        sysUserMapper.updateById(loginUpdate);
 
         // 7. 记录登录日志
         saveLoginLog(user.getId(), user.getUsername(), ip, "登录成功", 1);
@@ -131,6 +139,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public void changePassword(Long userId, String oldPassword, String newPassword) {
         SysUser user = sysUserMapper.selectById(userId);
         if (user == null) {
@@ -150,11 +159,13 @@ public class AuthServiceImpl implements AuthService {
         user.setPassword(BCrypt.hashpw(newPassword));
         sysUserMapper.updateById(user);
 
-        // 修改密码后清除用户缓存，强制重新登录
+        // 修改密码后清除用户缓存并撤销账号会话
         redisUtils.delete(RedisKeyConstant.buildUserKey(userId));
+        authSessionService.revokeAllSessions(userId);
     }
 
     @Override
+    @Transactional
     public void resetPassword(String username, String phone, String newPassword, String confirmPassword) {
         String normalizedUsername = AccountSecurityValidator.requireUsername(username);
         String normalizedPhone = AccountSecurityValidator.requirePhone(phone);
@@ -164,15 +175,17 @@ public class AuthServiceImpl implements AuthService {
         SysUser user = sysUserMapper.selectOne(
                 new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, normalizedUsername)
         );
-        if (user == null || user.getStatus() == 0 || user.getPhone() == null || !normalizedPhone.equals(user.getPhone().trim())) {
+        if (user == null || !Integer.valueOf(1).equals(user.getStatus())
+                || user.getPhone() == null || !normalizedPhone.equals(user.getPhone().trim())) {
             throw new BusinessException(400, "用户名或绑定手机号不匹配");
         }
         AccountSecurityValidator.requireDifferentFromStoredPassword(newPassword, user.getPassword());
         user.setPassword(BCrypt.hashpw(newPassword));
         sysUserMapper.updateById(user);
 
-        // 重置密码后清除用户缓存
+        // 重置密码后清除用户缓存并撤销账号会话
         redisUtils.delete(RedisKeyConstant.buildUserKey(user.getId()));
+        authSessionService.revokeAllSessions(user.getId());
     }
 
     @Override
@@ -200,6 +213,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public void register(String username, String password, String realName, String phone, Integer userType) {
         validateRegistration(username, password, realName, phone, userType);
         // 4. 创建用户
@@ -209,17 +223,16 @@ public class AuthServiceImpl implements AuthService {
         user.setRealName(realName != null ? realName.trim() : user.getUsername());
         user.setPhone(AccountSecurityValidator.requirePhone(phone));
         user.setUserType(userType != null ? userType : 2); // 默认医生
-        user.setStatus(1); // 直接激活
+        user.setStatus(2); // 公开注册统一进入待审核状态
         sysUserMapper.insert(user);
     }
 
     /**
-     * 登出：从 Redis 中移除 Token
+     * 登出：撤销当前账号会话
      */
-    public void logout(String tokenId) {
-        if (tokenId != null) {
-            redisUtils.delete(RedisKeyConstant.buildTokenKey(tokenId));
-        }
+    @Override
+    public void logout(Long userId, String tokenId) {
+        authSessionService.revokeSession(userId, tokenId);
     }
 
     /**

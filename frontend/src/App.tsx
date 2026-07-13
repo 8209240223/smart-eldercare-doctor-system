@@ -5,7 +5,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { getUserRole, useAuthStore, type UserRole } from "@/store/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import RealtimeWarningBridge from "@/components/warnings/RealtimeWarningBridge";
-import RanaVoiceAssistant from "@/components/assistant/RanaVoiceAssistant";
+import RanaAssistant from "@/components/assistant/RanaAssistant";
+import MessageRealtimeBridge from "@/components/messages/MessageRealtimeBridge";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,9 +36,11 @@ const NurseRecords = lazy(() => import("@/pages/NurseRecords"));
 const NursePlans = lazy(() => import("@/pages/NursePlans"));
 const NurseReview = lazy(() => import("@/pages/NurseReview"));
 const AiReports = lazy(() => import("@/pages/AiReports"));
-const AiConfig = lazy(() => import("@/pages/AiConfig"));
 const WarningRules = lazy(() => import("@/pages/WarningRules"));
 const Profile = lazy(() => import("@/pages/Profile"));
+const Messages = lazy(() => import("@/pages/Messages"));
+const AdminUsers = lazy(() => import("@/pages/AdminUsers"));
+const AdminOperationLogs = lazy(() => import("@/pages/AdminOperationLogs"));
 const ElderCareJourney = lazy(() => import("@/pages/ElderCareJourney"));
 
 function PageLoader() {
@@ -232,18 +235,34 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/admin-ai-config"
-          element={
-            <ProtectedRoute roles={["admin"]}>
-              <AiConfig />
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path="/warning-rules"
           element={
             <ProtectedRoute roles={["admin", "doctor"]}>
               <WarningRules />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <AdminUsers />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/operation-logs"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <AdminOperationLogs />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/messages"
+          element={
+            <ProtectedRoute roles={["admin", "doctor", "nurse"]}>
+              <Messages />
             </ProtectedRoute>
           }
         />
@@ -266,8 +285,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <RealtimeWarningBridge />
+        <MessageRealtimeBridge />
         <AppRoutes />
-        <RanaVoiceAssistant />
+        <RanaAssistant />
       </BrowserRouter>
       <Toaster position="top-center" richColors />
     </QueryClientProvider>

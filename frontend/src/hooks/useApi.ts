@@ -1510,14 +1510,6 @@ export function useGenerateAiReport() {
   );
 }
 
-export function useDeepAnalysisAiReport() {
-  return useApiMutation<AiHealthReport, number>(
-    (id) => `/api/ai/health-report/${id}/deep-analysis`,
-    "POST",
-    [["ai", "reports"]],
-  );
-}
-
 export function useConfirmAiReport() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, { id: number; editedReportJson?: string }>({
@@ -1926,34 +1918,6 @@ export function useIncrementNursePlan() {
   );
 }
 
-// ============ AI Config ============
-export interface AiConfigItem {
-  id?: number;
-  configKey: string;
-  configValue: string;
-  configDesc?: string;
-  createTime?: string;
-  updateTime?: string;
-}
-
-export function useAiConfig() {
-  return useApiQuery<AiConfigItem[]>(["ai", "config"], "/api/ai/config");
-}
-
-export function useUpdateAiConfig() {
-  return useApiMutation<void, Record<string, { value: string; desc?: string }>>(
-    "/api/ai/config",
-    "PUT",
-    [["ai", "config"]],
-  );
-}
-
-export function useReloadAiConfig() {
-  return useApiMutation<void, void>("/api/ai/config/reload", "POST", [
-    ["ai", "config"],
-  ]);
-}
-
 // ============ Warning Rules ============
 export interface WarningRule {
   id?: number;
@@ -2170,5 +2134,223 @@ export function useProfileLogs(page = 1, pageSize = 10, userId?: number) {
   return useApiQuery<PageResult<OperationLog>>(
     ["profile", "logs", String(page), String(pageSize), String(userId || "me")],
     `/api/profile/logs?${query.toString()}`,
+  );
+}
+
+// ============ Collaboration Messages ============
+export interface CollaborationMessage {
+  id: number;
+  userId?: number;
+  recipientName?: string;
+  senderUserId?: number;
+  senderName?: string;
+  audienceType?: number;
+  audienceRole?: number;
+  title?: string;
+  content?: string;
+  msgType?: number;
+  isRead?: number;
+  readTime?: string;
+  sourceType?: string;
+  sourceId?: number;
+  actionUrl?: string;
+  priority?: number;
+  emailStatus?: number;
+  emailSentTime?: string;
+  emailError?: string;
+  createTime?: string;
+}
+
+export interface MessageRecipient {
+  id: number;
+  username?: string;
+  realName?: string;
+  userType?: number;
+}
+
+export interface MessageContentPayload {
+  title: string;
+  content: string;
+  msgType: number;
+  priority: number;
+  actionUrl?: string;
+}
+
+export function useMessageInbox(page = 1, pageSize = 20, isRead?: number, msgType?: number) {
+  const query = new URLSearchParams({ pageNum: String(page), pageSize: String(pageSize) });
+  if (isRead !== undefined) query.set("isRead", String(isRead));
+  if (msgType !== undefined) query.set("msgType", String(msgType));
+  return useApiQuery<PageResult<CollaborationMessage>>(
+    ["messages", "inbox", String(page), String(pageSize), String(isRead ?? "all"), String(msgType ?? "all")],
+    `/api/messages/inbox?${query.toString()}`,
+  );
+}
+
+export function useSentMessages(page = 1, pageSize = 20) {
+  return useApiQuery<PageResult<CollaborationMessage>>(
+    ["messages", "sent", String(page), String(pageSize)],
+    `/api/messages/sent?pageNum=${page}&pageSize=${pageSize}`,
+  );
+}
+
+export function useMessageUnreadCount() {
+  return useApiQuery<number>(["messages", "unread"], "/api/messages/unread-count");
+}
+
+export function useMessageRecipients(userType?: number, keyword?: string) {
+  const query = new URLSearchParams();
+  if (userType) query.set("userType", String(userType));
+  if (keyword?.trim()) query.set("keyword", keyword.trim());
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return useApiQuery<MessageRecipient[]>(
+    ["messages", "recipients", String(userType || "all"), keyword || ""],
+    `/api/messages/recipients${suffix}`,
+  );
+}
+
+export function useSendDirectMessage() {
+  return useApiMutation<CollaborationMessage, MessageContentPayload & { recipientUserId: number }>(
+    "/api/messages/send",
+    "POST",
+    [["messages"]],
+  );
+}
+
+export function useBroadcastRoleMessage() {
+  return useApiMutation<number, MessageContentPayload & { targetUserType: number }>(
+    "/api/messages/broadcast/role",
+    "POST",
+    [["messages"]],
+  );
+}
+
+export function useBroadcastAllMessage() {
+  return useApiMutation<number, MessageContentPayload>(
+    "/api/messages/broadcast/all",
+    "POST",
+    [["messages"]],
+  );
+}
+
+export function useMarkCollaborationMessageRead() {
+  return useApiMutation<void, number>(
+    (id) => `/api/messages/${id}/read`,
+    "PUT",
+    [["messages"]],
+  );
+}
+
+export function useMarkAllCollaborationMessagesRead() {
+  return useApiMutation<number, void>(
+    "/api/messages/read-all",
+    "PUT",
+    [["messages"]],
+  );
+}
+
+// ============ Administrator Governance ============
+export interface AdminUserRecord {
+  id: number;
+  username?: string;
+  realName?: string;
+  avatar?: string;
+  phone?: string;
+  email?: string;
+  userType?: number;
+  status?: number;
+  lastLoginTime?: string;
+  lastLoginIp?: string;
+  createTime?: string;
+  updateTime?: string;
+}
+
+export interface AdminUserStatistics {
+  total?: number;
+  normal?: number;
+  banned?: number;
+  pending?: number;
+  administrators?: number;
+  doctors?: number;
+  nurses?: number;
+}
+
+export interface AdminCreateUserPayload {
+  username: string;
+  password: string;
+  confirmPassword: string;
+  realName: string;
+  phone: string;
+  email?: string;
+  userType: number;
+}
+
+export interface AdminOperationLogRecord extends OperationLog {
+  username?: string;
+  requestParams?: string;
+  responseResult?: string;
+}
+
+export function useAdminUsers(page = 1, pageSize = 10, keyword = "", userType?: number, status?: number) {
+  const query = new URLSearchParams({ pageNum: String(page), pageSize: String(pageSize) });
+  if (keyword.trim()) query.set("keyword", keyword.trim());
+  if (userType !== undefined) query.set("userType", String(userType));
+  if (status !== undefined) query.set("status", String(status));
+  return useApiQuery<PageResult<AdminUserRecord>>(
+    ["admin", "users", String(page), String(pageSize), keyword, String(userType ?? "all"), String(status ?? "all")],
+    `/api/admin/users?${query.toString()}`,
+  );
+}
+
+export function useAdminUserStatistics() {
+  return useApiQuery<AdminUserStatistics>(["admin", "users", "stats"], "/api/admin/users/stats");
+}
+
+export function useAdminCreateUser() {
+  return useApiMutation<number, AdminCreateUserPayload>("/api/admin/users", "POST", [["admin", "users"]]);
+}
+
+export function useAdminApproveUser() {
+  return useApiMutation<void, number>((id) => `/api/admin/users/${id}/approve`, "PUT", [["admin", "users"]]);
+}
+
+export function useAdminRejectUser() {
+  return useApiMutation<void, number>((id) => `/api/admin/users/${id}/reject`, "PUT", [["admin", "users"]]);
+}
+
+export function useAdminBanUser() {
+  return useApiMutation<void, number>((id) => `/api/admin/users/${id}/ban`, "PUT", [["admin", "users"]]);
+}
+
+export function useAdminUnbanUser() {
+  return useApiMutation<void, number>((id) => `/api/admin/users/${id}/unban`, "PUT", [["admin", "users"]]);
+}
+
+export function useAdminResetPassword() {
+  return useApiMutation<void, { id: number; newPassword: string; confirmPassword: string }>(
+    ({ id }) => `/api/admin/users/${id}/reset-password`,
+    "PUT",
+    [["admin", "users"]],
+  );
+}
+
+export function useAdminForceLogout() {
+  return useApiMutation<void, number>((id) => `/api/admin/users/${id}/force-logout`, "POST", [["admin", "users"]]);
+}
+
+export function useAdminOperationLogs(
+  page = 1,
+  pageSize = 20,
+  filters?: { username?: string; module?: string; operationType?: string; status?: number; startTime?: string; endTime?: string },
+) {
+  const query = new URLSearchParams({ pageNum: String(page), pageSize: String(pageSize) });
+  if (filters?.username?.trim()) query.set("username", filters.username.trim());
+  if (filters?.module?.trim()) query.set("module", filters.module.trim());
+  if (filters?.operationType?.trim()) query.set("operationType", filters.operationType.trim());
+  if (filters?.status !== undefined) query.set("status", String(filters.status));
+  if (filters?.startTime) query.set("startTime", `${filters.startTime} 00:00:00`);
+  if (filters?.endTime) query.set("endTime", `${filters.endTime} 23:59:59`);
+  return useApiQuery<PageResult<AdminOperationLogRecord>>(
+    ["admin", "operation-logs", String(page), String(pageSize), JSON.stringify(filters || {})],
+    `/api/admin/operation-logs?${query.toString()}`,
   );
 }

@@ -414,40 +414,6 @@ INSERT IGNORE INTO physical_exam (id, elder_id, doctor_id, exam_date, height, we
 UPDATE nursing_record SET report_status=1, is_abnormal=1, abnormal_desc='血糖监测值偏高，空腹血糖8.2mmol/L，餐后血糖11.5mmol/L，建议调整用药方案' WHERE id=3 AND report_status=0;
 UPDATE nursing_record SET report_status=1, is_abnormal=1, abnormal_desc='血氧饱和度偏低91%，吸氧后升至96%，需医生评估是否调整治疗方案' WHERE id=7 AND report_status=0;
 
--- ============================================
--- AI 健康评估模块 — 种子数据
--- ============================================
-
--- AI 配置默认值
-INSERT IGNORE INTO ai_config (config_key, config_value, config_desc) VALUES
-('ai.api_key', '', 'AI API Key'),
-('ai.base_url', 'https://open.bigmodel.cn/api/paas/v4/chat/completions', 'API 基础地址'),
-('ai.model', 'glm-4.7-flash', '模型名称'),
-('ai.mock_enabled', 'true', '是否启用Mock模式'),
-('ai.max_per_day', '20', '每个医生每日最大AI调用次数'),
-('ai.timeout_seconds', '60', 'AI调用超时时间(秒)'),
-('ai.max_retries', '2', 'AI调用失败重试次数');
-
-UPDATE ai_config
-SET config_desc = 'AI API Key'
-WHERE config_key = 'ai.api_key'
-  AND config_desc = 'DeepSeek API Key';
-
-UPDATE ai_config
-SET config_value = 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
-WHERE config_key = 'ai.base_url'
-  AND config_value IN ('https://api.deepseek.com', 'https://api.deepseek.com/v1', 'https://api.deepseek.com/v1/chat/completions');
-
-UPDATE ai_config
-SET config_value = 'glm-4.7-flash'
-WHERE config_key = 'ai.model'
-  AND config_value = 'deepseek-chat';
-
-UPDATE ai_config
-SET config_value = '60'
-WHERE config_key = 'ai.timeout_seconds'
-  AND config_value = '30';
-
 -- 评估规则（60条）
 INSERT IGNORE INTO assessment_rule (rule_code, rule_name, category, indicator, data_source, operator, threshold, severity, finding_text, advice_text, sort_order) VALUES
 ('BP_SYSTOLIC_CRISIS','收缩压危急值','血压','systolic','physical_exam','>=',180,3,'收缩压达危急值（{value}mmHg），属高血压3级，需紧急处理','立即联系医生或就医，不可拖延。遵医嘱调整降压方案，保持情绪平稳',1),

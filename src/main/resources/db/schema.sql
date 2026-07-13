@@ -446,17 +446,29 @@ CREATE TABLE IF NOT EXISTS family_history (
 CREATE TABLE IF NOT EXISTS sys_message (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     user_id BIGINT NOT NULL COMMENT '用户ID',
+    sender_user_id BIGINT DEFAULT NULL COMMENT '发送人用户ID',
+    audience_type TINYINT NOT NULL DEFAULT 1 COMMENT '目标类型:1指定用户 2指定角色 3全员',
+    audience_role TINYINT DEFAULT NULL COMMENT '目标角色:1管理员 2医生 3护士',
     title VARCHAR(200) DEFAULT NULL COMMENT '消息标题',
     content VARCHAR(1000) DEFAULT NULL COMMENT '消息内容',
-    msg_type TINYINT DEFAULT NULL COMMENT '消息类型:1预警通知 2随访提醒 3系统公告 4转诊通知',
+    msg_type TINYINT DEFAULT NULL COMMENT '消息类型:1预警通知 2随访提醒 3系统公告 4转诊通知 5协同消息',
     is_read TINYINT DEFAULT 0 COMMENT '是否已读:0未读 1已读',
+    read_time DATETIME DEFAULT NULL COMMENT '已读时间',
     source_type VARCHAR(50) DEFAULT NULL COMMENT '来源类型',
     source_id BIGINT DEFAULT NULL COMMENT '来源ID',
+    action_url VARCHAR(500) DEFAULT NULL COMMENT '站内业务跳转地址',
+    priority TINYINT NOT NULL DEFAULT 2 COMMENT '优先级:1普通 2重要 3紧急',
+    email_status TINYINT NOT NULL DEFAULT 0 COMMENT '邮件状态:0跳过 1待发送 2成功 3失败',
+    email_sent_time DATETIME DEFAULT NULL COMMENT '邮件发送时间',
+    email_error VARCHAR(500) DEFAULT NULL COMMENT '邮件发送失败原因',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (id),
     KEY idx_user_id (user_id),
     KEY idx_is_read (is_read),
-    KEY idx_msg_type (msg_type)
+    KEY idx_msg_type (msg_type),
+    KEY idx_message_sender (sender_user_id, create_time),
+    KEY idx_message_inbox (user_id, is_read, create_time),
+    KEY idx_message_audience (audience_type, audience_role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统消息表';
 
 -- 设备体征数据表
@@ -712,18 +724,6 @@ CREATE TABLE IF NOT EXISTS ai_health_report (
     KEY idx_source (source),
     KEY idx_create_time (create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI健康评估报告表';
-
--- AI 配置表
-CREATE TABLE IF NOT EXISTS ai_config (
-    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-    config_key VARCHAR(100) NOT NULL COMMENT '配置键',
-    config_value VARCHAR(2000) DEFAULT NULL COMMENT '配置值',
-    config_desc VARCHAR(255) DEFAULT NULL COMMENT '配置说明',
-    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_config_key (config_key)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI配置表';
 
 -- ============================================
 -- 实时健康预警中心（v1.0 新增）

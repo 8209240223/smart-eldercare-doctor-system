@@ -4,12 +4,12 @@ import { motion } from "motion/react";
 import {
   Activity,
   Bell,
-  Bot,
   CalendarCheck,
   ClipboardCheck,
   ClipboardList,
   Clock,
   FileText,
+  History,
   HeartHandshake,
   LayoutDashboard,
   Repeat,
@@ -34,6 +34,8 @@ type MenuItem = {
 const menuItems: MenuItem[] = [
   { path: "/", label: "医生工作台", icon: LayoutDashboard, roles: ["doctor"] },
   { path: "/admin-dashboard", label: "管理员工作台", icon: LayoutDashboard, roles: ["admin"] },
+  { path: "/admin/users", label: "用户治理", icon: Users, roles: ["admin"] },
+  { path: "/admin/operation-logs", label: "操作审计", icon: History, roles: ["admin"] },
   { path: "/nurse-dashboard", label: "护士工作台", icon: LayoutDashboard, roles: ["nurse"] },
   { path: "/elders", label: "老人档案", icon: Users, roles: ["admin", "doctor", "nurse"] },
   { path: "/warnings", label: "预警中心", icon: Bell, roles: ["admin", "doctor", "nurse"] },
@@ -51,7 +53,7 @@ const menuItems: MenuItem[] = [
   { path: "/nurse-review", label: "护士审核", icon: ClipboardCheck, roles: ["admin", "doctor"] },
   { path: "/ai-reports", label: "AI 报告", icon: Sparkles, roles: ["admin", "doctor", "nurse"] },
   { path: "/warning-rules", label: "预警规则", icon: Settings, roles: ["admin", "doctor"] },
-  { path: "/admin-ai-config", label: "AI 配置", icon: Bot, roles: ["admin"] },
+  { path: "/messages", label: "消息协同", icon: Bell, roles: ["admin", "doctor", "nurse"] },
   { path: "/profile", label: "个人中心", icon: UserCircle, roles: ["admin", "doctor", "nurse"] },
 ];
 

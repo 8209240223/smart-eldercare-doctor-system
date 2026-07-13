@@ -266,6 +266,102 @@
   color: #164e63;
 }
 
+.rana-agent-progress {
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #dcebed;
+  padding-bottom: 0.65rem;
+}
+
+.rana-agent-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 28px;
+  color: #52646b;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.rana-agent-step-icon {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  background: #e8f6f5;
+  color: #0f8c83;
+}
+
+.rana-agent-step-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.rana-agent-step.is-done {
+  color: #0f766e;
+  font-weight: 600;
+}
+
+.rana-agent-step.is-error {
+  color: #be123c;
+}
+
+.rana-agent-step.is-error .rana-agent-step-icon {
+  background: #fff1f2;
+  color: #e11d48;
+}
+
+.rana-agent-approval {
+  margin-top: 0.55rem;
+  border: 1px solid #f2d18a;
+  border-radius: 6px;
+  background: #fffbeb;
+  padding: 0.75rem;
+  color: #7c5613;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.rana-agent-approval p {
+  margin: 0.15rem 0 0;
+}
+
+.rana-agent-approval button {
+  min-height: 30px;
+  border: 1px solid #e2c879;
+  border-radius: 5px;
+  background: white;
+  padding: 0.3rem 0.7rem;
+  color: #76520d;
+  font-weight: 600;
+}
+
+.rana-agent-approval button.is-primary {
+  border-color: #0f9f9b;
+  background: #0f9f9b;
+  color: white;
+}
+
+.rana-agent-approval button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.rana-agent-action-result {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+  color: #0f766e;
+  font-weight: 600;
+}
+
+.rana-agent-action-result.is-cancelled {
+  color: #64748b;
+}
+
 .rana-quick-list {
   scrollbar-width: none;
 }

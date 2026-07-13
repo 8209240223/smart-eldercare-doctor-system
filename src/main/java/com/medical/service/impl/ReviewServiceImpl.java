@@ -7,6 +7,7 @@ import com.medical.entity.NursingPlan;
 import com.medical.entity.NursingRecord;
 import com.medical.mapper.NursingPlanMapper;
 import com.medical.mapper.NursingRecordMapper;
+import com.medical.message.service.MessageService;
 import com.medical.service.ReviewService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,9 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Autowired
     private NursingPlanMapper nursingPlanMapper;
+
+    @Autowired(required = false)
+    private MessageService messageService;
 
     @Override
     public Page<NursingRecord> listPendingRecords(Integer pageNum, Integer pageSize, Long doctorId) {
@@ -79,6 +83,11 @@ public class ReviewServiceImpl implements ReviewService {
         record.setReviewComment(comment);
         record.setReviewTime(LocalDateTime.now());
         nursingRecordMapper.updateById(record);
+        notifyNurse(record.getNurseId(),
+                action == 1 ? "护理记录审核通过" : "护理记录已退回",
+                action == 1 ? "医生已处理你上报的护理记录。" : "医生已退回护理记录，请根据审核意见修改后重新上报。",
+                action == 1 ? 1 : 2,
+                "/nurse-records");
     }
 
     @Override
@@ -135,6 +144,22 @@ public class ReviewServiceImpl implements ReviewService {
             throw new BusinessException(400, "审核操作类型不正确");
         }
         nursingPlanMapper.updateById(plan);
+        notifyNurse(plan.getNurseId(),
+                action == 1 ? "护理计划审核通过" : "护理计划审核未通过",
+                action == 1 ? "医生已通过护理计划，可以按计划执行。" : "医生未通过护理计划，请调整后重新提交。",
+                action == 1 ? 1 : 2,
+                "/nurse-plans");
+    }
+
+    private void notifyNurse(Long nurseId, String title, String content, int priority, String actionUrl) {
+        if (messageService == null || nurseId == null) {
+            return;
+        }
+        try {
+            messageService.sendSystemNotification(nurseId, title, content, 3, priority, actionUrl);
+        } catch (Exception ignored) {
+            // 协同通知失败不能回滚审核业务。
+        }
     }
 
     @Override

@@ -54,7 +54,7 @@ function playWarningTone(level = 1) {
 export default function RealtimeWarningBridge() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { token, isAuthenticated } = useAuthStore();
+  const { token, tokenId, isAuthenticated } = useAuthStore();
   const [warningQueue, setWarningQueue] = useState<RealtimeWarning[]>([]);
   const warning = warningQueue[0] || null;
   const { data: warningElder } = useElderDetail(warning?.elderId);
@@ -79,9 +79,9 @@ export default function RealtimeWarningBridge() {
   }, [dismissCurrent, warning]);
 
   useEffect(() => {
-    if (!isAuthenticated || !token || typeof EventSource === "undefined") return;
+    if (!isAuthenticated || !token || !tokenId || typeof EventSource === "undefined") return;
     const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
-    const source = new EventSource(`${baseUrl}/api/warnings/stream?token=${encodeURIComponent(token)}`);
+    const source = new EventSource(`${baseUrl}/api/warnings/stream?token=${encodeURIComponent(token)}&tokenId=${encodeURIComponent(tokenId)}`);
 
     const receiveWarning = (event: MessageEvent) => {
       try {
@@ -106,7 +106,7 @@ export default function RealtimeWarningBridge() {
       source.removeEventListener("warning", receiveWarning as EventListener);
       source.close();
     };
-  }, [isAuthenticated, queryClient, token]);
+  }, [isAuthenticated, queryClient, token, tokenId]);
 
   const viewNow = () => {
     const warningId = warning?.id || warning?.warningId;

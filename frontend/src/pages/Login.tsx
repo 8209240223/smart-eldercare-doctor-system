@@ -196,7 +196,7 @@ function RegisterDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
     try {
       const response = await post<ApiResponse<unknown>>("/api/auth/register", { ...form, username: form.username.trim(), realName: form.realName.trim(), phone: form.phone.trim(), captchaKey: captcha.key, captchaCode: captcha.code.trim() });
       if (response.code !== 200) throw new Error(responseError(response, "注册失败"));
-      toast.success("注册成功，请使用新账号登录");
+      toast.success("注册申请已提交，请等待管理员审核");
       onOpenChange(false);
       setForm({ username: "", realName: "", phone: "", userType: 2, password: "", confirmPassword: "" });
     } catch (submitError) {
@@ -210,7 +210,7 @@ function RegisterDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto rounded-2xl border-border/40 bg-white/95 backdrop-blur-xl">
-        <DialogHeader><DialogTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5 text-medical-500" />注册账号</DialogTitle><DialogDescription>医生和护士可创建个人工作账号。</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5 text-medical-500" />注册账号</DialogTitle><DialogDescription>医生和护士可提交账号申请，管理员审核通过后才能登录。</DialogDescription></DialogHeader>
         <form onSubmit={submit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="用户名" htmlFor="register-username"><Input id="register-username" maxLength={20} value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} placeholder="4-20位中文、字母、数字或下划线" /></FormField>

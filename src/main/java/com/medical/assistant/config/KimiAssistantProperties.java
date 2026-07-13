@@ -14,6 +14,10 @@ public class KimiAssistantProperties {
     private String model = "kimi-for-coding";
     private Duration connectTimeout = Duration.ofSeconds(10);
     private Duration readTimeout = Duration.ofSeconds(60);
+    private int maxRetries = 2;
+    private int maxAgentSteps = 6;
+    private int memoryTtlSeconds = 86400;
+    private int approvalTtlSeconds = 300;
 
     public String getApiKey() { return apiKey; }
 
@@ -34,4 +38,20 @@ public class KimiAssistantProperties {
     public Duration getReadTimeout() { return readTimeout; }
 
     public void setReadTimeout(Duration readTimeout) { this.readTimeout = readTimeout; }
+
+    public int getMaxRetries() { return maxRetries; }
+
+    public void setMaxRetries(int maxRetries) { this.maxRetries = maxRetries; }
+
+    public int getMaxAgentSteps() { return maxAgentSteps; }
+
+    public void setMaxAgentSteps(int maxAgentSteps) { this.maxAgentSteps = maxAgentSteps; }
+
+    public int getMemoryTtlSeconds() { return memoryTtlSeconds; }
+
+    public void setMemoryTtlSeconds(int memoryTtlSeconds) { this.memoryTtlSeconds = memoryTtlSeconds; }
+
+    public int getApprovalTtlSeconds() { return approvalTtlSeconds; }
+
+    public void setApprovalTtlSeconds(int approvalTtlSeconds) { this.approvalTtlSeconds = approvalTtlSeconds; }
 }
