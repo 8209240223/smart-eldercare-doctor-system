@@ -64,6 +64,17 @@ class WarningRuleServiceImplTest {
     }
 
     @Test
+    void rejectsRuleTypeThatDoesNotMatchMetric() {
+        WarningRuleServiceImpl service = createService(mock(WarningRuleMapper.class), mock(WarningService.class), mock(TimelineService.class));
+        WarningRule rule = validRule();
+        rule.setRuleType(3);
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.createRule(rule));
+
+        assertEquals("收缩压指标必须选择血压规则类型", exception.getMessage());
+    }
+
+    @Test
     void rejectsRuleThresholdOutsideHumanRange() {
         WarningRuleServiceImpl service = createService(mock(WarningRuleMapper.class), mock(WarningService.class), mock(TimelineService.class));
         WarningRule rule = validRule();

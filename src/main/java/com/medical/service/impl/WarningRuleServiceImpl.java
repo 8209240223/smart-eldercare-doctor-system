@@ -42,6 +42,20 @@ public class WarningRuleServiceImpl implements WarningRuleService {
             Map.entry("steps", new MetricRange("步数", "0", "100000")),
             Map.entry("sleep", new MetricRange("睡眠时长", "0", "24"))
     );
+    private static final Map<String, Integer> RULE_TYPE_BY_METRIC = Map.ofEntries(
+            Map.entry("systolic", 1),
+            Map.entry("diastolic", 1),
+            Map.entry("bloodSugarFasting", 2),
+            Map.entry("bloodSugarPostprandial", 2),
+            Map.entry("heartRate", 3),
+            Map.entry("temperature", 4),
+            Map.entry("bmi", 5),
+            Map.entry("spo2", 6),
+            Map.entry("bloodOxygen", 6),
+            Map.entry("steps", 6),
+            Map.entry("sleep", 6));
+    private static final Map<Integer, String> RULE_TYPE_LABELS = Map.of(
+            1, "血压", 2, "血糖", 3, "心率", 4, "体温", 5, "BMI", 6, "综合");
 
     @Autowired
     private WarningRuleMapper warningRuleMapper;
@@ -190,6 +204,11 @@ public class WarningRuleServiceImpl implements WarningRuleService {
         }
         if (!SUPPORTED_METRICS.contains(rule.getMetricCode())) {
             throw new BusinessException(400, "指标编码不受支持");
+        }
+        Integer expectedRuleType = RULE_TYPE_BY_METRIC.get(rule.getMetricCode());
+        if (rule.getRuleType() == null || !rule.getRuleType().equals(expectedRuleType)) {
+            throw new BusinessException(400, METRIC_RANGES.get(rule.getMetricCode()).label()
+                    + "指标必须选择" + RULE_TYPE_LABELS.get(expectedRuleType) + "规则类型");
         }
         Matcher matcher = CONDITION_PATTERN.matcher(rule.getConditionExpr() == null ? "" : rule.getConditionExpr().trim());
         if (!matcher.matches() || !metricEquivalent(rule.getMetricCode(), matcher.group(1))) {
