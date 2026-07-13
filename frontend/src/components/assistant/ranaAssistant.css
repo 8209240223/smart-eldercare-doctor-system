@@ -362,6 +362,38 @@
   color: #64748b;
 }
 
+.rana-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  margin-bottom: 0.65rem;
+  border: 1px solid #dbe7ed;
+  border-radius: 6px;
+  background: #f4f8fa;
+  padding: 3px;
+}
+
+.rana-mode-switch button {
+  min-width: 0;
+  min-height: 30px;
+  border-radius: 4px;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.rana-mode-switch button.is-active {
+  background: #ffffff;
+  color: #0f766e;
+  box-shadow: 0 1px 3px rgb(15 118 110 / 14%);
+}
+
+.rana-mode-switch button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .rana-quick-list {
   scrollbar-width: none;
 }

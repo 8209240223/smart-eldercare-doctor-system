@@ -36,7 +36,7 @@ public class AssistantInternalApiInvoker {
     private static final List<RoutePolicy> ROUTES = List.of(
             new RoutePolicy("/api/admin", Set.of(AssistantPermissionService.ADMIN)),
             new RoutePolicy("/api/auth/info", ALL_ROLES),
-            new RoutePolicy("/api/nurse", Set.of(AssistantPermissionService.ADMIN, AssistantPermissionService.NURSE)),
+            new RoutePolicy("/api/nurse", ALL_ROLES),
             new RoutePolicy("/api/ai", ALL_ROLES),
             new RoutePolicy("/api/assessments", ALL_ROLES),
             new RoutePolicy("/api/care-workflows", ALL_ROLES),

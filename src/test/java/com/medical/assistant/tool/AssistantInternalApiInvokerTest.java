@@ -76,6 +76,17 @@ class AssistantInternalApiInvokerTest {
     }
 
     @Test
+    void routePolicyLetsBackendMethodRolesDecideNurseModuleReadAccess() {
+        AssistantInternalApiInvoker invoker = new AssistantInternalApiInvoker(
+                new RestTemplateBuilder(), objectMapper, 8080);
+
+        assertThat(invoker.isAllowedCapability("/api/nurse/plans", 2)).isTrue();
+        assertThat(invoker.isAllowedCapability("/api/nurse/records", 2)).isTrue();
+        assertThat(invoker.isAllowedCapability("/api/admin/users", 2)).isFalse();
+        assertThat(invoker.isAllowedCapability("/api/admin/users", 3)).isFalse();
+    }
+
+    @Test
     void encodesChineseQueryParametersBeforeCallingSiteApi() throws Exception {
         AssistantInternalApiInvoker invoker = new AssistantInternalApiInvoker(
                 new RestTemplateBuilder(), objectMapper, 8080);

@@ -50,6 +50,12 @@ public class AssistantToolRegistry {
         return result;
     }
 
+    public List<Map<String, Object>> capabilityHintsForRole(Integer role, String userRequest) {
+        List<Map<String, Object>> matches = capabilityService.search(role, userRequest);
+        int limit = Math.min(matches.size(), 80);
+        return new ArrayList<>(matches.subList(0, limit));
+    }
+
     public AssistantToolHandlingResult handle(ToolExecutionRequest request,
                                                AssistantExecutionContext context) {
         AssistantToolDefinition definition = requireDefinition(request.name());

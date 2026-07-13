@@ -24,4 +24,12 @@ class AssistantRequestModeResolverTest {
         assertThat(resolver.requiresSiteTools("给医生发送一条站内消息")).isTrue();
         assertThat(resolver.requiresSiteTools("今天有哪些重点健康事项？")).isTrue();
     }
+
+    @Test
+    void explicitModeOverridesAutomaticKeywordRouting() {
+        assertThat(resolver.requiresSiteTools("查询当前系统中的老人档案总数", "qa")).isFalse();
+        assertThat(resolver.requiresSiteTools("高血压饮食需要注意什么", "agent")).isTrue();
+        assertThat(resolver.requiresSiteTools("高血压饮食需要注意什么", "auto")).isFalse();
+        assertThat(resolver.requiresSiteTools("查询当前系统中的老人档案总数", null)).isTrue();
+    }
 }
