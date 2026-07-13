@@ -609,6 +609,7 @@ export function useFollowupRecords(
   pageSize = 10,
   planId?: number,
   elderId?: number,
+  enabled = true,
 ) {
   const query = new URLSearchParams({
     pageNum: String(page),
@@ -626,6 +627,7 @@ export function useFollowupRecords(
       elderId === undefined ? "all" : String(elderId),
     ],
     `/api/followup/records?${query.toString()}`,
+    enabled,
   );
 }
 
@@ -701,12 +703,10 @@ export interface RiskPlanGenerationResult {
 export function useGenerateRiskPlans() {
   return useApiMutation<
     RiskPlanGenerationResult,
-    { doctorId?: number; elderId?: number }
+    { elderId?: number }
   >(
     (vars) => {
       const query = new URLSearchParams();
-      if (vars.doctorId !== undefined)
-        query.set("doctorId", String(vars.doctorId));
       if (vars.elderId !== undefined)
         query.set("elderId", String(vars.elderId));
       return `/api/followup/plans/generate-risk${query.toString() ? `?${query.toString()}` : ""}`;
@@ -1617,6 +1617,8 @@ export function useCalculateElderRisk() {
 export interface FollowupTask {
   id?: number;
   elderId?: number;
+  planId?: number;
+  followRecordId?: number;
   elderName?: string;
   taskType?: number;
   taskReason?: string;
@@ -1678,9 +1680,11 @@ export function useCancelFollowupTask() {
 }
 
 export function useGenerateFollowupTasks() {
-  return useApiMutation<number, void>("/api/followup/tasks/generate", "POST", [
-    ["followup", "tasks"],
-  ]);
+  return useApiMutation<number, { elderId?: number }>(
+    (vars) => `/api/followup/tasks/generate${vars.elderId ? `?elderId=${vars.elderId}` : ""}`,
+    "POST",
+    [["followup", "tasks"]],
+  );
 }
 
 // ============ Nurse ============
@@ -1688,6 +1692,7 @@ export interface NursingRecord {
   id?: number;
   elderId: number;
   nurseId?: number;
+  doctorId?: number;
   recordType?: number;
   recordTitle: string;
   recordContent?: string;

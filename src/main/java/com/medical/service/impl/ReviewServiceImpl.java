@@ -26,11 +26,12 @@ public class ReviewServiceImpl implements ReviewService {
     private NursingPlanMapper nursingPlanMapper;
 
     @Override
-    public Page<NursingRecord> listPendingRecords(Integer pageNum, Integer pageSize) {
+    public Page<NursingRecord> listPendingRecords(Integer pageNum, Integer pageSize, Long doctorId) {
         Page<NursingRecord> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<NursingRecord> wrapper = new LambdaQueryWrapper<NursingRecord>()
                 .eq(NursingRecord::getReportStatus, 1)
                 .eq(NursingRecord::getDeleted, 0)
+                .eq(doctorId != null, NursingRecord::getDoctorId, doctorId)
                 .orderByDesc(NursingRecord::getRecordDate)
                 .orderByDesc(NursingRecord::getCreateTime);
         return nursingRecordMapper.selectPage(page, wrapper);
@@ -42,7 +43,7 @@ public class ReviewServiceImpl implements ReviewService {
         LambdaQueryWrapper<NursingRecord> wrapper = new LambdaQueryWrapper<NursingRecord>()
                 .in(NursingRecord::getDoctorReview, 1, 2)
                 .eq(NursingRecord::getDeleted, 0)
-                .eq(doctorId != null, NursingRecord::getReviewDoctorId, doctorId)
+                .eq(doctorId != null, NursingRecord::getDoctorId, doctorId)
                 .orderByDesc(NursingRecord::getReviewTime)
                 .orderByDesc(NursingRecord::getCreateTime);
         return nursingRecordMapper.selectPage(page, wrapper);
@@ -57,6 +58,12 @@ public class ReviewServiceImpl implements ReviewService {
         }
         if (record.getReportStatus() == null || record.getReportStatus() != 1) {
             throw new BusinessException(400, "该记录无需审核或已被处理");
+        }
+        if (record.getDoctorId() == null) {
+            throw new BusinessException(400, "该护理记录尚未分配目标医生");
+        }
+        if (!record.getDoctorId().equals(doctorId)) {
+            throw new BusinessException(403, "只能审核分配给当前医生的护理记录");
         }
         // action: 1=通过(已处理)  2=驳回(退回)
         if (action == 1) {
@@ -108,7 +115,10 @@ public class ReviewServiceImpl implements ReviewService {
         if (plan.getDoctorApproval() == null || plan.getDoctorApproval() != 0) {
             throw new BusinessException(400, "该计划已被审核");
         }
-        if (plan.getDoctorId() != null && !plan.getDoctorId().equals(doctorId)) {
+        if (plan.getDoctorId() == null) {
+            throw new BusinessException(400, "该护理计划尚未分配目标医生");
+        }
+        if (!plan.getDoctorId().equals(doctorId)) {
             throw new BusinessException(403, "只能审核分配给当前医生的护理计划");
         }
         // action: 1=通过  2=驳回
@@ -134,6 +144,7 @@ public class ReviewServiceImpl implements ReviewService {
         long pendingRecords = nursingRecordMapper.selectCount(
                 new LambdaQueryWrapper<NursingRecord>()
                         .eq(NursingRecord::getReportStatus, 1)
+                        .eq(doctorId != null, NursingRecord::getDoctorId, doctorId)
                         .eq(NursingRecord::getDeleted, 0));
         stats.put("pendingRecords", pendingRecords);
 
@@ -148,7 +159,7 @@ public class ReviewServiceImpl implements ReviewService {
         long reviewedRecords = nursingRecordMapper.selectCount(
                 new LambdaQueryWrapper<NursingRecord>()
                         .in(NursingRecord::getDoctorReview, 1, 2)
-                        .eq(doctorId != null, NursingRecord::getReviewDoctorId, doctorId)
+                        .eq(doctorId != null, NursingRecord::getDoctorId, doctorId)
                         .eq(NursingRecord::getDeleted, 0));
         stats.put("reviewedRecords", reviewedRecords);
 

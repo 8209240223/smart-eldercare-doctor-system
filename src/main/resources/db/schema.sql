@@ -486,6 +486,7 @@ CREATE TABLE IF NOT EXISTS nursing_record (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     elder_id BIGINT NOT NULL COMMENT '老人ID',
     nurse_id BIGINT NOT NULL COMMENT '护士ID',
+    doctor_id BIGINT DEFAULT NULL COMMENT '目标责任医生ID',
     record_type TINYINT NOT NULL COMMENT '记录类型:1基础护理 2专科护理 3生活照料 4心理护理 5康复护理',
     record_title VARCHAR(200) NOT NULL COMMENT '记录标题',
     record_content TEXT DEFAULT NULL COMMENT '护理记录内容',
@@ -503,6 +504,7 @@ CREATE TABLE IF NOT EXISTS nursing_record (
     PRIMARY KEY (id),
     KEY idx_elder_id (elder_id),
     KEY idx_nurse_id (nurse_id),
+    KEY idx_doctor_id (doctor_id),
     KEY idx_record_date (record_date),
     KEY idx_report_status (report_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='护理记录表';
@@ -568,6 +570,44 @@ CREATE TABLE IF NOT EXISTS physical_exam (
     KEY idx_exam_date (exam_date),
     KEY idx_doctor_id (doctor_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='体检记录表';
+
+-- 将旧版 doctor_info.id 显式映射为当前统一使用的 sys_user.id
+UPDATE elder_info e
+LEFT JOIN sys_user assigned_doctor ON assigned_doctor.id = e.doctor_id
+LEFT JOIN doctor_info legacy_doctor ON legacy_doctor.id = e.doctor_id
+LEFT JOIN sys_user legacy_user ON legacy_user.id = legacy_doctor.user_id
+SET e.doctor_id = CASE
+    WHEN legacy_user.id IS NOT NULL
+      AND legacy_user.user_type = 2
+      AND legacy_user.status = 1
+      AND legacy_user.deleted = 0 THEN legacy_user.id
+    ELSE NULL
+END
+WHERE e.deleted = 0
+  AND (
+      e.doctor_id IS NULL
+      OR assigned_doctor.id IS NULL
+      OR assigned_doctor.user_type <> 2
+      OR assigned_doctor.status <> 1
+      OR assigned_doctor.deleted = 1
+  );
+
+UPDATE nursing_plan np
+JOIN elder_info e ON e.id = np.elder_id AND e.deleted = 0
+JOIN sys_user elder_doctor ON elder_doctor.id = e.doctor_id
+LEFT JOIN sys_user assigned_doctor ON assigned_doctor.id = np.doctor_id
+SET np.doctor_id = e.doctor_id
+WHERE np.deleted = 0
+  AND elder_doctor.user_type = 2
+  AND elder_doctor.status = 1
+  AND elder_doctor.deleted = 0
+  AND (
+      np.doctor_id IS NULL
+      OR assigned_doctor.id IS NULL
+      OR assigned_doctor.user_type <> 2
+      OR assigned_doctor.status <> 1
+      OR assigned_doctor.deleted = 1
+  );
 
 -- 给护理记录表增加医生审核相关字段
 SET @col_exists := (

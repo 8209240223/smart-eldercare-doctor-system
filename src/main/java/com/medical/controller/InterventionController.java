@@ -38,14 +38,19 @@ public class InterventionController {
     @RequireRole({2})
     @PostMapping
     @OperationLog(module = "干预管理", type = "新增", desc = "新建干预记录")
-    public R<?> create(@Valid @RequestBody InterventionRecord record) {
+    public R<?> create(@Valid @RequestBody InterventionRecord record,
+                       @RequestAttribute("currentUserId") Long currentUserId) {
+        record.setDoctorId(currentUserId);
         return R.ok("创建成功", interventionService.create(record));
     }
 
     @RequireRole({2})
     @PutMapping("/{id}")
     @OperationLog(module = "干预管理", type = "修改", desc = "更新干预记录")
-    public R<?> update(@PathVariable Long id, @Valid @RequestBody InterventionRecord record) {
+    public R<?> update(@PathVariable Long id,
+                       @Valid @RequestBody InterventionRecord record,
+                       @RequestAttribute("currentUserId") Long currentUserId) {
+        record.setDoctorId(currentUserId);
         interventionService.update(id, record);
         return R.ok("修改成功");
     }

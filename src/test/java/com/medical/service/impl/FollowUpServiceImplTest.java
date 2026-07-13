@@ -12,6 +12,7 @@ import com.medical.mapper.FollowPlanMapper;
 import com.medical.mapper.FollowRecordMapper;
 import com.medical.mapper.MedicalHistoryMapper;
 import com.medical.service.ElderReferenceService;
+import com.medical.service.RiskProfileService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -107,6 +108,24 @@ class FollowUpServiceImplTest {
     }
 
     @Test
+    void planRejectsNextFollowDateAfterEndDate() {
+        FollowPlanMapper planMapper = mock(FollowPlanMapper.class);
+        FollowRecordMapper recordMapper = mock(FollowRecordMapper.class);
+        FollowUpServiceImpl service = createService(planMapper, recordMapper);
+        FollowPlan plan = plan(null, 1, 0, 3);
+        plan.setPlanName("短期随访计划");
+        plan.setStartDate(LocalDate.of(2026, 7, 13));
+        plan.setEndDate(LocalDate.of(2026, 7, 20));
+        plan.setNextFollowDate(LocalDate.of(2026, 7, 21));
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.createPlan(plan));
+
+        assertEquals("下次随访日期不能晚于结束日期", error.getMessage());
+        verify(planMapper, never()).insert(any(FollowPlan.class));
+    }
+
+    @Test
     void completionRateUsesCompletedPlansInsteadOfActivePlans() {
         FollowPlanMapper planMapper = mock(FollowPlanMapper.class);
         FollowRecordMapper recordMapper = mock(FollowRecordMapper.class);
@@ -160,6 +179,38 @@ class FollowUpServiceImplTest {
                         && plan.getFrequencyType() == 4
                         && plan.getTotalCount() == 2
                         && plan.getStatus() == 1));
+    }
+
+    @Test
+    void bulkGenerationIncludesLowRiskProfilesAfterRefreshingAllElders() {
+        FollowPlanMapper planMapper = mock(FollowPlanMapper.class);
+        FollowRecordMapper recordMapper = mock(FollowRecordMapper.class);
+        ElderRiskProfileMapper riskMapper = mock(ElderRiskProfileMapper.class);
+        ElderInfoMapper elderMapper = mock(ElderInfoMapper.class);
+        RiskProfileService riskProfileService = mock(RiskProfileService.class);
+        FollowUpServiceImpl service = createService(planMapper, recordMapper);
+        ReflectionTestUtils.setField(service, "elderRiskProfileMapper", riskMapper);
+        ReflectionTestUtils.setField(service, "elderInfoMapper", elderMapper);
+        ReflectionTestUtils.setField(service, "riskProfileService", riskProfileService);
+
+        ElderRiskProfile lowRisk = new ElderRiskProfile();
+        lowRisk.setElderId(31L);
+        lowRisk.setRiskLevel(1);
+        lowRisk.setRiskScore(5);
+        ElderInfo elder = new ElderInfo();
+        elder.setId(31L);
+        elder.setName("低风险老人");
+        elder.setDoctorId(2L);
+        elder.setDeleted(0);
+        when(riskMapper.selectList(any())).thenReturn(List.of(lowRisk));
+        when(elderMapper.selectById(31L)).thenReturn(elder);
+        when(planMapper.selectLatestActiveByElderForUpdate(31L)).thenReturn(null);
+
+        Map<String, Object> result = service.generateRiskFollowPlans(2L, null);
+
+        assertEquals(1, result.get("createdCount"));
+        verify(riskProfileService).calculateAllRisk();
+        verify(planMapper).insert(any(FollowPlan.class));
     }
 
     @Test
@@ -251,6 +302,7 @@ class FollowUpServiceImplTest {
         ReflectionTestUtils.setField(service, "followRecordMapper", recordMapper);
         ReflectionTestUtils.setField(service, "elderReferenceService", elderReferenceService);
         ReflectionTestUtils.setField(service, "medicalHistoryMapper", mock(MedicalHistoryMapper.class));
+        ReflectionTestUtils.setField(service, "riskProfileService", mock(RiskProfileService.class));
         return service;
     }
 

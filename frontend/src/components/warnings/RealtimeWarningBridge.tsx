@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { BellRing, Siren } from "lucide-react";
@@ -55,10 +55,28 @@ export default function RealtimeWarningBridge() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { token, isAuthenticated } = useAuthStore();
-  const [warning, setWarning] = useState<RealtimeWarning | null>(null);
+  const [warningQueue, setWarningQueue] = useState<RealtimeWarning[]>([]);
+  const warning = warningQueue[0] || null;
   const { data: warningElder } = useElderDetail(warning?.elderId);
   const seenIds = useRef(new Set<string>());
   const closeTimer = useRef<number | null>(null);
+
+  const dismissCurrent = useCallback(() => {
+    setWarningQueue((current) => current.slice(1));
+  }, []);
+
+  useEffect(() => {
+    if (!warning) return;
+    playWarningTone(Number(warning.warningLevel || 1));
+    toast.warning(
+      `${levelLabel(Number(warning.warningLevel || 1))}预警：${warning.warningTitle || "健康指标异常"}`,
+    );
+    if (closeTimer.current) window.clearTimeout(closeTimer.current);
+    closeTimer.current = window.setTimeout(dismissCurrent, 10000);
+    return () => {
+      if (closeTimer.current) window.clearTimeout(closeTimer.current);
+    };
+  }, [dismissCurrent, warning]);
 
   useEffect(() => {
     if (!isAuthenticated || !token || typeof EventSource === "undefined") return;
@@ -76,12 +94,8 @@ export default function RealtimeWarningBridge() {
         seenIds.current.add(key);
         if (seenIds.current.size > 500) seenIds.current = new Set(Array.from(seenIds.current).slice(-300));
 
-        setWarning(next);
-        playWarningTone(Number(next.warningLevel || 1));
-        toast.warning(`${levelLabel(Number(next.warningLevel || 1))}预警：${next.warningTitle || "健康指标异常"}`);
+        setWarningQueue((current) => [...current, next].slice(-50));
         queryClient.invalidateQueries({ queryKey: ["warnings"] });
-        if (closeTimer.current) window.clearTimeout(closeTimer.current);
-        closeTimer.current = window.setTimeout(() => setWarning(null), 10000);
       } catch {
         // 忽略无法解析的心跳或非预警事件。
       }
@@ -91,18 +105,17 @@ export default function RealtimeWarningBridge() {
     return () => {
       source.removeEventListener("warning", receiveWarning as EventListener);
       source.close();
-      if (closeTimer.current) window.clearTimeout(closeTimer.current);
     };
   }, [isAuthenticated, queryClient, token]);
 
   const viewNow = () => {
     const warningId = warning?.id || warning?.warningId;
-    setWarning(null);
+    dismissCurrent();
     navigate(warningId ? `/warnings?handle=${warningId}` : "/warnings");
   };
 
   return (
-    <Dialog open={!!warning} onOpenChange={(open) => !open && setWarning(null)}>
+    <Dialog open={!!warning} onOpenChange={(open) => !open && dismissCurrent()}>
       <DialogContent className="max-w-md rounded-2xl border-red-200 bg-white/96 shadow-2xl backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-red-700"><Siren className="h-5 w-5" />收到实时健康预警</DialogTitle>
@@ -119,7 +132,7 @@ export default function RealtimeWarningBridge() {
           {warning?.createTime && <p className="mt-1 text-xs text-muted-foreground">发生时间：{warning.createTime}</p>}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setWarning(null)}>稍后处理</Button>
+          <Button variant="outline" onClick={dismissCurrent}>稍后处理</Button>
           <Button onClick={viewNow} className="bg-red-500 text-white hover:bg-red-600">立即查看</Button>
         </DialogFooter>
       </DialogContent>

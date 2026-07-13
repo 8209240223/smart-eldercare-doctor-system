@@ -65,6 +65,7 @@ public class NursePlanServiceImpl implements NursePlanService {
         if (elder.getDoctorId() == null) {
             throw new BusinessException(400, "该老人尚未分配责任医生，不能创建待审核护理计划");
         }
+        elderReferenceService.requireActiveDoctor(elder.getDoctorId());
         plan.setDoctorId(elder.getDoctorId());
         plan.setDeleted(0);
         plan.setStatus(0);
@@ -86,6 +87,7 @@ public class NursePlanServiceImpl implements NursePlanService {
         if (elder.getDoctorId() == null) {
             throw new BusinessException(400, "该老人尚未分配责任医生，不能更新护理计划");
         }
+        elderReferenceService.requireActiveDoctor(elder.getDoctorId());
         existing.setDoctorId(elder.getDoctorId());
         BeanUtil.copyProperties(plan, existing, CopyOptions.create()
                 .ignoreNullValue()
@@ -156,7 +158,7 @@ public class NursePlanServiceImpl implements NursePlanService {
         // 待医生审核数
         stats.put("pendingApproval", nursingPlanMapper.selectCount(baseQ.clone()
                 .eq(NursingPlan::getDoctorApproval, 0)
-                .in(NursingPlan::getStatus, 1, 2)));
+                .in(NursingPlan::getStatus, 0, 1)));
 
         return stats;
     }

@@ -41,9 +41,9 @@ public class FollowUpController {
     @RequireRole({2})
     @PostMapping("/plans/generate-risk")
     @OperationLog(module = "随访管理", type = "生成", desc = "根据风险分层生成随访计划")
-    public R<?> generateRiskPlans(@RequestParam(required = false) Long doctorId,
+    public R<?> generateRiskPlans(@RequestAttribute("currentUserId") Long currentUserId,
                                   @RequestParam(required = false) Long elderId) {
-        return R.ok("生成成功", followUpService.generateRiskFollowPlans(doctorId, elderId));
+        return R.ok("生成成功", followUpService.generateRiskFollowPlans(currentUserId, elderId));
     }
 
     @RequireRole({2})

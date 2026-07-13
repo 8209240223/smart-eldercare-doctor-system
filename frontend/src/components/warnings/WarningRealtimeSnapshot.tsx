@@ -25,6 +25,7 @@ interface WarningRealtimeSnapshotProps {
   data?: WarningRealtimeStats;
   isLoading?: boolean;
   elders?: ElderInfo[];
+  canHandle?: boolean;
   onView: (warning: HealthWarning) => void;
   onHandle: (warning: HealthWarning) => void;
 }
@@ -64,6 +65,16 @@ function levelMeta(level: number) {
   return { label: "低危", className: "bg-medical-100 text-medical-700" };
 }
 
+function statusMeta(status: number) {
+  if (status === 0)
+    return { label: "待处理", className: "bg-red-100 text-red-700" };
+  if (status === 1)
+    return { label: "处理中", className: "bg-amber-100 text-amber-700" };
+  if (status === 2)
+    return { label: "已处理", className: "bg-medical-100 text-medical-700" };
+  return { label: "已忽略", className: "bg-slate-100 text-slate-600" };
+}
+
 function formatTime(value?: string) {
   if (!value) return "-";
   return value.replace("T", " ").slice(0, 16);
@@ -73,6 +84,7 @@ export default function WarningRealtimeSnapshot({
   data,
   isLoading,
   elders = [],
+  canHandle = false,
   onView,
   onHandle,
 }: WarningRealtimeSnapshotProps) {
@@ -220,13 +232,14 @@ export default function WarningRealtimeSnapshot({
                     最近预警
                   </h3>
                   <span className="text-xs text-muted-foreground">
-                    待处理 {Number(data?.totalPending || 0)} 条
+                    最近 {Number(data?.recentWarnings?.length || 0)} 条
                   </span>
                 </div>
                 {recentWarnings.length > 0 ? (
                   <div className="space-y-2">
                     {recentWarnings.map((warning) => {
                       const meta = levelMeta(Number(warning.warningLevel || 1));
+                      const status = statusMeta(Number(warning.status || 0));
                       return (
                         <div
                           key={warning.id}
@@ -244,6 +257,11 @@ export default function WarningRealtimeSnapshot({
                                   className={cn("text-[11px]", meta.className)}
                                 >
                                   {meta.label}
+                                </Badge>
+                                <Badge
+                                  className={cn("text-[11px]", status.className)}
+                                >
+                                  {status.label}
                                 </Badge>
                               </div>
                               <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
@@ -267,14 +285,17 @@ export default function WarningRealtimeSnapshot({
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                className="h-8 bg-gradient-to-r from-medical-400 to-medical-600 px-2.5 text-xs text-white"
-                                onClick={() => onHandle(warning)}
-                              >
-                                处理
-                              </Button>
+                              {canHandle &&
+                                (warning.status === 0 || warning.status === 1) && (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    className="h-8 bg-gradient-to-r from-medical-400 to-medical-600 px-2.5 text-xs text-white"
+                                    onClick={() => onHandle(warning)}
+                                  >
+                                    处理
+                                  </Button>
+                                )}
                             </div>
                           </div>
                         </div>
@@ -283,7 +304,7 @@ export default function WarningRealtimeSnapshot({
                   </div>
                 ) : (
                   <div className="flex min-h-56 items-center justify-center rounded-xl border border-dashed border-border/60 px-4 text-center text-sm text-muted-foreground">
-                    当前没有待处理的实时预警
+                    暂无最近预警
                   </div>
                 )}
               </section>

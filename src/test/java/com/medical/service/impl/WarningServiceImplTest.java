@@ -1,6 +1,8 @@
 package com.medical.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.entity.HealthWarning;
 import com.medical.entity.WarningEventLog;
@@ -8,6 +10,8 @@ import com.medical.mapper.HealthWarningMapper;
 import com.medical.mapper.WarningEventLogMapper;
 import com.medical.service.ElderReferenceService;
 import org.junit.jupiter.api.Test;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -41,6 +45,50 @@ class WarningServiceImplTest {
         assertEquals(24, trend.size());
         assertEquals(expectedCurrentHour, trend.get(23).get("hour"));
         assertTrue(String.valueOf(trend.get(0).get("hour")).endsWith(":00"));
+    }
+
+    @Test
+    void realtimeRecentWarningsIncludeAllStatusesAndSortByNewestFirst() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), "WarningServiceImplTest"),
+                HealthWarning.class);
+        HealthWarningMapper mapper = mock(HealthWarningMapper.class);
+        when(mapper.selectCount(any(Wrapper.class))).thenReturn(0L);
+        when(mapper.selectPage(any(Page.class), any(Wrapper.class))).thenReturn(new Page<>());
+        WarningServiceImpl service = new WarningServiceImpl();
+        ReflectionTestUtils.setField(service, "healthWarningMapper", mapper);
+
+        service.getRealtimeStats();
+
+        ArgumentCaptor<Wrapper<HealthWarning>> wrapperCaptor = ArgumentCaptor.forClass(Wrapper.class);
+        verify(mapper).selectPage(any(Page.class), wrapperCaptor.capture());
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment().toLowerCase();
+
+        assertFalse(sqlSegment.contains("status"));
+        assertFalse(sqlSegment.contains("warning_level"));
+        assertTrue(sqlSegment.contains("create_time"));
+        assertTrue(sqlSegment.contains("id"));
+        assertTrue(sqlSegment.indexOf("create_time") < sqlSegment.indexOf("id"));
+    }
+
+    @Test
+    void warningListSortsByNewestFirstInsteadOfSeverity() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), "WarningListOrderTest"),
+                HealthWarning.class);
+        HealthWarningMapper mapper = mock(HealthWarningMapper.class);
+        when(mapper.selectPage(any(Page.class), any(Wrapper.class))).thenReturn(new Page<>());
+        WarningServiceImpl service = new WarningServiceImpl();
+        ReflectionTestUtils.setField(service, "healthWarningMapper", mapper);
+
+        service.list(1, 10, null, null, null);
+
+        ArgumentCaptor<Wrapper<HealthWarning>> wrapperCaptor = ArgumentCaptor.forClass(Wrapper.class);
+        verify(mapper).selectPage(any(Page.class), wrapperCaptor.capture());
+        String sqlSegment = wrapperCaptor.getValue().getSqlSegment().toLowerCase();
+        assertFalse(sqlSegment.contains("warning_level"));
+        assertTrue(sqlSegment.contains("create_time"));
+        assertTrue(sqlSegment.contains("id"));
     }
 
     @Test

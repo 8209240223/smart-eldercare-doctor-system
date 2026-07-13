@@ -14,7 +14,7 @@ public interface ReviewService {
     /**
      * 查询待审核的异常护理记录
      */
-    Page<NursingRecord> listPendingRecords(Integer pageNum, Integer pageSize);
+    Page<NursingRecord> listPendingRecords(Integer pageNum, Integer pageSize, Long doctorId);
 
     Page<NursingRecord> listReviewedRecords(Integer pageNum, Integer pageSize, Long doctorId);
 

@@ -44,7 +44,7 @@ public class RiskProfileScheduler {
     public void scheduledFollowupTaskGeneration() {
         logger.info("开始执行随访任务自动生成...");
         try {
-            int taskCount = followupTaskService.generateAutoTasks();
+            int taskCount = followupTaskService.generateAutoTasks(null, null);
             logger.info("随访任务自动生成完成，共生成{}条任务", taskCount);
         } catch (Exception e) {
             logger.error("随访任务自动生成失败: {}", e.getMessage(), e);

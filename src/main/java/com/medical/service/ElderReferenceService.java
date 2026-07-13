@@ -2,7 +2,9 @@ package com.medical.service;
 
 import com.medical.common.exception.BusinessException;
 import com.medical.entity.ElderInfo;
+import com.medical.entity.SysUser;
 import com.medical.mapper.ElderInfoMapper;
+import com.medical.mapper.SysUserMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +16,9 @@ public class ElderReferenceService {
 
     @Autowired
     private ElderInfoMapper elderInfoMapper;
+
+    @Autowired
+    private SysUserMapper sysUserMapper;
 
     public ElderInfo requireActive(Long elderId) {
         if (elderId == null) {
@@ -31,5 +36,18 @@ public class ElderReferenceService {
             throw new BusinessException(400, "老人账号已停用，不能执行该操作");
         }
         return elder;
+    }
+
+    public void requireActiveDoctor(Long doctorId) {
+        if (doctorId == null) {
+            throw new BusinessException(400, "该老人尚未分配责任医生");
+        }
+        SysUser doctor = sysUserMapper.selectById(doctorId);
+        if (doctor == null
+                || !Integer.valueOf(2).equals(doctor.getUserType())
+                || !Integer.valueOf(1).equals(doctor.getStatus())
+                || Integer.valueOf(1).equals(doctor.getDeleted())) {
+            throw new BusinessException(400, "责任医生必须是启用中的真实医生账号");
+        }
     }
 }

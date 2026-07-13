@@ -26,8 +26,9 @@ public class FollowupTaskController {
      */
     @RequireRole({2})
     @PostMapping("/generate")
-    public R<Integer> generateAutoTasks() {
-        int count = followupTaskService.generateAutoTasks();
+    public R<Integer> generateAutoTasks(@RequestAttribute("currentUserId") Long currentUserId,
+                                        @RequestParam(required = false) Long elderId) {
+        int count = followupTaskService.generateAutoTasks(currentUserId, elderId);
         return R.ok("自动生成随访任务完成，共生成" + count + "条", count);
     }
 
@@ -61,8 +62,9 @@ public class FollowupTaskController {
     @PutMapping("/{id}/finish")
     public R<Boolean> finishTask(
             @PathVariable Long id,
-            @RequestParam Long followRecordId) {
-        boolean success = followupTaskService.finishTask(id, followRecordId);
+            @RequestParam Long followRecordId,
+            @RequestAttribute("currentUserId") Long currentUserId) {
+        boolean success = followupTaskService.finishTask(id, followRecordId, currentUserId);
         return success ? R.ok("任务已完成", true) : R.fail("任务已完成或不存在");
     }
 
@@ -73,8 +75,9 @@ public class FollowupTaskController {
     @PutMapping("/{id}/cancel")
     public R<Boolean> cancelTask(
             @PathVariable Long id,
-            @RequestParam(required = false) String reason) {
-        boolean success = followupTaskService.cancelTask(id, reason);
+            @RequestParam(required = false) String reason,
+            @RequestAttribute("currentUserId") Long currentUserId) {
+        boolean success = followupTaskService.cancelTask(id, reason, currentUserId);
         return success ? R.ok("任务已取消", true) : R.fail("任务已完成或不存在");
     }
 

@@ -20,6 +20,8 @@ public class NursingRecord implements Serializable {
 
     private Long nurseId;
 
+    private Long doctorId;
+
     /** 记录类型:1基础护理 2专科护理 3生活照料 4心理护理 5康复护理 */
     private Integer recordType;
 

@@ -25,7 +25,7 @@ import {
   useUploadProfileAvatar,
   type ProfileInfo,
 } from "@/hooks/useApi";
-import { getUserRole, useAuthStore } from "@/store/auth";
+import { getUserRole, useAuthStore, type UserRole } from "@/store/auth";
 
 function roleLabel(role: string) {
   if (role === "admin") return "管理员";
@@ -38,11 +38,30 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const strongPasswordPattern = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&._-]{8,20}$/;
 const allowedAvatarTypes = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 
+const rolePermissions: Record<UserRole, { manage: string[]; readOnly: string[]; restrictions: string[] }> = {
+  doctor: {
+    manage: ["老人档案", "预警处置", "随访与干预", "评估与转诊", "体检管理", "预警规则", "护理质控"],
+    readOnly: ["重点人群", "生命体征", "健康时间轴", "AI 报告"],
+    restrictions: ["不能修改系统 AI 配置", "不能创建或维护护理记录和护理计划", "不能执行管理员账号管理"],
+  },
+  nurse: {
+    manage: ["护理记录", "护理计划", "生命体征", "体检管理"],
+    readOnly: ["老人档案", "预警中心", "评估记录", "健康时间轴", "AI 报告"],
+    restrictions: ["不能新增或删除老人主档", "不能处理预警或维护预警规则", "不能审核护理记录和护理计划"],
+  },
+  admin: {
+    manage: ["管理员工作台", "AI 配置"],
+    readOnly: ["老人档案", "预警中心", "评估与体检", "生命体征", "护理数据", "健康时间轴", "AI 报告"],
+    restrictions: ["不能执行医生临床处置", "不能创建或修改护理业务数据", "不能通过公开注册创建管理员账号"],
+  },
+};
+
 export default function Profile() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
   const { token, userInfo, setAuth, logout } = useAuthStore();
   const role = getUserRole(userInfo);
+  const permissionProfile = rolePermissions[role];
   const userId = Number(userInfo?.userId || userInfo?.id || 0) || undefined;
   const [profile, setProfile] = useState<ProfileInfo>({
     realName: userInfo?.realName || "",
@@ -183,7 +202,7 @@ export default function Profile() {
           <StatCard title="未读消息" value={Number(unreadCount || 0)} icon={Bell} delay={0} onClick={() => setActiveTab("messages")} />
           <StatCard title="操作日志" value={Number(logs?.total || 0)} icon={ClipboardList} iconClassName="from-sky-400 to-sky-500" delay={1} onClick={() => setActiveTab("logs")} />
           <StatCard title="资料状态" value={profile.phone ? 1 : 0} icon={CheckCircle2} delay={2} onClick={() => setActiveTab("info")} />
-          <StatCard title="账号权限" value={role === "admin" ? 3 : role === "nurse" ? 2 : 1} icon={Shield} iconClassName="from-lavender-400 to-lavender-500" delay={3} onClick={() => setActiveTab("info")} />
+          <StatCard title="账号权限" value={permissionProfile.manage.length + permissionProfile.readOnly.length} icon={Shield} iconClassName="from-lavender-400 to-lavender-500" delay={3} onClick={() => setActiveTab("permissions")} />
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
@@ -232,11 +251,12 @@ export default function Profile() {
             <Card className="border-border/40 bg-white/80 shadow-card backdrop-blur-sm">
               <CardContent className="p-6">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                  <TabsList className="mb-5 bg-medical-50/70">
+                  <TabsList className="mb-5 h-auto flex-wrap bg-medical-50/70">
                     <TabsTrigger value="info">基本信息</TabsTrigger>
                     <TabsTrigger value="password">修改密码</TabsTrigger>
                     <TabsTrigger value="messages">系统消息</TabsTrigger>
                     <TabsTrigger value="logs">操作日志</TabsTrigger>
+                    <TabsTrigger value="permissions">账号权限</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="info" className="space-y-5">
@@ -271,6 +291,21 @@ export default function Profile() {
                         保存修改
                       </Button>
                     </div>
+                  </TabsContent>
+
+                  <TabsContent value="permissions" className="space-y-6">
+                    <div className="flex flex-col gap-2 border-b border-border/40 pb-5 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">当前账号角色</p>
+                        <p className="mt-1 text-xl font-bold text-foreground">{roleLabel(role)}</p>
+                      </div>
+                      <div className="rounded-lg bg-medical-50 px-3 py-2 text-sm font-medium text-medical-700">
+                        可访问 {permissionProfile.manage.length + permissionProfile.readOnly.length} 个业务模块
+                      </div>
+                    </div>
+                    <PermissionSection title="可维护模块" items={permissionProfile.manage} tone="manage" />
+                    <PermissionSection title="只读或辅助查看" items={permissionProfile.readOnly} tone="read" />
+                    <PermissionSection title="权限边界" items={permissionProfile.restrictions} tone="limit" />
                   </TabsContent>
 
                   <TabsContent value="password" className="space-y-5">
@@ -340,5 +375,29 @@ export default function Profile() {
         </div>
       </div>
     </PageShell>
+  );
+}
+
+function PermissionSection({ title, items, tone }: { title: string; items: string[]; tone: "manage" | "read" | "limit" }) {
+  const toneClass = tone === "manage"
+    ? "border-medical-200 bg-medical-50 text-medical-700"
+    : tone === "read"
+      ? "border-sky-200 bg-sky-50 text-sky-700"
+      : "border-amber-200 bg-amber-50 text-amber-700";
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        <span className="text-xs text-muted-foreground">{items.length} 项</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {items.map((item) => (
+          <span key={item} className={`rounded-lg border px-3 py-2 text-sm ${toneClass}`}>
+            {item}
+          </span>
+        ))}
+      </div>
+    </section>
   );
 }

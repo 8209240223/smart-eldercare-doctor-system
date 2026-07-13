@@ -235,11 +235,18 @@ export default function WarningRules() {
       toast.error("请选择需要评估的老人");
       return;
     }
+    const filledEntries = Object.entries(vitalData).filter(
+      ([, value]) => value.trim() !== "",
+    );
+    const invalidEntry = filledEntries.find(
+      ([, value]) => !/^(?:\d+|\d*\.\d+)$/.test(value.trim()),
+    );
+    if (invalidEntry) {
+      toast.error(`${metricRanges[invalidEntry[0]]?.label || invalidEntry[0]}只能输入普通数字`);
+      return;
+    }
     const numericData = Object.fromEntries(
-      Object.entries(vitalData)
-        .filter(([, value]) => value !== "")
-        .map(([key, value]) => [key, Number(value)])
-        .filter(([, value]) => Number.isFinite(value as number))
+      filledEntries.map(([key, value]) => [key, Number(value)]),
     ) as Record<string, number>;
     if (Object.keys(numericData).length === 0) {
       toast.error("请至少填写一项生命体征数据");
@@ -369,7 +376,7 @@ export default function WarningRules() {
 
       <Dialog open={evaluateOpen} onOpenChange={setEvaluateOpen}>
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto rounded-2xl bg-white/95">
-          <DialogHeader><DialogTitle>手动评估生命体征</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>手动评估健康指标</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <label className="space-y-2"><span className="text-sm font-medium">老人档案</span><select value={evaluateElderId} onChange={(event) => setEvaluateElderId(event.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">请选择老人</option>{(eldersData?.records || []).map((elder) => <option key={elder.id} value={elder.id}>{elder.name}（{elder.idCard}）</option>)}</select></label>
             <div className="grid gap-4 sm:grid-cols-2">

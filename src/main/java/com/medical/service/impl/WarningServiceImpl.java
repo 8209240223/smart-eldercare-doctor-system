@@ -52,8 +52,8 @@ public class WarningServiceImpl implements WarningService {
         wrapper.eq(status != null, HealthWarning::getStatus, status)
                .eq(warningLevel != null, HealthWarning::getWarningLevel, warningLevel)
                .eq(elderId != null, HealthWarning::getElderId, elderId)
-               .orderByDesc(HealthWarning::getWarningLevel)
-               .orderByDesc(HealthWarning::getCreateTime);
+               .orderByDesc(HealthWarning::getCreateTime)
+               .orderByDesc(HealthWarning::getId);
         Page<HealthWarning> result = healthWarningMapper.selectPage(page, wrapper);
         enrichReadFlags(result.getRecords());
         return result;
@@ -316,9 +316,8 @@ public class WarningServiceImpl implements WarningService {
         // 3. 最近预警列表
         Page<HealthWarning> page = new Page<>(1, 10);
         LambdaQueryWrapper<HealthWarning> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(HealthWarning::getStatus, 0)
-               .orderByDesc(HealthWarning::getWarningLevel)
-               .orderByDesc(HealthWarning::getCreateTime);
+        wrapper.orderByDesc(HealthWarning::getCreateTime)
+               .orderByDesc(HealthWarning::getId);
         List<HealthWarning> recent = healthWarningMapper.selectPage(page, wrapper).getRecords();
 
         stats.put("redPending", redPending);
