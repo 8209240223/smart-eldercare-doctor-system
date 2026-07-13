@@ -39,9 +39,10 @@ public class RiskProfileController {
             @RequestParam(defaultValue = "10") Integer pageSize,
             @RequestParam(required = false) Integer riskLevel,
             @RequestParam(required = false) Long doctorId,
-            @RequestParam(required = false) String community) {
+            @RequestParam(required = false) String community,
+            @RequestParam(required = false) String keyword) {
         Page<Map<String, Object>> page = riskProfileService.getKeyPopulationList(
-                pageNum, pageSize, riskLevel, doctorId, community);
+                pageNum, pageSize, riskLevel, doctorId, community, keyword);
         return R.ok(page);
     }
 

@@ -34,6 +34,9 @@ public class HealthWarning implements Serializable {
 
     private Integer status;
 
+    @TableField(exist = false)
+    private Boolean read;
+
     private LocalDateTime handleTime;
 
     private String handleResult;

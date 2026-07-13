@@ -5,6 +5,7 @@ import {
   Brain,
   CalendarPlus,
   RefreshCw,
+  Search,
   ShieldAlert,
   Target,
 } from "lucide-react";
@@ -19,6 +20,7 @@ import WorkflowNavigationDialog, {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +64,7 @@ export default function KeyPopulation() {
     Number(userInfo?.userId || userInfo?.id || 0) || undefined;
   const [page, setPage] = useState(1);
   const [riskLevel, setRiskLevel] = useState<number | undefined>();
+  const [keyword, setKeyword] = useState("");
   const [selected, setSelected] = useState<RiskProfile | null>(null);
   const [navigationState, setNavigationState] = useState<{
     title: string;
@@ -70,7 +73,15 @@ export default function KeyPopulation() {
     details?: string[];
   } | null>(null);
 
-  const { data, isLoading, refetch } = useRiskElders(page, 10, riskLevel);
+  const effectiveKeyword = requestedElderId
+    ? String(requestedElderId)
+    : keyword;
+  const { data, isLoading, refetch } = useRiskElders(
+    page,
+    10,
+    riskLevel,
+    effectiveKeyword,
+  );
   const { data: stats } = useRiskStats();
   const { data: detail, isLoading: detailLoading } = useRiskDetail(
     selected?.elderId,
@@ -234,6 +245,24 @@ export default function KeyPopulation() {
 
         <Card className="border-border/40 bg-white/80 shadow-card backdrop-blur-sm">
           <CardContent className="flex flex-wrap items-end gap-3 p-4">
+            <div className="min-w-[240px] flex-1">
+              <label className="text-sm font-medium text-muted-foreground">
+                老人 ID 或姓名
+              </label>
+              <div className="relative mt-2">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={requestedElderId ? String(requestedElderId) : keyword}
+                  onChange={(event) => {
+                    setKeyword(event.target.value);
+                    setPage(1);
+                  }}
+                  disabled={Boolean(requestedElderId)}
+                  placeholder="输入完整 ID 或姓名关键词"
+                  className="rounded-xl bg-white/70 pl-9"
+                />
+              </div>
+            </div>
             <div className="min-w-[180px]">
               <label className="text-sm font-medium text-muted-foreground">
                 风险等级

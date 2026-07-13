@@ -1,13 +1,19 @@
 package com.medical.service.impl;
 
 import com.medical.entity.AiHealthReport;
+import com.medical.entity.AllergyRecord;
 import com.medical.entity.AssessmentRecord;
 import com.medical.entity.ElderInfo;
+import com.medical.entity.FamilyHistory;
+import com.medical.entity.MedicationRecord;
 import com.medical.mapper.AiHealthReportMapper;
+import com.medical.mapper.AllergyRecordMapper;
 import com.medical.mapper.AssessmentRecordMapper;
+import com.medical.mapper.FamilyHistoryMapper;
 import com.medical.mapper.HealthRecordMapper;
 import com.medical.mapper.HealthWarningMapper;
 import com.medical.mapper.MedicalHistoryMapper;
+import com.medical.mapper.MedicationRecordMapper;
 import com.medical.mapper.VitalSignDataMapper;
 import com.medical.service.ElderReferenceService;
 import org.junit.jupiter.api.Test;
@@ -32,11 +38,17 @@ class AssessmentServiceImplTest {
     void comprehensiveReportUsesTypeNineAndReturnsAiSummaries() {
         AssessmentRecordMapper assessmentMapper = mock(AssessmentRecordMapper.class);
         AiHealthReportMapper aiMapper = mock(AiHealthReportMapper.class);
+        MedicationRecordMapper medicationMapper = mock(MedicationRecordMapper.class);
+        AllergyRecordMapper allergyMapper = mock(AllergyRecordMapper.class);
+        FamilyHistoryMapper familyHistoryMapper = mock(FamilyHistoryMapper.class);
         ElderReferenceService elderReferenceService = mock(ElderReferenceService.class);
         AssessmentServiceImpl service = new AssessmentServiceImpl();
         ReflectionTestUtils.setField(service, "assessmentRecordMapper", assessmentMapper);
         ReflectionTestUtils.setField(service, "healthRecordMapper", mock(HealthRecordMapper.class));
         ReflectionTestUtils.setField(service, "medicalHistoryMapper", emptyMedicalHistoryMapper());
+        ReflectionTestUtils.setField(service, "medicationRecordMapper", medicationMapper);
+        ReflectionTestUtils.setField(service, "allergyRecordMapper", allergyMapper);
+        ReflectionTestUtils.setField(service, "familyHistoryMapper", familyHistoryMapper);
         ReflectionTestUtils.setField(service, "vitalSignDataMapper", mock(VitalSignDataMapper.class));
         ReflectionTestUtils.setField(service, "healthWarningMapper", emptyWarningMapper());
         ReflectionTestUtils.setField(service, "aiHealthReportMapper", aiMapper);
@@ -56,6 +68,16 @@ class AssessmentServiceImplTest {
         AiHealthReport invalid = report(2L, "not-json");
         when(aiMapper.selectList(any())).thenReturn(List.of(valid, invalid));
 
+        MedicationRecord medication = new MedicationRecord();
+        medication.setDrugName("测试药物");
+        AllergyRecord allergy = new AllergyRecord();
+        allergy.setAllergen("测试过敏原");
+        FamilyHistory familyHistory = new FamilyHistory();
+        familyHistory.setDiseaseName("测试家族病史");
+        when(medicationMapper.selectList(any())).thenReturn(List.of(medication));
+        when(allergyMapper.selectList(any())).thenReturn(List.of(allergy));
+        when(familyHistoryMapper.selectList(any())).thenReturn(List.of(familyHistory));
+
         Map<String, Object> result = service.getReport(1L, 2L);
 
         assertEquals(new BigDecimal("88"), result.get("overallScore"));
@@ -65,6 +87,9 @@ class AssessmentServiceImplTest {
         assertEquals("结构化摘要", first.get("reportText"));
         assertFalse(first.containsKey("reportJson"));
         assertNull(second.get("reportText"));
+        assertEquals(1, ((List<?>) result.get("medications")).size());
+        assertEquals(1, ((List<?>) result.get("allergies")).size());
+        assertEquals(1, ((List<?>) result.get("familyHistories")).size());
     }
 
     private AssessmentRecord assessment(int type, String score) {

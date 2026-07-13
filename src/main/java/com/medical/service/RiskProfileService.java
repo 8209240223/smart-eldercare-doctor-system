@@ -34,7 +34,7 @@ public interface RiskProfileService {
      * @return 分页结果
      */
     Page<Map<String, Object>> getKeyPopulationList(Integer pageNum, Integer pageSize, 
-            Integer riskLevel, Long doctorId, String community);
+            Integer riskLevel, Long doctorId, String community, String keyword);
 
     /**
      * 获取老人风险画像详情
