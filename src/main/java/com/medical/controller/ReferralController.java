@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 /**
- * 双向转诊控制器
+ * 医生间患者移交控制器
  */
 @RestController
 @RequestMapping("/api/referrals")
@@ -40,43 +40,52 @@ public class ReferralController {
         return R.ok(referralService.getStats());
     }
 
+    @GetMapping("/doctor-options")
+    public R<?> doctorOptions(javax.servlet.http.HttpServletRequest request) {
+        return R.ok(referralService.listTargetDoctors(
+                (Long) request.getAttribute("currentUserId")));
+    }
+
     @RequireRole({2})
     @PostMapping
-    @OperationLog(module = "双向转诊", type = "新增", desc = "创建转诊单")
-    public R<?> create(@RequestBody ReferralOrder order) {
-        return R.ok("创建成功", referralService.createReferral(order));
+    @OperationLog(module = "患者移交", type = "新增", desc = "创建医生间患者移交申请")
+    public R<?> create(@RequestBody ReferralOrder order,
+                       javax.servlet.http.HttpServletRequest request) {
+        return R.ok("移交申请已创建", referralService.createReferral(order,
+                (Long) request.getAttribute("currentUserId"),
+                (Integer) request.getAttribute("currentUserType")));
     }
 
     @RequireRole({2})
     @PutMapping("/{id}/accept")
-    @OperationLog(module = "双向转诊", type = "接收", desc = "接收转诊")
+    @OperationLog(module = "患者移交", type = "接收", desc = "接收患者移交申请")
     public R<?> accept(@PathVariable Long id, javax.servlet.http.HttpServletRequest request) {
         referralService.acceptReferral(id,
                 (Long) request.getAttribute("currentUserId"),
                 (Integer) request.getAttribute("currentUserType"));
-        return R.ok("已接收");
+        return R.ok("已接收患者移交申请");
     }
 
     @RequireRole({2})
     @PutMapping("/{id}/complete")
-    @OperationLog(module = "双向转诊", type = "完成", desc = "完成转诊")
+    @OperationLog(module = "患者移交", type = "完成", desc = "完成患者及关联工作流移交")
     public R<?> complete(@PathVariable Long id, @RequestBody Map<String, String> body,
                          javax.servlet.http.HttpServletRequest request) {
         referralService.completeReferral(id, body.get("dischargeSummary"),
                 (Long) request.getAttribute("currentUserId"),
                 (Integer) request.getAttribute("currentUserType"));
-        return R.ok("已完成");
+        return R.ok("患者移交已完成");
     }
 
     @RequireRole({2})
     @PutMapping("/{id}/reject")
-    @OperationLog(module = "双向转诊", type = "拒绝", desc = "拒绝转诊")
+    @OperationLog(module = "患者移交", type = "拒绝", desc = "拒绝患者移交申请")
     public R<?> reject(@PathVariable Long id, @RequestBody Map<String, String> body,
                        javax.servlet.http.HttpServletRequest request) {
         referralService.rejectReferral(id, body.get("reason"),
                 (Long) request.getAttribute("currentUserId"),
                 (Integer) request.getAttribute("currentUserType"));
-        return R.ok("已拒绝");
+        return R.ok("患者移交申请已拒绝");
     }
 
     @RequireRole({2})
@@ -87,6 +96,6 @@ public class ReferralController {
         referralService.cancelReferral(id, reason,
                 (Long) request.getAttribute("currentUserId"),
                 (Integer) request.getAttribute("currentUserType"));
-        return R.ok("已取消");
+        return R.ok("患者移交申请已取消");
     }
 }

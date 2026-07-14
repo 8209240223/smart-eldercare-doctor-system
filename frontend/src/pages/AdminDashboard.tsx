@@ -271,7 +271,7 @@ export default function AdminDashboard() {
             delay={0}
           />
           <StatCard
-            title="待接收转诊"
+            title="待接收移交"
             value={Number(referralStats?.pending || 0)}
             icon={ArrowRightLeft}
             iconClassName="from-cyan-400 to-cyan-500"
@@ -347,7 +347,7 @@ export default function AdminDashboard() {
           <Card className="border-border/40 bg-white/80 shadow-card backdrop-blur-sm">
             <CardHeader className="flex-row items-center justify-between space-y-0">
               <CardTitle className="text-base font-bold">
-                最新转诊协同
+                最新患者移交
               </CardTitle>
               <Button asChild variant="ghost" size="sm">
                 <Link to="/referrals">查看全部</Link>
@@ -356,7 +356,7 @@ export default function AdminDashboard() {
             <CardContent className="space-y-2">
               {(latestReferrals?.records || []).length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">
-                  当前没有转诊记录
+                  当前没有患者移交记录
                 </p>
               ) : (
                 (latestReferrals?.records || []).map((referral) => (

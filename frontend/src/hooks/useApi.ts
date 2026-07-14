@@ -951,6 +951,7 @@ export interface Referral {
   fromOrg?: string;
   fromDoctorId?: number;
   fromDoctorName?: string;
+  fromDept?: string;
   toOrg?: string;
   toDoctorId?: number;
   toDoctorName?: string;
@@ -1679,6 +1680,20 @@ export function useGenerateFollowupTasks() {
   );
 }
 
+export interface DoctorOption {
+  id: number;
+  username?: string;
+  realName?: string;
+  department?: string;
+}
+
+export function useReferralDoctorOptions() {
+  return useApiQuery<DoctorOption[]>(
+    ["referrals", "doctor-options"],
+    "/api/referrals/doctor-options",
+  );
+}
+
 // ============ Nurse ============
 export interface NursingRecord {
   id?: number;
@@ -2262,6 +2277,13 @@ export interface AdminUserRecord {
   lastLoginIp?: string;
   createTime?: string;
   updateTime?: string;
+  department?: string;
+  collaborators?: Array<{
+    id: number;
+    username?: string;
+    realName?: string;
+    department?: string;
+  }>;
 }
 
 export interface AdminUserStatistics {
@@ -2282,6 +2304,7 @@ export interface AdminCreateUserPayload {
   phone: string;
   email?: string;
   userType: number;
+  department?: string;
 }
 
 export interface AdminOperationLogRecord extends OperationLog {
@@ -2335,6 +2358,14 @@ export function useAdminResetPassword() {
 
 export function useAdminForceLogout() {
   return useApiMutation<void, number>((id) => `/api/admin/users/${id}/force-logout`, "POST", [["admin", "users"]]);
+}
+
+export function useAdminUpdateWorkProfile() {
+  return useApiMutation<void, { id: number; department?: string; collaboratorIds: number[] }>(
+    ({ id }) => `/api/admin/users/${id}/work-profile`,
+    "PUT",
+    [["admin", "users"]],
+  );
 }
 
 export function useAdminOperationLogs(

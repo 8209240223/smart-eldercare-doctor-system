@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Ban, CheckCircle2, KeyRound, LogOut, Plus, Search, ShieldCheck, UserCheck, UserX, Users } from "lucide-react";
+import { Ban, CheckCircle2, KeyRound, LogOut, Network, Plus, Search, ShieldCheck, UserCheck, UserX, Users } from "lucide-react";
 import { toast } from "sonner";
 import PageShell from "@/components/layout/PageShell";
 import StatCard from "@/components/dashboard/StatCard";
@@ -23,6 +23,7 @@ import {
   useAdminUnbanUser,
   useAdminUsers,
   useAdminUserStatistics,
+  useAdminUpdateWorkProfile,
   type AdminUserRecord,
 } from "@/hooks/useApi";
 import { useAuthStore } from "@/store/auth";
@@ -38,6 +39,7 @@ const emptyCreateForm = {
   userType: 2,
   password: "",
   confirmPassword: "",
+  department: "全科医学科",
 };
 
 function statusClass(status?: number) {
@@ -57,11 +59,15 @@ export default function AdminUsers() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState(emptyCreateForm);
   const [resetTarget, setResetTarget] = useState<AdminUserRecord | null>(null);
+  const [workTarget, setWorkTarget] = useState<AdminUserRecord | null>(null);
+  const [workProfile, setWorkProfile] = useState({ department: "全科医学科", collaboratorIds: [] as number[] });
   const [resetPassword, setResetPassword] = useState({ newPassword: "", confirmPassword: "" });
   const [confirmAction, setConfirmAction] = useState<{ kind: "approve" | "reject" | "ban" | "unban" | "logout"; user: AdminUserRecord } | null>(null);
 
   const users = useAdminUsers(page, 10, keyword, userType, status);
   const stats = useAdminUserStatistics();
+  const doctorCandidates = useAdminUsers(1, 100, "", 2, 1);
+  const nurseCandidates = useAdminUsers(1, 100, "", 3, 1);
   const createUser = useAdminCreateUser();
   const approveUser = useAdminApproveUser();
   const rejectUser = useAdminRejectUser();
@@ -69,6 +75,7 @@ export default function AdminUsers() {
   const unbanUser = useAdminUnbanUser();
   const forceLogout = useAdminForceLogout();
   const resetUserPassword = useAdminResetPassword();
+  const updateWorkProfile = useAdminUpdateWorkProfile();
   const records = users.data?.records || [];
   const totalPages = Math.max(1, Number(users.data?.pages || 1));
   const actionPending = approveUser.isPending || rejectUser.isPending || banUser.isPending || unbanUser.isPending || forceLogout.isPending;
@@ -124,6 +131,39 @@ export default function AdminUsers() {
     }
   };
 
+  const openWorkProfile = (user: AdminUserRecord) => {
+    setWorkTarget(user);
+    setWorkProfile({
+      department: user.department || "全科医学科",
+      collaboratorIds: (user.collaborators || []).map((item) => item.id),
+    });
+  };
+
+  const toggleCollaborator = (id: number) => {
+    setWorkProfile((current) => ({
+      ...current,
+      collaboratorIds: current.collaboratorIds.includes(id)
+        ? current.collaboratorIds.filter((item) => item !== id)
+        : [...current.collaboratorIds, id],
+    }));
+  };
+
+  const submitWorkProfile = async () => {
+    if (!workTarget) return;
+    if (!workProfile.collaboratorIds.length) return toast.error("请至少选择一名协作医生或护士");
+    try {
+      await updateWorkProfile.mutateAsync({ id: workTarget.id, ...workProfile });
+      toast.success("科室与协作关系已更新");
+      setWorkTarget(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "更新协作关系失败");
+    }
+  };
+
+  const collaboratorCandidates = workTarget?.userType === 2
+    ? nurseCandidates.data?.records || []
+    : doctorCandidates.data?.records || [];
+
   return (
     <PageShell title="用户治理" subtitle="管理管理员、医生和护士账号，审核注册并控制登录状态">
       <div className="space-y-6">
@@ -149,15 +189,19 @@ export default function AdminUsers() {
             <div className="mt-4">
               {users.isLoading ? <Skeleton className="h-72 w-full" /> : !records.length ? <EmptyState title="没有匹配账号" description="调整筛选条件或创建新的工作账号" /> : (
                 <Table>
-                  <TableHeader><TableRow><TableHead>账号</TableHead><TableHead>角色</TableHead><TableHead>状态</TableHead><TableHead>联系方式</TableHead><TableHead>最近登录</TableHead><TableHead className="min-w-[300px]">操作</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead>账号</TableHead><TableHead className="min-w-[72px] whitespace-nowrap">角色</TableHead><TableHead className="min-w-[240px]">科室与协作团队</TableHead><TableHead className="min-w-[72px] whitespace-nowrap">状态</TableHead><TableHead>联系方式</TableHead><TableHead>最近登录</TableHead><TableHead className="min-w-[300px]">操作</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {records.map((user) => {
                       const self = user.id === currentUserId;
                       return (
                         <TableRow key={user.id}>
                           <TableCell><div className="font-semibold text-foreground">{user.realName || user.username}</div><div className="text-xs text-muted-foreground">{user.username} · ID {user.id}</div></TableCell>
-                          <TableCell>{roleNames[user.userType || 2]}</TableCell>
-                          <TableCell><Badge variant="outline" className={statusClass(user.status)}>{statusNames[user.status ?? 0]}</Badge></TableCell>
+                          <TableCell className="whitespace-nowrap">{roleNames[user.userType || 2]}</TableCell>
+                          <TableCell>
+                            {user.userType === 2 && <div className="mb-1 text-xs font-medium text-medical-700">{user.department || "全科医学科"}</div>}
+                            {user.userType === 1 ? <span className="text-xs text-muted-foreground">不适用</span> : !user.collaborators?.length ? <span className="text-xs text-amber-700">待自动分配</span> : <div className="flex flex-wrap gap-1">{user.collaborators.map((item) => <Badge key={item.id} variant="outline" className="bg-white text-xs">ID {item.id} · {item.realName || item.username}</Badge>)}</div>}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap"><Badge variant="outline" className={statusClass(user.status)}>{statusNames[user.status ?? 0]}</Badge></TableCell>
                           <TableCell><div>{user.phone || "-"}</div><div className="text-xs text-muted-foreground">{user.email || "未填写邮箱"}</div></TableCell>
                           <TableCell><div>{user.lastLoginTime || "尚未登录"}</div><div className="text-xs text-muted-foreground">{user.lastLoginIp || "-"}</div></TableCell>
                           <TableCell>
@@ -166,6 +210,7 @@ export default function AdminUsers() {
                               {user.status === 1 && !self && <Button size="sm" variant="outline" className="text-rose-600" onClick={() => setConfirmAction({ kind: "ban", user })}><Ban className="mr-1 h-4 w-4" />封禁</Button>}
                               {user.status === 0 && <Button size="sm" variant="outline" onClick={() => setConfirmAction({ kind: "unban", user })}><UserCheck className="mr-1 h-4 w-4" />解封</Button>}
                               <Button size="sm" variant="outline" onClick={() => setResetTarget(user)}><KeyRound className="mr-1 h-4 w-4" />重置密码</Button>
+                              {[2, 3].includes(Number(user.userType)) && <Button size="sm" variant="outline" onClick={() => openWorkProfile(user)}><Network className="mr-1 h-4 w-4" />协作配置</Button>}
                               {!self && <Button size="sm" variant="outline" onClick={() => setConfirmAction({ kind: "logout", user })}><LogOut className="mr-1 h-4 w-4" />下线</Button>}
                             </div>
                           </TableCell>
@@ -190,11 +235,36 @@ export default function AdminUsers() {
             <div className="space-y-2"><Label htmlFor="admin-create-phone">手机号</Label><Input id="admin-create-phone" maxLength={11} value={createForm.phone} onChange={(event) => setCreateForm({ ...createForm, phone: event.target.value.replace(/\D/g, "") })} /></div>
             <div className="space-y-2"><Label htmlFor="admin-create-email">邮箱</Label><Input id="admin-create-email" type="email" value={createForm.email} onChange={(event) => setCreateForm({ ...createForm, email: event.target.value })} /></div>
             <div className="space-y-2"><Label htmlFor="admin-create-role">角色</Label><select id="admin-create-role" value={createForm.userType} onChange={(event) => setCreateForm({ ...createForm, userType: Number(event.target.value) })} className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm"><option value={1}>管理员</option><option value={2}>医生</option><option value={3}>护士</option></select></div>
-            <div />
+            {createForm.userType === 2 ? <div className="space-y-2"><Label htmlFor="admin-create-department">所属科室</Label><Input id="admin-create-department" value={createForm.department} onChange={(event) => setCreateForm({ ...createForm, department: event.target.value })} placeholder="例如：全科医学科" /></div> : <div />}
             <div className="space-y-2"><Label htmlFor="admin-create-password">初始密码</Label><Input id="admin-create-password" type="password" value={createForm.password} onChange={(event) => setCreateForm({ ...createForm, password: event.target.value })} /></div>
             <div className="space-y-2"><Label htmlFor="admin-create-confirm">确认密码</Label><Input id="admin-create-confirm" type="password" value={createForm.confirmPassword} onChange={(event) => setCreateForm({ ...createForm, confirmPassword: event.target.value })} /></div>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setCreateOpen(false)} disabled={createUser.isPending}>取消</Button><Button onClick={() => void submitCreate()} disabled={createUser.isPending} className="bg-medical-500 text-white hover:bg-medical-600">确认创建</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!workTarget} onOpenChange={(open) => !open && setWorkTarget(null)}>
+        <DialogContent className="max-w-xl rounded-lg bg-white">
+          <DialogHeader>
+            <DialogTitle>配置科室与协作团队</DialogTitle>
+            <DialogDescription>
+              {workTarget?.realName || workTarget?.username}（ID {workTarget?.id}）可同时关联多名{workTarget?.userType === 2 ? "护士" : "医生"}。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {workTarget?.userType === 2 && <div className="space-y-2"><Label htmlFor="work-department">所属科室</Label><Input id="work-department" value={workProfile.department} onChange={(event) => setWorkProfile({ ...workProfile, department: event.target.value })} /></div>}
+            <div className="space-y-2">
+              <Label>协作{workTarget?.userType === 2 ? "护士" : "医生"}</Label>
+              <div className="max-h-64 space-y-2 overflow-y-auto rounded-md border border-border/60 p-2">
+                {collaboratorCandidates.map((candidate) => {
+                  const checked = workProfile.collaboratorIds.includes(candidate.id);
+                  return <label key={candidate.id} className="flex cursor-pointer items-center justify-between gap-3 rounded-md border border-border/50 bg-white px-3 py-2 hover:border-medical-300"><span><span className="font-medium">{candidate.realName || candidate.username}</span><span className="ml-2 text-xs text-muted-foreground">ID {candidate.id}{candidate.department ? ` · ${candidate.department}` : ""}</span></span><input type="checkbox" checked={checked} onChange={() => toggleCollaborator(candidate.id)} className="h-4 w-4 accent-emerald-500" /></label>;
+                })}
+                {!collaboratorCandidates.length && <p className="py-5 text-center text-sm text-muted-foreground">暂无可关联的正常账号</p>}
+              </div>
+            </div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setWorkTarget(null)} disabled={updateWorkProfile.isPending}>取消</Button><Button onClick={() => void submitWorkProfile()} disabled={updateWorkProfile.isPending} className="bg-medical-500 text-white hover:bg-medical-600">保存协作配置</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 

@@ -12,4 +12,5 @@ public class AdminCreateUserRequest {
     private String phone;
     private String email;
     private Integer userType;
+    private String department;
 }

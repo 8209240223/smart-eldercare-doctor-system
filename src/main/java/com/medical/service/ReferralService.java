@@ -2,7 +2,9 @@ package com.medical.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.entity.ReferralOrder;
+import com.medical.dto.DoctorOptionView;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -10,7 +12,7 @@ import java.util.Map;
  */
 public interface ReferralService {
 
-    ReferralOrder createReferral(ReferralOrder order);
+    ReferralOrder createReferral(ReferralOrder order, Long currentUserId, Integer currentUserType);
 
     void acceptReferral(Long id, Long currentUserId, Integer currentUserType);
 
@@ -25,4 +27,6 @@ public interface ReferralService {
     ReferralOrder getDetail(Long id);
 
     Map<String, Object> getStats();
+
+    List<DoctorOptionView> listTargetDoctors(Long currentUserId);
 }

@@ -9,6 +9,7 @@ import com.medical.admin.dto.AdminReviewRequest;
 import com.medical.admin.dto.AdminUserQuery;
 import com.medical.admin.dto.AdminUserStatistics;
 import com.medical.admin.dto.AdminUserView;
+import com.medical.admin.dto.AdminUpdateWorkProfileRequest;
 import com.medical.admin.service.AdminUserService;
 import com.medical.auth.session.AuthSessionService;
 import com.medical.common.constant.RedisKeyConstant;
@@ -19,6 +20,8 @@ import com.medical.entity.SysUser;
 import com.medical.mapper.SysUserMapper;
 import com.medical.message.service.MessageService;
 import com.medical.service.UserDemoDataService;
+import com.medical.service.DoctorNurseRelationService;
+import com.medical.service.DoctorProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +49,12 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Autowired(required = false)
     private UserDemoDataService userDemoDataService;
+
+    @Autowired(required = false)
+    private DoctorNurseRelationService relationService;
+
+    @Autowired(required = false)
+    private DoctorProfileService doctorProfileService;
 
     public AdminUserServiceImpl(SysUserMapper sysUserMapper,
                                 AuthSessionService authSessionService,
@@ -118,6 +127,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (sysUserMapper.insert(user) <= 0) {
             throw new BusinessException(500, "创建用户失败");
         }
+        ensureWorkforce(user, request.getDepartment());
         ensureDemoData(user);
         notifyUser(user.getId(), "工作账号已创建", "管理员已为你创建工作账号，现在可以登录智慧医养系统。", 1);
         return user.getId();
@@ -150,6 +160,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         requirePending(user);
         user.setStatus(STATUS_NORMAL);
         updateUser(user, "审核通过失败");
+        ensureWorkforce(user, null);
         ensureDemoData(user);
         invalidateUserCache(userId);
         notifyUser(userId, "账号审核已通过", "你的账号申请已通过管理员审核，现在可以登录系统。", 2);
@@ -208,6 +219,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
         user.setStatus(STATUS_NORMAL);
         updateUser(user, "解封用户失败");
+        ensureWorkforce(user, null);
         invalidateUserCache(userId);
         notifyUser(userId, "账号已解封", "管理员已恢复你的账号，现在可以重新登录系统。", 2);
     }
@@ -235,6 +247,28 @@ public class AdminUserServiceImpl implements AdminUserService {
         requireUser(userId);
         authSessionService.revokeAllSessions(userId);
         notifyUser(userId, "账号已被强制下线", "管理员已撤销你的当前登录会话，请重新登录系统。", 2);
+    }
+
+    @Override
+    @Transactional
+    public void updateWorkProfile(Long userId, AdminUpdateWorkProfileRequest request) {
+        if (request == null) {
+            throw new BusinessException(400, "工作资料不能为空");
+        }
+        SysUser user = requireUser(userId);
+        if (!Integer.valueOf(2).equals(user.getUserType())
+                && !Integer.valueOf(3).equals(user.getUserType())) {
+            throw new BusinessException(400, "只有医生和护士账号可以配置协作关系");
+        }
+        if (!Integer.valueOf(STATUS_NORMAL).equals(user.getStatus())) {
+            throw new BusinessException(400, "请先启用该账号再配置协作关系");
+        }
+        if (Integer.valueOf(2).equals(user.getUserType()) && doctorProfileService != null) {
+            doctorProfileService.updateDepartment(userId, request.getDepartment());
+        }
+        if (relationService != null) {
+            relationService.replaceRelations(userId, request.getCollaboratorIds());
+        }
     }
 
     @Override
@@ -292,6 +326,15 @@ public class AdminUserServiceImpl implements AdminUserService {
     private void ensureDemoData(SysUser user) {
         if (userDemoDataService != null) {
             userDemoDataService.ensureFor(user);
+        }
+    }
+
+    private void ensureWorkforce(SysUser user, String department) {
+        if (doctorProfileService != null && Integer.valueOf(2).equals(user.getUserType())) {
+            doctorProfileService.ensureProfile(user, department);
+        }
+        if (relationService != null) {
+            relationService.ensureFor(user);
         }
     }
 
@@ -353,6 +396,15 @@ public class AdminUserServiceImpl implements AdminUserService {
         view.setLastLoginIp(user.getLastLoginIp());
         view.setCreateTime(user.getCreateTime());
         view.setUpdateTime(user.getUpdateTime());
+        if (doctorProfileService != null && Integer.valueOf(2).equals(user.getUserType())) {
+            view.setDepartment(doctorProfileService.departmentOf(user.getId()));
+        }
+        if (relationService != null
+                && (Integer.valueOf(2).equals(user.getUserType()) || Integer.valueOf(3).equals(user.getUserType()))) {
+            view.setCollaborators(relationService.listCollaborators(user.getId(), user.getUserType()));
+        } else {
+            view.setCollaborators(List.of());
+        }
         return view;
     }
 }

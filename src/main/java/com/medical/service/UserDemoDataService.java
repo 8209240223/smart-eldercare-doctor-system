@@ -39,6 +39,7 @@ public class UserDemoDataService {
     @Autowired private NursingPlanMapper nursingPlanMapper;
     @Autowired private NursingRecordMapper nursingRecordMapper;
     @Autowired private AiHealthReportMapper aiHealthReportMapper;
+    @Autowired(required = false) private DoctorNurseRelationService relationService;
 
     @Transactional
     public void ensureFor(SysUser user) {
@@ -67,11 +68,35 @@ public class UserDemoDataService {
             }
         }
 
-        Long doctorId = Integer.valueOf(2).equals(userType) ? user.getId() : firstActiveUser(2);
-        Long nurseId = Integer.valueOf(3).equals(userType) ? user.getId() : firstActiveUser(3);
+        Long doctorId = Integer.valueOf(2).equals(userType) ? user.getId()
+                : chooseDoctorForNurse(user);
+        Long nurseId = Integer.valueOf(3).equals(userType) ? user.getId()
+                : chooseNurseForDoctor(user);
         for (int index = 0; index < 2; index++) {
             createBundle(user.getId(), index, doctorId, nurseId);
         }
+    }
+
+    private Long chooseDoctorForNurse(SysUser nurse) {
+        if (relationService != null) {
+            Long doctorId = relationService.chooseDoctorForNurse(
+                    nurse.getId(), nurse.getUsername() + "-demo-doctor");
+            if (doctorId != null) {
+                return doctorId;
+            }
+        }
+        return firstActiveUser(2);
+    }
+
+    private Long chooseNurseForDoctor(SysUser doctor) {
+        if (relationService != null) {
+            Long nurseId = relationService.chooseNurseForDoctor(
+                    doctor.getId(), doctor.getUsername() + "-demo-nurse", null);
+            if (nurseId != null) {
+                return nurseId;
+            }
+        }
+        return firstActiveUser(3);
     }
 
     private Long firstActiveUser(Integer userType) {
