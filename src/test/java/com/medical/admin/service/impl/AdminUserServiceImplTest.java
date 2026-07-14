@@ -14,8 +14,10 @@ import com.medical.common.utils.AccountSecurityValidator;
 import com.medical.common.utils.RedisUtils;
 import com.medical.entity.SysUser;
 import com.medical.mapper.SysUserMapper;
+import com.medical.service.UserDemoDataService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 
@@ -55,6 +57,7 @@ class AdminUserServiceImplTest {
         assertEquals(1, created.getStatus());
         assertEquals(0, created.getDeleted());
         assertTrue(AccountSecurityValidator.matchesStoredPassword("Strong123", created.getPassword()));
+        verify(dependencies.demoDataService).ensureFor(created);
     }
 
     @Test
@@ -120,6 +123,7 @@ class AdminUserServiceImplTest {
         dependencies.service.approveUser(8L);
 
         assertEquals(1, target.getStatus());
+        verify(dependencies.demoDataService).ensureFor(target);
         verify(dependencies.redisUtils).delete(RedisKeyConstant.buildUserKey(8L));
         verify(dependencies.sessionService, never()).revokeAllSessions(8L);
     }
@@ -205,6 +209,8 @@ class AdminUserServiceImplTest {
         dependencies.redisUtils = mock(RedisUtils.class);
         dependencies.service = new AdminUserServiceImpl(
                 dependencies.userMapper, dependencies.sessionService, dependencies.redisUtils);
+        dependencies.demoDataService = mock(UserDemoDataService.class);
+        ReflectionTestUtils.setField(dependencies.service, "userDemoDataService", dependencies.demoDataService);
         return dependencies;
     }
 
@@ -223,5 +229,6 @@ class AdminUserServiceImplTest {
         private SysUserMapper userMapper;
         private AuthSessionService sessionService;
         private RedisUtils redisUtils;
+        private UserDemoDataService demoDataService;
     }
 }

@@ -107,6 +107,9 @@ class ElderServiceImplTest {
         ElderServiceImpl service = new ElderServiceImpl();
         ReflectionTestUtils.setField(service, "elderInfoMapper", elderMapper);
         ReflectionTestUtils.setField(service, "healthRecordMapper", mock(HealthRecordMapper.class));
+        SysUserMapper userMapper = mock(SysUserMapper.class);
+        when(userMapper.selectList(any())).thenReturn(List.of());
+        ReflectionTestUtils.setField(service, "sysUserMapper", userMapper);
         return service;
     }
 

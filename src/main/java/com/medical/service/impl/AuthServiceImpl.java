@@ -13,6 +13,9 @@ import com.medical.entity.SysOperationLog;
 import com.medical.mapper.SysOperationLogMapper;
 import com.medical.mapper.SysUserMapper;
 import com.medical.service.AuthService;
+import com.medical.service.UserDemoDataService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class AuthServiceImpl implements AuthService {
+    private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
 
     @Autowired
     private SysUserMapper sysUserMapper;
@@ -40,6 +44,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     private AuthSessionService authSessionService;
+
+    @Autowired(required = false)
+    private UserDemoDataService userDemoDataService;
 
     @Override
     public Map<String, Object> login(String username, String password, String ip) {
@@ -80,6 +87,7 @@ public class AuthServiceImpl implements AuthService {
 
         // 4. 登录成功，清除错误计数
         redisUtils.delete(loginErrorKey);
+        ensureDemoDataWithoutBlockingLogin(user);
 
         // 5. 生成 Token，并原子替换该账号的旧会话
         String token = jwtUtils.generateToken(user.getId(), user.getUsername(), user.getUserType());
@@ -115,6 +123,17 @@ public class AuthServiceImpl implements AuthService {
         result.put("userType", user.getUserType());
         result.put("avatar", user.getAvatar());
         return result;
+    }
+
+    private void ensureDemoDataWithoutBlockingLogin(SysUser user) {
+        if (userDemoDataService == null) {
+            return;
+        }
+        try {
+            userDemoDataService.ensureFor(user);
+        } catch (RuntimeException exception) {
+            log.warn("为账号 {} 补充默认演示数据失败，登录流程继续", user.getId(), exception);
+        }
     }
 
     @Override

@@ -185,7 +185,7 @@ export default function ElderCareJourney() {
                   className="w-fit border-sky-200 bg-sky-50 px-3 py-1.5 text-sky-700"
                 >
                   {role === "nurse"
-                    ? "护士只读视图"
+                    ? "责任护士视图"
                     : role === "admin"
                       ? "管理员全局视图"
                       : "责任医生视图"}

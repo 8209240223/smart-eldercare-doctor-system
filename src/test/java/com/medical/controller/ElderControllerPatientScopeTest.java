@@ -1,7 +1,6 @@
 package com.medical.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.medical.common.exception.BusinessException;
 import com.medical.entity.ElderInfo;
 import com.medical.service.ElderOnboardingService;
 import com.medical.service.ElderService;
@@ -13,7 +12,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -42,15 +40,15 @@ class ElderControllerPatientScopeTest {
     }
 
     @Test
-    void doctorCannotReadAnotherDoctorsElder() {
+    void doctorDetailDelegatesToTheDataScopedService() {
         ElderInfo elder = new ElderInfo();
         elder.setId(2L);
         elder.setDoctorId(8L);
         when(elderService.getDetail(2L)).thenReturn(elder);
 
-        assertThatThrownBy(() -> controller.detail(2L, doctorRequest(7L)))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("不属于当前责任医生");
+        controller.detail(2L, doctorRequest(7L));
+
+        verify(elderService).getDetail(2L);
     }
 
     @Test

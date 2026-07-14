@@ -83,6 +83,7 @@ public class ElderServiceImpl implements ElderService {
 
     @Override
     public Long create(ElderInfo elderInfo) {
+        assignNurseIfMissing(elderInfo);
         validateElder(elderInfo, null);
         if (elderInfo.getAccountStatus() == null) {
             elderInfo.setAccountStatus(1);
@@ -228,6 +229,34 @@ public class ElderServiceImpl implements ElderService {
                     || Integer.valueOf(1).equals(doctor.getDeleted())) {
                 throw new BusinessException(400, "责任医生必须选择启用中的真实医生账号");
             }
+        }
+        validateNurse(elderInfo.getNurseId());
+    }
+
+    private void assignNurseIfMissing(ElderInfo elderInfo) {
+        if (elderInfo == null || elderInfo.getNurseId() != null) {
+            return;
+        }
+        List<SysUser> nurses = sysUserMapper.selectList(new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getUserType, 3)
+                .eq(SysUser::getStatus, 1)
+                .eq(SysUser::getDeleted, 0)
+                .orderByAsc(SysUser::getId));
+        if (!nurses.isEmpty()) {
+            String seed = elderInfo.getIdCard() == null ? elderInfo.getName() : elderInfo.getIdCard();
+            elderInfo.setNurseId(nurses.get(Math.floorMod(seed.hashCode(), nurses.size())).getId());
+        }
+    }
+
+    private void validateNurse(Long nurseId) {
+        if (nurseId == null) {
+            return;
+        }
+        SysUser nurse = sysUserMapper.selectById(nurseId);
+        if (nurse == null || !Integer.valueOf(3).equals(nurse.getUserType())
+                || !Integer.valueOf(1).equals(nurse.getStatus())
+                || Integer.valueOf(1).equals(nurse.getDeleted())) {
+            throw new BusinessException(400, "责任护士必须选择启用中的真实护士账号");
         }
     }
 
