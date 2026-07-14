@@ -9,6 +9,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import javax.servlet.DispatcherType;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -18,6 +20,18 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class JwtInterceptorTest {
+
+    @Test
+    void allowsAsyncRedispatchWithoutWritingAnotherAuthenticationResponse() throws Exception {
+        AuthSessionService sessionService = mock(AuthSessionService.class);
+        JwtInterceptor interceptor = interceptor(
+                mock(JwtUtils.class), sessionService, mock(SysUserMapper.class));
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setDispatcherType(DispatcherType.ASYNC);
+
+        assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
+        verify(sessionService, never()).validateSession(7L, "token-id", "jwt-value");
+    }
 
     @Test
     void rejectsProtectedRequestWithoutTokenId() throws Exception {
@@ -51,6 +65,23 @@ class JwtInterceptorTest {
         assertEquals("current-admin", request.getAttribute("currentUsername"));
         assertEquals(1, request.getAttribute("currentUserType"));
         verify(sessionService).refreshSession(7L, "token-id");
+    }
+
+    @Test
+    void returnsDedicatedErrorWhenAnotherLoginReplacesTheSession() throws Exception {
+        JwtUtils jwtUtils = mock(JwtUtils.class);
+        AuthSessionService sessionService = mock(AuthSessionService.class);
+        when(jwtUtils.validateToken("jwt-value")).thenReturn(true);
+        when(jwtUtils.getUserIdFromToken("jwt-value")).thenReturn(7L);
+        when(sessionService.validateSession(7L, "old-token-id", "jwt-value")).thenReturn(false);
+        when(sessionService.isSessionReplaced(7L, "old-token-id")).thenReturn(true);
+        JwtInterceptor interceptor = interceptor(jwtUtils, sessionService, mock(SysUserMapper.class));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        assertFalse(interceptor.preHandle(
+                request("jwt-value", "old-token-id"), response, new Object()));
+        assertTrue(response.getContentAsString().contains("40101"));
+        assertTrue(response.getContentAsString().contains("账号已在其他设备登录"));
     }
 
     @Test

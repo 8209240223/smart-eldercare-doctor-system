@@ -14,6 +14,9 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.medical.auth.session.AuthSessionErrors.SESSION_REPLACED_CODE;
+import static com.medical.auth.session.AuthSessionErrors.SESSION_REPLACED_MESSAGE;
+
 /**
  * SSE 实时推送服务实现
  * 基于 SseEmitter + Redis Pub/Sub 实现跨实例实时推送
@@ -118,6 +121,25 @@ public class SseServiceImpl implements SseService {
     public void removeConnection(Long doctorId) {
         SseEmitter emitter = emitterMap.remove(doctorId);
         if (emitter != null) {
+            try { emitter.complete(); } catch (Exception ignored) {}
+        }
+    }
+
+    @Override
+    public void notifySessionReplaced(Long doctorId) {
+        SseEmitter emitter = emitterMap.remove(doctorId);
+        if (emitter == null) {
+            return;
+        }
+        try {
+            emitter.send(SseEmitter.event()
+                    .name("session-replaced")
+                    .data(Map.of(
+                            "code", SESSION_REPLACED_CODE,
+                            "msg", SESSION_REPLACED_MESSAGE)));
+        } catch (IOException exception) {
+            log.debug("顶号提示推送失败: doctorId={}", doctorId);
+        } finally {
             try { emitter.complete(); } catch (Exception ignored) {}
         }
     }

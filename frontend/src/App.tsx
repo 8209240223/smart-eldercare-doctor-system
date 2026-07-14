@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import RealtimeWarningBridge from "@/components/warnings/RealtimeWarningBridge";
 import RanaAssistant from "@/components/assistant/RanaAssistant";
 import MessageRealtimeBridge from "@/components/messages/MessageRealtimeBridge";
+import SessionReplacedDialog from "@/components/auth/SessionReplacedDialog";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -286,6 +287,7 @@ function App() {
       <BrowserRouter>
         <RealtimeWarningBridge />
         <MessageRealtimeBridge />
+        <SessionReplacedDialog />
         <AppRoutes />
         <RanaAssistant />
       </BrowserRouter>

@@ -9,6 +9,10 @@ public interface AuthSessionService {
 
     boolean validateSession(Long userId, String tokenId, String token);
 
+    default boolean isSessionReplaced(Long userId, String tokenId) {
+        return false;
+    }
+
     void refreshSession(Long userId, String tokenId);
 
     void revokeSession(Long userId, String tokenId);

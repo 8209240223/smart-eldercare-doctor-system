@@ -39,6 +39,7 @@ public class RedisAuthSessionService implements AuthSessionService {
         }
 
         try {
+            sseService.notifySessionReplaced(userId);
             revokeAllSessionsWithoutLock(userId);
 
             String tokenId = UUID.randomUUID().toString().replace("-", "");
@@ -83,6 +84,16 @@ public class RedisAuthSessionService implements AuthSessionService {
         return userId.equals(storedUserId)
                 && storedToken != null
                 && token.equals(storedToken.toString());
+    }
+
+    @Override
+    public boolean isSessionReplaced(Long userId, String tokenId) {
+        if (userId == null || !StringUtils.hasText(tokenId)) {
+            return false;
+        }
+        String currentTokenId = redisUtils.get(
+                RedisKeyConstant.buildUserSessionKey(userId), String.class);
+        return StringUtils.hasText(currentTokenId) && !tokenId.equals(currentTokenId);
     }
 
     @Override

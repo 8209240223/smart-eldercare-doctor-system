@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useElderDetail } from "@/hooks/useApi";
 import { resolveElderName } from "@/lib/elderName";
+import { notifySessionReplaced } from "@/lib/sessionEvents";
 import { useAuthStore } from "@/store/auth";
 
 interface RealtimeWarning {
@@ -101,9 +102,24 @@ export default function RealtimeWarningBridge() {
       }
     };
 
+    const receiveSessionReplaced = (event: MessageEvent) => {
+      try {
+        let payload: unknown = JSON.parse(event.data);
+        if (typeof payload === "string") payload = JSON.parse(payload);
+        const messagePayload = payload as { message?: unknown; msg?: unknown };
+        const message = messagePayload.msg ?? messagePayload.message;
+        notifySessionReplaced(typeof message === "string" ? message : undefined);
+      } catch {
+        notifySessionReplaced();
+      }
+      source.close();
+    };
+
     source.addEventListener("warning", receiveWarning as EventListener);
+    source.addEventListener("session-replaced", receiveSessionReplaced as EventListener);
     return () => {
       source.removeEventListener("warning", receiveWarning as EventListener);
+      source.removeEventListener("session-replaced", receiveSessionReplaced as EventListener);
       source.close();
     };
   }, [isAuthenticated, queryClient, token, tokenId]);

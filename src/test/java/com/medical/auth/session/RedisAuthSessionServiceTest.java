@@ -28,11 +28,13 @@ class RedisAuthSessionServiceTest {
         when(redisUtils.tryLock(anyString(), anyString(), anyLong())).thenReturn(true);
         when(redisUtils.get(RedisKeyConstant.buildUserSessionKey(7L), String.class))
                 .thenReturn("old-token-id");
-        RedisAuthSessionService service = service(redisUtils);
+        SseService sseService = mock(SseService.class);
+        RedisAuthSessionService service = new RedisAuthSessionService(redisUtils, sseService);
 
         String tokenId = service.replaceSession(7L, "doctor01", "jwt-value", "127.0.0.1");
 
         assertNotNull(tokenId);
+        verify(sseService).notifySessionReplaced(7L);
         verify(redisUtils).delete(RedisKeyConstant.buildTokenKey("old-token-id"));
         verify(redisUtils).delete(RedisKeyConstant.buildUserSessionKey(7L));
         verify(redisUtils).setWithSeconds(
@@ -70,6 +72,18 @@ class RedisAuthSessionServiceTest {
         assertFalse(service.validateSession(7L, "stale-token-id", "jwt-value"));
         assertFalse(service.validateSession(7L, tokenId, "different-jwt"));
         assertFalse(service.validateSession(8L, tokenId, "jwt-value"));
+    }
+
+    @Test
+    void identifiesAStaleTokenIdAsAReplacedSession() {
+        RedisUtils redisUtils = mock(RedisUtils.class);
+        when(redisUtils.get(RedisKeyConstant.buildUserSessionKey(7L), String.class))
+                .thenReturn("new-token-id");
+        RedisAuthSessionService service = service(redisUtils);
+
+        assertTrue(service.isSessionReplaced(7L, "old-token-id"));
+        assertFalse(service.isSessionReplaced(7L, "new-token-id"));
+        assertFalse(service.isSessionReplaced(7L, null));
     }
 
     @Test
