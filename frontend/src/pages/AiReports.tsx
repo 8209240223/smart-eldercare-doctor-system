@@ -75,7 +75,18 @@ export default function AiReports() {
   const [editNotice, setEditNotice] = useState("");
   const [rejectTarget, setRejectTarget] = useState<AiHealthReport | null>(null);
   const { data: eldersData, isLoading: eldersLoading } = useElders(1, 100);
-  const { data, isLoading, refetch } = useAiReports(selectedElderId, page, 10);
+  const visibleElders = useMemo(
+    () => eldersData?.records || [],
+    [eldersData?.records],
+  );
+  const visibleElderIds = useMemo(
+    () => new Set(visibleElders.map((elder) => elder.id)),
+    [visibleElders],
+  );
+  const effectiveElderId = visibleElderIds.has(selectedElderId)
+    ? selectedElderId
+    : 0;
+  const { data, isLoading, refetch } = useAiReports(effectiveElderId, page, 10);
   const { data: detail, isLoading: detailLoading } =
     useAiReportDetail(detailId);
   const generateReport = useGenerateAiReport();
@@ -86,15 +97,27 @@ export default function AiReports() {
   const elderNames = useMemo(
     () =>
       new Map(
-        (eldersData?.records || []).map((elder) => [elder.id, elder.name]),
+        visibleElders.map((elder) => [elder.id, elder.name]),
       ),
-    [eldersData?.records],
+    [visibleElders],
   );
 
   useEffect(() => {
     setSelectedElderId(requestedElderId);
     setPage(1);
   }, [requestedElderId]);
+
+  useEffect(() => {
+    if (eldersLoading || !selectedElderId || visibleElderIds.has(selectedElderId)) {
+      return;
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete("elderId");
+    next.delete("reportId");
+    setSearchParams(next, { replace: true });
+    setSelectedElderId(0);
+    setDetailId(undefined);
+  }, [eldersLoading, searchParams, selectedElderId, setSearchParams, visibleElderIds]);
 
   const selectElder = (elderId: number) => {
     const next = new URLSearchParams(searchParams);
@@ -131,9 +154,9 @@ export default function AiReports() {
     setEditNotice(parsed.warning || "");
   }, [confirmTarget]);
   const generate = async () => {
-    if (!selectedElderId) return toast.error("请先选择老人");
+    if (!effectiveElderId) return toast.error("请先选择老人");
     try {
-      await generateReport.mutateAsync(selectedElderId);
+      await generateReport.mutateAsync(effectiveElderId);
       toast.success("Kimi 健康报告已生成");
       refetch();
     } catch (error) {
@@ -256,11 +279,11 @@ export default function AiReports() {
               ) : (
                 <select
                   className="mt-2 h-9 w-full rounded-xl border border-border/60 bg-white/70 px-3 text-sm"
-                  value={selectedElderId || ""}
+                  value={effectiveElderId || ""}
                   onChange={(event) => selectElder(Number(event.target.value))}
                 >
                   <option value="">请选择老人</option>
-                  {eldersData?.records.map((elder) => (
+                  {visibleElders.map((elder) => (
                     <option key={elder.id} value={elder.id}>
                       {elder.name}（{elder.idCard}）
                     </option>
@@ -271,7 +294,7 @@ export default function AiReports() {
             {canOperateReports && (
               <Button
                 onClick={generate}
-                disabled={!selectedElderId || generateReport.isPending}
+                disabled={!effectiveElderId || generateReport.isPending}
                 className="rounded-xl bg-gradient-to-r from-lavender-400 to-sky-400 text-white"
               >
                 <Sparkles className="mr-2 h-4 w-4" />
@@ -296,7 +319,7 @@ export default function AiReports() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {!selectedElderId ? (
+            {!effectiveElderId ? (
               <EmptyState
                 title="请选择老人"
                 description="选择老人后查询和生成健康评估报告"
