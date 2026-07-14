@@ -11,9 +11,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+import javax.servlet.DispatcherType;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+
+import static com.medical.auth.session.AuthSessionErrors.SESSION_REPLACED_CODE;
+import static com.medical.auth.session.AuthSessionErrors.SESSION_REPLACED_MESSAGE;
+
 /**
  * JWT Token 拦截器
  */
@@ -33,6 +38,9 @@ public class JwtInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         // OPTIONS请求直接放行
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+        if (request.getDispatcherType() == DispatcherType.ASYNC) {
             return true;
         }
 
@@ -64,6 +72,10 @@ public class JwtInterceptor implements HandlerInterceptor {
 
         // 2. 同时校验 tokenId、Redis Token 内容和用户当前唯一 tokenId 映射
         if (!authSessionService.validateSession(userId, tokenId, token)) {
+            if (authSessionService.isSessionReplaced(userId, tokenId)) {
+                writeError(response, SESSION_REPLACED_CODE, SESSION_REPLACED_MESSAGE);
+                return false;
+            }
             writeError(response, 401, "会话已失效，请重新登录");
             return false;
         }

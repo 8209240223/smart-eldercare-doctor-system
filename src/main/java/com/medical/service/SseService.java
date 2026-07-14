@@ -34,6 +34,8 @@ public interface SseService {
      */
     void removeConnection(Long doctorId);
 
+    void notifySessionReplaced(Long doctorId);
+
     /**
      * Redis 消息监听回调（接收其他实例发布的预警广播消息）
      * 由 MessageListenerAdapter 通过反射调用；声明在接口上以便 @Async 生成的

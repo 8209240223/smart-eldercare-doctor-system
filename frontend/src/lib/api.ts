@@ -1,4 +1,5 @@
 import axios, { type AxiosRequestConfig, type AxiosResponse } from "axios";
+import { notifySessionReplaced, SESSION_REPLACED_CODE } from "@/lib/sessionEvents";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -35,17 +36,36 @@ function redirectToLogin() {
   }
 }
 
+function responseMessage(data: unknown) {
+  if (!data || typeof data !== "object") return "";
+  const payload = data as { message?: unknown; msg?: unknown };
+  const value = payload.message ?? payload.msg;
+  return typeof value === "string" ? value : "";
+}
+
+function handleUnauthorized(code: number, data?: unknown) {
+  if (code === SESSION_REPLACED_CODE) {
+    clearExpiredSession();
+    notifySessionReplaced(responseMessage(data));
+    return true;
+  }
+  if (code === 401 && localStorage.getItem("token")) {
+    clearExpiredSession();
+    redirectToLogin();
+    return true;
+  }
+  return false;
+}
+
 apiClient.interceptors.response.use(
   (response) => {
     const responseCode = Number((response.data as { code?: unknown } | undefined)?.code);
-    if (responseCode === 401 && localStorage.getItem("token")) {
-      clearExpiredSession();
-      redirectToLogin();
-    }
+    handleUnauthorized(responseCode, response.data);
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
+    const responseCode = Number(error.response?.data?.code ?? error.response?.status);
+    if (!handleUnauthorized(responseCode, error.response?.data) && error.response?.status === 401) {
       clearExpiredSession();
       redirectToLogin();
     }

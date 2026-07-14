@@ -17,6 +17,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import javax.servlet.http.HttpServletRequest;
 
+import static com.medical.auth.session.AuthSessionErrors.SESSION_REPLACED_CODE;
+import static com.medical.auth.session.AuthSessionErrors.SESSION_REPLACED_MESSAGE;
+
 /**
  * 健康预警控制器（含实时推送）
  */
@@ -140,6 +143,9 @@ public class WarningController {
             return emitter;
         }
         if (!authSessionService.validateSession(doctorId, effectiveTokenId, token)) {
+            if (authSessionService.isSessionReplaced(doctorId, effectiveTokenId)) {
+                return invalidSessionEmitter(SESSION_REPLACED_CODE, SESSION_REPLACED_MESSAGE);
+            }
             return invalidSessionEmitter();
         }
         SysUser user = sysUserMapper.selectById(doctorId);
@@ -156,9 +162,14 @@ public class WarningController {
     }
 
     private SseEmitter invalidSessionEmitter() {
+        return invalidSessionEmitter(401, "会话无效");
+    }
+
+    private SseEmitter invalidSessionEmitter(int code, String message) {
         SseEmitter emitter = new SseEmitter(0L);
         try {
-            emitter.send(SseEmitter.event().name("error").data(R.fail(401, "会话无效")));
+            String eventName = code == SESSION_REPLACED_CODE ? "session-replaced" : "error";
+            emitter.send(SseEmitter.event().name(eventName).data(R.fail(code, message)));
         } catch (Exception ignored) {
         }
         emitter.complete();
