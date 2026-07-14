@@ -7,7 +7,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 转诊单实体
+ * 医生间患者移交申请实体。旧转诊字段继续保留，用于兼容历史数据。
  */
 @Data
 @TableName("referral_order")
@@ -20,12 +20,13 @@ public class ReferralOrder implements Serializable {
 
     private Long elderId;
 
-    /** 转诊类型: 1上转(社区→三甲) 2下转(三甲→社区) */
+    /** 历史兼容字段，医生间移交统一写入1。 */
     private Integer referralType;
 
     private String fromOrg;
     private Long fromDoctorId;
     private String fromDoctorName;
+    private String fromDept;
 
     private String toOrg;
     private Long toDoctorId;
@@ -35,19 +36,19 @@ public class ReferralOrder implements Serializable {
     private String diagnosis;
     private String referralReason;
 
-    /** 紧急程度: 1普通 2紧急 3危急 */
+    /** 紧急程度：1普通、2紧急、3危急。 */
     private Integer urgencyLevel;
 
     private Integer bedReserved;
 
-    /** 状态: 0待接收 1已接收 2处理中 3已完成 4已拒绝 5已取消 */
+    /** 状态：0待接收、1已接收、2处理中、3已完成、4已拒绝、5已取消。 */
     private Integer status;
 
     private LocalDateTime acceptTime;
     private LocalDateTime completeTime;
     private String dischargeSummary;
     private String rejectReason;
-    /** 取消原因（步骤 B3 新增） */
+    /** 取消原因。 */
     private String cancelReason;
     private String remark;
 

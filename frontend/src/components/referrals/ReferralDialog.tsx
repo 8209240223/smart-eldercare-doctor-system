@@ -1,24 +1,19 @@
 import { useEffect, useState } from "react";
+import { ArrowRight, Loader2, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
-import type { Referral } from "@/hooks/useApi";
+import type { DoctorOption, Referral } from "@/hooks/useApi";
 
 interface ReferralDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initialData?: Referral;
   elders: { id?: number; name: string }[];
-  currentUserId?: number;
+  targetDoctors: DoctorOption[];
   currentUserName?: string;
+  currentDepartment?: string;
   onSubmit: (data: Referral) => void;
   isSubmitting?: boolean;
 }
@@ -26,9 +21,7 @@ interface ReferralDialogProps {
 const emptyReferral: Referral = {
   elderId: 0,
   referralType: 1,
-  fromOrg: "",
-  toOrg: "",
-  toDept: "",
+  toDoctorId: undefined,
   diagnosis: "",
   referralReason: "",
   urgencyLevel: 1,
@@ -39,207 +32,115 @@ const emptyReferral: Referral = {
 export default function ReferralDialog({
   open,
   onOpenChange,
-  initialData,
   elders,
-  currentUserId,
+  targetDoctors,
   currentUserName,
+  currentDepartment,
   onSubmit,
   isSubmitting,
 }: ReferralDialogProps) {
   const [form, setForm] = useState<Referral>(emptyReferral);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const isEdit = !!initialData?.id;
 
   useEffect(() => {
     if (open) {
-      setForm(initialData || { ...emptyReferral, fromDoctorId: currentUserId, fromDoctorName: currentUserName || "" });
+      setForm({ ...emptyReferral });
       setErrors({});
     }
-  }, [currentUserId, currentUserName, open, initialData]);
+  }, [open]);
 
   const validate = () => {
-    const errs: Record<string, string> = {};
-    if (!form.elderId) errs.elderId = "请选择老人";
-    if (!form.referralReason.trim()) errs.referralReason = "转诊原因不能为空";
-    if (!(form.fromOrg || "").trim()) errs.fromOrg = "转出机构不能为空";
-    if (!(form.toOrg || "").trim()) errs.toOrg = "目标机构不能为空";
-    if (!form.fromDoctorId || form.fromDoctorId <= 0) errs.fromDoctorId = "转出医生ID必须为正整数";
-    if (!form.toDoctorId || form.toDoctorId <= 0) errs.toDoctorId = "接收医生ID必须为正整数";
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-    onSubmit(form);
+    const nextErrors: Record<string, string> = {};
+    if (!form.elderId) nextErrors.elderId = "请选择需要移交的老人";
+    if (!form.toDoctorId) nextErrors.toDoctorId = "请选择接收医生";
+    if (!form.referralReason.trim()) nextErrors.referralReason = "请填写患者移交原因";
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
   const updateField = (field: keyof Referral, value: string | number) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
+    setForm((current) => ({ ...current, [field]: value }));
+    if (errors[field]) setErrors((current) => ({ ...current, [field]: "" }));
   };
+
+  const selectDoctor = (doctorId: number) => {
+    const doctor = targetDoctors.find((item) => item.id === doctorId);
+    setForm((current) => ({
+      ...current,
+      toDoctorId: doctorId || undefined,
+      toDoctorName: doctor?.realName || doctor?.username || "",
+      toDept: doctor?.department || "",
+    }));
+    setErrors((current) => ({ ...current, toDoctorId: "" }));
+  };
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (validate()) onSubmit(form);
+  };
+
+  const selectedDoctor = targetDoctors.find((item) => item.id === form.toDoctorId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto rounded-2xl border-border/40 bg-white/95 p-0 backdrop-blur-xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/40 bg-white/80 px-6 py-4 backdrop-blur-md">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold">
-              {isEdit ? "编辑转诊" : "发起转诊"}
-            </DialogTitle>
-          </DialogHeader>
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto rounded-lg border-border/40 bg-white p-0">
+        <div className="sticky top-0 z-10 border-b border-border/40 bg-white/90 px-6 py-4 backdrop-blur-md">
+          <DialogHeader><DialogTitle className="text-lg font-bold">发起医生间患者移交</DialogTitle></DialogHeader>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5 p-6">
+          <div className="flex items-center gap-3 rounded-lg border border-medical-100 bg-medical-50/70 px-4 py-3 text-sm">
+            <Stethoscope className="h-5 w-5 shrink-0 text-medical-600" />
+            <span className="font-medium">{currentUserName || "当前医生"}</span>
+            <span className="text-muted-foreground">{currentDepartment || "全科医学科"}</span>
+            <ArrowRight className="h-4 w-4 text-medical-500" />
+            <span className="text-muted-foreground">选择接收医生后自动带出科室</span>
+          </div>
+
           <div className="space-y-2">
             <Label>老人 <span className="text-red-500">*</span></Label>
-            <select
-              value={form.elderId || ""}
-              onChange={(e) => updateField("elderId", Number(e.target.value))}
-              className={cn(
-                "h-10 w-full rounded-xl border border-border/60 bg-white/60 px-3 text-sm outline-none focus:border-medical-400 focus:ring-2 focus:ring-medical-200",
-                errors.elderId && "border-red-400"
-              )}
-            >
-              <option value="">请选择老人</option>
-              {elders.map((elder) => (
-                <option key={elder.id} value={elder.id}>
-                  {elder.name}
-                </option>
-              ))}
+            <select value={form.elderId || ""} onChange={(event) => updateField("elderId", Number(event.target.value))} className={cn("h-10 w-full rounded-md border border-border/60 bg-white px-3 text-sm outline-none focus:border-medical-400 focus:ring-2 focus:ring-medical-200", errors.elderId && "border-red-400")}>
+              <option value="">请选择本人当前负责的老人</option>
+              {elders.map((elder) => <option key={elder.id} value={elder.id}>{elder.name}</option>)}
             </select>
             {errors.elderId && <p className="text-xs text-red-500">{errors.elderId}</p>}
           </div>
 
           <div className="space-y-2">
-            <Label>转诊类型 <span className="text-red-500">*</span></Label>
-            <div className="flex gap-2">
-              {[1, 2].map((type) => (
-                <Button
-                  key={type}
-                  type="button"
-                  variant={form.referralType === type ? "default" : "outline"}
-                  onClick={() => updateField("referralType", type)}
-                  className={cn(
-                    "flex-1 rounded-xl",
-                    form.referralType === type && "bg-medical-500 hover:bg-medical-600"
-                  )}
-                >
-                  {type === 1 ? "上转（社区→三甲）" : "下转（三甲→社区）"}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>转出机构 <span className="text-red-500">*</span></Label>
-              <Input
-                value={form.fromOrg || ""}
-                onChange={(e) => updateField("fromOrg", e.target.value)}
-                placeholder="转出机构"
-                className={cn("rounded-xl", errors.fromOrg && "border-red-400")}
-              />
-              {errors.fromOrg && <p className="text-xs text-red-500">{errors.fromOrg}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label>目标机构 <span className="text-red-500">*</span></Label>
-              <Input
-                value={form.toOrg || ""}
-                onChange={(e) => updateField("toOrg", e.target.value)}
-                placeholder="目标机构"
-                className={cn("rounded-xl", errors.toOrg && "border-red-400")}
-              />
-              {errors.toOrg && <p className="text-xs text-red-500">{errors.toOrg}</p>}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2"><Label>转出医生 ID <span className="text-red-500">*</span></Label><Input type="number" min={1} value={form.fromDoctorId || ""} onChange={(event) => updateField("fromDoctorId", Number(event.target.value))} className={cn("rounded-xl", errors.fromDoctorId && "border-red-400")} />{errors.fromDoctorId && <p className="text-xs text-red-500">{errors.fromDoctorId}</p>}</div>
-            <div className="space-y-2"><Label>转出医生姓名</Label><Input value={form.fromDoctorName || ""} onChange={(event) => updateField("fromDoctorName", event.target.value)} placeholder="请输入转出医生姓名" className="rounded-xl" /></div>
-            <div className="space-y-2"><Label>接收医生 ID <span className="text-red-500">*</span></Label><Input type="number" min={1} value={form.toDoctorId || ""} onChange={(event) => updateField("toDoctorId", Number(event.target.value))} className={cn("rounded-xl", errors.toDoctorId && "border-red-400")} />{errors.toDoctorId && <p className="text-xs text-red-500">{errors.toDoctorId}</p>}</div>
-            <div className="space-y-2"><Label>接收医生姓名</Label><Input value={form.toDoctorName || ""} onChange={(event) => updateField("toDoctorName", event.target.value)} placeholder="请输入接收医生姓名" className="rounded-xl" /></div>
+            <Label>接收医生 <span className="text-red-500">*</span></Label>
+            <select value={form.toDoctorId || ""} onChange={(event) => selectDoctor(Number(event.target.value))} className={cn("h-10 w-full rounded-md border border-border/60 bg-white px-3 text-sm outline-none focus:border-medical-400 focus:ring-2 focus:ring-medical-200", errors.toDoctorId && "border-red-400")}>
+              <option value="">请选择其他正常启用的医生</option>
+              {targetDoctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.realName || doctor.username} · ID {doctor.id} · {doctor.department || "全科医学科"}</option>)}
+            </select>
+            {selectedDoctor && <p className="text-xs text-muted-foreground">接收科室：{selectedDoctor.department || "全科医学科"}</p>}
+            {errors.toDoctorId && <p className="text-xs text-red-500">{errors.toDoctorId}</p>}
           </div>
 
           <div className="space-y-2">
-            <Label>目标科室</Label>
-            <Input
-              value={form.toDept || ""}
-              onChange={(e) => updateField("toDept", e.target.value)}
-              placeholder="如：心内科"
-              className="rounded-xl"
-            />
+            <Label>当前诊断</Label>
+            <Input value={form.diagnosis || ""} onChange={(event) => updateField("diagnosis", event.target.value)} placeholder="填写当前主要诊断，便于接收医生判断" />
           </div>
 
           <div className="space-y-2">
-            <Label>诊断</Label>
-            <Input
-              value={form.diagnosis || ""}
-              onChange={(e) => updateField("diagnosis", e.target.value)}
-              placeholder="请输入诊断"
-              className="rounded-xl"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>转诊原因 <span className="text-red-500">*</span></Label>
-            <Input
-              value={form.referralReason}
-              onChange={(e) => updateField("referralReason", e.target.value)}
-              placeholder="请输入转诊原因"
-              className={cn("rounded-xl", errors.referralReason && "border-red-400")}
-            />
+            <Label>移交原因 <span className="text-red-500">*</span></Label>
+            <textarea value={form.referralReason} onChange={(event) => updateField("referralReason", event.target.value)} placeholder="说明需要更换责任医生的原因和当前重点事项" rows={4} className={cn("w-full resize-none rounded-md border border-border/60 bg-white px-3 py-2 text-sm outline-none focus:border-medical-400 focus:ring-2 focus:ring-medical-200", errors.referralReason && "border-red-400")} />
             {errors.referralReason && <p className="text-xs text-red-500">{errors.referralReason}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>紧急程度</Label>
-              <select
-                value={form.urgencyLevel}
-                onChange={(e) => updateField("urgencyLevel", Number(e.target.value))}
-                className="h-10 w-full rounded-xl border border-border/60 bg-white/60 px-3 text-sm outline-none focus:border-medical-400 focus:ring-2 focus:ring-medical-200"
-              >
-                <option value={1}>普通</option>
-                <option value={2}>紧急</option>
-                <option value={3}>危急</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>是否预留床位</Label>
-              <select
-                value={form.bedReserved}
-                onChange={(e) => updateField("bedReserved", Number(e.target.value))}
-                className="h-10 w-full rounded-xl border border-border/60 bg-white/60 px-3 text-sm outline-none focus:border-medical-400 focus:ring-2 focus:ring-medical-200"
-              >
-                <option value={0}>否</option>
-                <option value={1}>是</option>
-              </select>
-            </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2"><Label>紧急程度</Label><select value={form.urgencyLevel} onChange={(event) => updateField("urgencyLevel", Number(event.target.value))} className="h-10 w-full rounded-md border border-border/60 bg-white px-3 text-sm"><option value={1}>普通</option><option value={2}>紧急</option><option value={3}>危急</option></select></div>
+            <div className="space-y-2"><Label>备注</Label><Input value={form.remark || ""} onChange={(event) => updateField("remark", event.target.value)} placeholder="可选" /></div>
           </div>
 
-          <div className="space-y-2">
-            <Label>备注</Label>
-            <Input
-              value={form.remark || ""}
-              onChange={(e) => updateField("remark", e.target.value)}
-              placeholder="请输入备注"
-              className="rounded-xl"
-            />
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            接收医生完成移交后，老人档案、历史健康资料和未完成任务将整体归属接收医生；原责任医生将不再看到该患者。
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl" disabled={isSubmitting}>
-              取消
-            </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white shadow-soft hover:shadow-glow"
-            >
+          <div className="flex justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>取消</Button>
+            <Button type="submit" disabled={isSubmitting || !targetDoctors.length} className="bg-medical-500 text-white hover:bg-medical-600">
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isSubmitting ? "保存中..." : isEdit ? "保存修改" : "确认发起"}
+              {isSubmitting ? "提交中..." : "提交移交申请"}
             </Button>
           </div>
         </form>

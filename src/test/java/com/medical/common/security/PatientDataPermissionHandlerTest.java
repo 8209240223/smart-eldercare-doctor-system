@@ -52,6 +52,21 @@ class PatientDataPermissionHandlerTest {
         assertThat(expression).isNull();
     }
 
+    @Test
+    void receivingDoctorCanSeeActiveIncomingHandoffBeforeOwningPatient() {
+        bindUser(9L, 2);
+        Table table = new Table("referral_order");
+        table.setAlias(new Alias("ro"));
+
+        Expression expression = handler.getSqlSegment(table, null, "referralList");
+
+        assertThat(expression.toString())
+                .contains("ro.elder_id IN")
+                .contains("ro.status IN (0, 1, 2)")
+                .contains("ro.from_doctor_id = 9")
+                .contains("ro.to_doctor_id = 9");
+    }
+
     private void bindUser(Long userId, Integer userType) {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute("currentUserId", userId);

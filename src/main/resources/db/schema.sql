@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS doctor_info (
     user_id BIGINT NOT NULL COMMENT '关联用户ID',
     name VARCHAR(50) DEFAULT NULL COMMENT '医生姓名',
     gender TINYINT DEFAULT 1 COMMENT '性别:1男 2女',
+    phone VARCHAR(20) DEFAULT NULL COMMENT '联系电话',
     title VARCHAR(50) DEFAULT NULL COMMENT '职称',
     department VARCHAR(100) DEFAULT NULL COMMENT '科室',
     specialty VARCHAR(200) DEFAULT NULL COMMENT '专业特长',
@@ -69,6 +70,20 @@ CREATE TABLE IF NOT EXISTS doctor_info (
     KEY idx_department (department),
     KEY idx_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='医生信息表';
+
+-- 医生护士多对多协作关系表
+CREATE TABLE IF NOT EXISTS doctor_nurse_relation (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    doctor_id BIGINT NOT NULL COMMENT '医生用户ID',
+    nurse_id BIGINT NOT NULL COMMENT '护士用户ID',
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '状态:0停用 1有效',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_doctor_nurse (doctor_id, nurse_id),
+    KEY idx_relation_doctor (doctor_id, status),
+    KEY idx_relation_nurse (nurse_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='医生护士多对多协作关系表';
 
 -- 老人信息表
 CREATE TABLE IF NOT EXISTS elder_info (
@@ -302,6 +317,7 @@ CREATE TABLE IF NOT EXISTS referral_order (
     from_org VARCHAR(200) DEFAULT NULL COMMENT '转出机构',
     from_doctor_id BIGINT DEFAULT NULL COMMENT '转出医生ID',
     from_doctor_name VARCHAR(50) DEFAULT NULL COMMENT '转出医生姓名',
+    from_dept VARCHAR(100) DEFAULT NULL COMMENT '转出医生科室',
     to_org VARCHAR(200) DEFAULT NULL COMMENT '转入机构',
     to_doctor_id BIGINT DEFAULT NULL COMMENT '转入医生ID',
     to_doctor_name VARCHAR(50) DEFAULT NULL COMMENT '转入医生姓名',

@@ -14,6 +14,8 @@ import com.medical.mapper.SysOperationLogMapper;
 import com.medical.mapper.SysUserMapper;
 import com.medical.service.AuthService;
 import com.medical.service.UserDemoDataService;
+import com.medical.service.DoctorNurseRelationService;
+import com.medical.service.DoctorProfileService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +49,12 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired(required = false)
     private UserDemoDataService userDemoDataService;
+
+    @Autowired(required = false)
+    private DoctorNurseRelationService relationService;
+
+    @Autowired(required = false)
+    private DoctorProfileService doctorProfileService;
 
     @Override
     public Map<String, Object> login(String username, String password, String ip) {
@@ -87,6 +95,7 @@ public class AuthServiceImpl implements AuthService {
 
         // 4. 登录成功，清除错误计数
         redisUtils.delete(loginErrorKey);
+        ensureWorkforceWithoutBlockingLogin(user);
         ensureDemoDataWithoutBlockingLogin(user);
 
         // 5. 生成 Token，并原子替换该账号的旧会话
@@ -122,7 +131,23 @@ public class AuthServiceImpl implements AuthService {
         result.put("realName", user.getRealName());
         result.put("userType", user.getUserType());
         result.put("avatar", user.getAvatar());
+        if (doctorProfileService != null && Integer.valueOf(2).equals(user.getUserType())) {
+            result.put("department", doctorProfileService.departmentOf(user.getId()));
+        }
         return result;
+    }
+
+    private void ensureWorkforceWithoutBlockingLogin(SysUser user) {
+        try {
+            if (doctorProfileService != null && Integer.valueOf(2).equals(user.getUserType())) {
+                doctorProfileService.ensureProfile(user, null);
+            }
+            if (relationService != null) {
+                relationService.ensureFor(user);
+            }
+        } catch (RuntimeException exception) {
+            log.warn("为账号 {} 补充科室或协作关系失败，登录流程继续", user.getId(), exception);
+        }
     }
 
     private void ensureDemoDataWithoutBlockingLogin(SysUser user) {

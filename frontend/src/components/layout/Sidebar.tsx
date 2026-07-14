@@ -44,7 +44,7 @@ const menuItems: MenuItem[] = [
   { path: "/followup-tasks", label: "随访任务", icon: Clock, roles: ["admin", "doctor", "nurse"] },
   { path: "/interventions", label: "干预管理", icon: Stethoscope, roles: ["admin", "doctor", "nurse"] },
   { path: "/assessments", label: "评估记录", icon: FileText, roles: ["admin", "doctor", "nurse"] },
-  { path: "/referrals", label: "转诊协同", icon: Repeat, roles: ["admin", "doctor"] },
+  { path: "/referrals", label: "患者移交", icon: Repeat, roles: ["admin", "doctor"] },
   { path: "/vitals", label: "生命体征", icon: Activity, roles: ["admin", "doctor", "nurse"] },
   { path: "/exams", label: "体检管理", icon: ClipboardList, roles: ["admin", "doctor", "nurse"] },
   { path: "/timeline", label: "健康时间轴", icon: Clock, roles: ["admin", "doctor", "nurse"] },

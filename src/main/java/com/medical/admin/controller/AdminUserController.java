@@ -4,6 +4,7 @@ import com.medical.admin.dto.AdminCreateUserRequest;
 import com.medical.admin.dto.AdminResetPasswordRequest;
 import com.medical.admin.dto.AdminReviewRequest;
 import com.medical.admin.dto.AdminUserQuery;
+import com.medical.admin.dto.AdminUpdateWorkProfileRequest;
 import com.medical.admin.service.AdminUserService;
 import com.medical.common.annotation.OperationLog;
 import com.medical.common.annotation.RequireRole;
@@ -96,6 +97,14 @@ public class AdminUserController {
     public R<?> forceLogout(@PathVariable Long id) {
         adminUserService.forceLogout(id);
         return R.ok("用户已下线");
+    }
+
+    @PutMapping("/{id}/work-profile")
+    @OperationLog(module = "用户治理", type = "协作配置", desc = "更新科室及医生护士协作关系")
+    public R<?> updateWorkProfile(@PathVariable Long id,
+                                  @RequestBody AdminUpdateWorkProfileRequest request) {
+        adminUserService.updateWorkProfile(id, request);
+        return R.ok("工作资料与协作关系已更新");
     }
 
     @DeleteMapping("/{id}/sessions")

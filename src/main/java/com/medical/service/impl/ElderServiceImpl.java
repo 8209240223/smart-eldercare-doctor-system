@@ -15,6 +15,7 @@ import com.medical.mapper.FollowPlanMapper;
 import com.medical.mapper.HealthRecordMapper;
 import com.medical.mapper.SysUserMapper;
 import com.medical.service.ElderService;
+import com.medical.service.DoctorNurseRelationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -46,6 +47,9 @@ public class ElderServiceImpl implements ElderService {
 
     @Autowired
     private SysUserMapper sysUserMapper;
+
+    @Autowired(required = false)
+    private DoctorNurseRelationService relationService;
 
     @Override
     public Page<ElderInfo> listElders(Integer pageNum, Integer pageSize, Long elderId, String name, String community, Long doctorId, Integer diseaseType) {
@@ -231,11 +235,23 @@ public class ElderServiceImpl implements ElderService {
             }
         }
         validateNurse(elderInfo.getNurseId());
+        if (relationService != null && elderInfo.getDoctorId() != null && elderInfo.getNurseId() != null
+                && !relationService.isLinked(elderInfo.getDoctorId(), elderInfo.getNurseId())) {
+            throw new BusinessException(400, "责任护士必须属于该医生的协作团队");
+        }
     }
 
     private void assignNurseIfMissing(ElderInfo elderInfo) {
         if (elderInfo == null || elderInfo.getNurseId() != null) {
             return;
+        }
+        if (relationService != null && elderInfo.getDoctorId() != null) {
+            String seed = elderInfo.getIdCard() == null ? elderInfo.getName() : elderInfo.getIdCard();
+            Long nurseId = relationService.chooseNurseForDoctor(elderInfo.getDoctorId(), seed, null);
+            if (nurseId != null) {
+                elderInfo.setNurseId(nurseId);
+                return;
+            }
         }
         List<SysUser> nurses = sysUserMapper.selectList(new LambdaQueryWrapper<SysUser>()
                 .eq(SysUser::getUserType, 3)

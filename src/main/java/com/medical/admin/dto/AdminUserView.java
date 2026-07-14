@@ -3,6 +3,7 @@ package com.medical.admin.dto;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class AdminUserView {
@@ -19,4 +20,6 @@ public class AdminUserView {
     private String lastLoginIp;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+    private String department;
+    private List<AdminUserRelationView> collaborators;
 }

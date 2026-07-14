@@ -7,6 +7,7 @@ import com.medical.admin.dto.AdminReviewRequest;
 import com.medical.admin.dto.AdminUserQuery;
 import com.medical.admin.dto.AdminUserStatistics;
 import com.medical.admin.dto.AdminUserView;
+import com.medical.admin.dto.AdminUpdateWorkProfileRequest;
 
 public interface AdminUserService {
 
@@ -27,6 +28,8 @@ public interface AdminUserService {
     void resetPassword(Long userId, AdminResetPasswordRequest request);
 
     void forceLogout(Long userId);
+
+    void updateWorkProfile(Long userId, AdminUpdateWorkProfileRequest request);
 
     AdminUserStatistics getStatistics();
 }
