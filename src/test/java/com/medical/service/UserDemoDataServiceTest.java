@@ -52,12 +52,40 @@ class UserDemoDataServiceTest {
     @Test
     void existingOwnedEldersPreventDuplicateSeeding() {
         Fixture fixture = fixture();
-        when(fixture.elderMapper.selectCount(any())).thenReturn(1L);
+        ElderInfo existing = new ElderInfo();
+        existing.setId(88L);
+        when(fixture.elderMapper.selectList(any())).thenReturn(List.of(existing));
+        AiHealthReportMapper reportMapper = (AiHealthReportMapper) ReflectionTestUtils.getField(
+                fixture.service, "aiHealthReportMapper");
+        when(reportMapper.selectCount(any())).thenReturn(1L);
 
         fixture.service.ensureFor(activeUser(22L, 3));
 
         verify(fixture.elderMapper, never()).insert(any());
         verify(fixture.userMapper, never()).selectOne(any());
+    }
+
+    @Test
+    void legacyOwnedEldersWithoutDemoMarkerStillReceiveCompleteBundles() {
+        Fixture fixture = fixture();
+        ElderInfo legacy = new ElderInfo();
+        legacy.setId(77L);
+        when(fixture.elderMapper.selectList(any())).thenReturn(List.of(legacy));
+        SysUser doctor = activeUser(2L, 2);
+        when(fixture.userMapper.selectOne(any())).thenReturn(doctor);
+        AtomicLong elderIds = new AtomicLong(200L);
+        when(fixture.elderMapper.insert(any())).thenAnswer(invocation -> {
+            ((ElderInfo) invocation.getArgument(0)).setId(elderIds.getAndIncrement());
+            return 1;
+        });
+
+        fixture.service.ensureFor(activeUser(7L, 3));
+
+        verify(fixture.elderMapper, times(2)).insert(any());
+        verify((NursingPlanMapper) ReflectionTestUtils.getField(fixture.service, "nursingPlanMapper"), times(2))
+                .insert(any());
+        verify((AiHealthReportMapper) ReflectionTestUtils.getField(fixture.service, "aiHealthReportMapper"), times(2))
+                .insert(any());
     }
 
     private SysUser activeUser(Long id, Integer userType) {

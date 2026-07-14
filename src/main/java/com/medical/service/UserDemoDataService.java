@@ -17,6 +17,7 @@ import java.util.Map;
 
 @Service
 public class UserDemoDataService {
+    private static final String DEMO_PROMPT_VERSION = "account-demo-v1";
     private static final String[] NAMES = {
             "陈秀兰", "周建国", "刘桂芳", "赵文德", "王淑珍", "李志远",
             "孙玉梅", "吴振华", "郑秋云", "冯国强", "何静宜", "高明远"
@@ -54,8 +55,16 @@ public class UserDemoDataService {
         } else {
             owned.eq(ElderInfo::getNurseId, user.getId());
         }
-        if (elderInfoMapper.selectCount(owned) > 0) {
-            return;
+        List<Long> ownedElderIds = elderInfoMapper.selectList(owned).stream()
+                .map(ElderInfo::getId)
+                .toList();
+        if (!ownedElderIds.isEmpty()) {
+            Long demoReportCount = aiHealthReportMapper.selectCount(new LambdaQueryWrapper<AiHealthReport>()
+                    .in(AiHealthReport::getElderId, ownedElderIds)
+                    .eq(AiHealthReport::getPromptVersion, DEMO_PROMPT_VERSION));
+            if (demoReportCount != null && demoReportCount > 0) {
+                return;
+            }
         }
 
         Long doctorId = Integer.valueOf(2).equals(userType) ? user.getId() : firstActiveUser(2);
@@ -276,7 +285,7 @@ public class UserDemoDataService {
         report.setReportJson(JSONUtil.toJsonStr(document));
         report.setStatus(1);
         report.setModelName("rule-demo");
-        report.setPromptVersion("account-demo-v1");
+        report.setPromptVersion(DEMO_PROMPT_VERSION);
         report.setCreateTime(LocalDateTime.now());
         report.setConfirmTime(LocalDateTime.now());
         aiHealthReportMapper.insert(report);
