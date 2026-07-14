@@ -145,11 +145,7 @@ public class ElderController {
     }
 
     private ElderInfo requireElderAccess(Long elderId, HttpServletRequest request) {
-        ElderInfo elder = elderService.getDetail(elderId);
-        if (isDoctor(request) && !currentUserId(request).equals(elder.getDoctorId())) {
-            throw new BusinessException(403, "该老人不属于当前责任医生");
-        }
-        return elder;
+        return elderService.getDetail(elderId);
     }
 
     private boolean isDoctor(HttpServletRequest request) {

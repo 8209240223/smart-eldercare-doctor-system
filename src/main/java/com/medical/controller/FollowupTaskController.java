@@ -15,7 +15,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/followup/tasks")
-@RequireRole({1, 2})
+@RequireRole({1, 2, 3})
 public class FollowupTaskController {
 
     @Autowired

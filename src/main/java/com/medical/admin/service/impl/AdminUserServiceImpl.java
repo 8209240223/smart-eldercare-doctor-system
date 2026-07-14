@@ -18,6 +18,7 @@ import com.medical.common.utils.RedisUtils;
 import com.medical.entity.SysUser;
 import com.medical.mapper.SysUserMapper;
 import com.medical.message.service.MessageService;
+import com.medical.service.UserDemoDataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +43,9 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Autowired(required = false)
     private MessageService messageService;
+
+    @Autowired(required = false)
+    private UserDemoDataService userDemoDataService;
 
     public AdminUserServiceImpl(SysUserMapper sysUserMapper,
                                 AuthSessionService authSessionService,
@@ -114,6 +118,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (sysUserMapper.insert(user) <= 0) {
             throw new BusinessException(500, "创建用户失败");
         }
+        ensureDemoData(user);
         notifyUser(user.getId(), "工作账号已创建", "管理员已为你创建工作账号，现在可以登录智慧医养系统。", 1);
         return user.getId();
     }
@@ -145,6 +150,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         requirePending(user);
         user.setStatus(STATUS_NORMAL);
         updateUser(user, "审核通过失败");
+        ensureDemoData(user);
         invalidateUserCache(userId);
         notifyUser(userId, "账号审核已通过", "你的账号申请已通过管理员审核，现在可以登录系统。", 2);
     }
@@ -281,6 +287,12 @@ public class AdminUserServiceImpl implements AdminUserService {
     private void invalidateUserAndSession(Long userId) {
         invalidateUserCache(userId);
         authSessionService.revokeAllSessions(userId);
+    }
+
+    private void ensureDemoData(SysUser user) {
+        if (userDemoDataService != null) {
+            userDemoDataService.ensureFor(user);
+        }
     }
 
     private void validateRequiredUserType(Integer userType) {

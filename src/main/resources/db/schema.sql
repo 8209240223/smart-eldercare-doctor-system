@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS elder_info (
     education INT DEFAULT NULL COMMENT '文化程度',
     medical_insurance_type INT DEFAULT NULL COMMENT '医保类型',
     doctor_id BIGINT DEFAULT NULL COMMENT '责任医生ID',
+    nurse_id BIGINT DEFAULT NULL COMMENT '责任护士ID',
     account_status TINYINT DEFAULT 1 COMMENT '账户状态:0停用 1启用 2注销',
     password VARCHAR(200) DEFAULT NULL COMMENT '账户密码',
     deleted TINYINT DEFAULT 0 COMMENT '逻辑删除',
@@ -96,6 +97,7 @@ CREATE TABLE IF NOT EXISTS elder_info (
     UNIQUE KEY uk_id_card (id_card),
     KEY idx_name (name),
     KEY idx_doctor_id (doctor_id),
+    KEY idx_nurse_id (nurse_id),
     KEY idx_community (community),
     KEY idx_account_status (account_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='老人信息表';

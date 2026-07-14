@@ -142,7 +142,7 @@ function AppRoutes() {
         <Route
           path="/followup-tasks"
           element={
-            <ProtectedRoute roles={["admin", "doctor"]}>
+            <ProtectedRoute roles={["admin", "doctor", "nurse"]}>
               <FollowupTasks />
             </ProtectedRoute>
           }

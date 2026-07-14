@@ -56,6 +56,8 @@ public class ElderInfo implements Serializable {
 
     private Long doctorId;
 
+    private Long nurseId;
+
     private Integer accountStatus;
 
     private String password;

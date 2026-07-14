@@ -22,6 +22,7 @@ class RolePermissionMatrixTest {
         assertClassRoles(ElderController.class, 1, 2, 3);
         assertClassRoles(WarningController.class, 1, 2, 3);
         assertClassRoles(FollowUpController.class, 1, 2, 3);
+        assertClassRoles(FollowupTaskController.class, 1, 2, 3);
         assertClassRoles(AssessmentController.class, 1, 2, 3);
         assertClassRoles(InterventionController.class, 1, 2, 3);
         assertClassRoles(ExamController.class, 1, 2, 3);
@@ -44,6 +45,8 @@ class RolePermissionMatrixTest {
         assertMethodRoles(ReviewController.class, 2,
                 "approveRecord", "rejectRecord", "approvePlan", "rejectPlan");
         assertMethodRoles(CareWorkflowController.class, 2, "generate");
+        assertMethodRoles(FollowupTaskController.class, 2,
+                "generateAutoTasks", "finishTask", "cancelTask");
     }
 
     @Test
