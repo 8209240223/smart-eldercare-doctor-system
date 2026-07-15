@@ -792,7 +792,7 @@ export default function ElderOnboardingDialog({
                 保存后自动生成健康管理流程
               </span>
               <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                系统将基于本次真实录入的数据计算风险，并生成或复用随访计划、随访任务和结构化健康报告。
+                系统将计算风险并生成或复用随访计划和随访任务；AI 健康报告可在建档完成后手动生成。
               </span>
             </span>
           </label>

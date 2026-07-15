@@ -68,8 +68,7 @@ public class CareWorkflowService {
         FollowupTaskGenerationResult taskResult = followupTaskService.generateForElder(
                 elderId, responsibleDoctorId, plan.getId());
 
-        AiHealthReport previousDraft = aiHealthReportService.findRuleDraft(elderId);
-        AiHealthReport report = aiHealthReportService.generateOrRefreshByRule(elderId, currentUserId);
+        AiHealthReport report = aiHealthReportService.getLatestByElder(elderId);
 
         CareWorkflowResult result = new CareWorkflowResult();
         result.setElder(elder);
@@ -79,10 +78,11 @@ public class CareWorkflowService {
                 previousPlan == null, previousPlan != null, plan));
         result.setTask(step(taskResult.isCreated() ? "created" : "reused",
                 taskResult.isCreated(), !taskResult.isCreated(), taskResult.getTask()));
-        result.setReport(step(previousDraft == null ? "created" : "refreshed",
-                previousDraft == null, previousDraft != null, report));
+        result.setReport(step(report == null ? "pending" : "reused",
+                false, report != null, report));
         populateCounts(result, elderId);
-        result.setLinks(buildLinks(elderId, plan.getId(), taskResult.getTask().getId(), report.getId()));
+        result.setLinks(buildLinks(elderId, plan.getId(), taskResult.getTask().getId(),
+                report == null ? null : report.getId()));
         return result;
     }
 
