@@ -17,7 +17,7 @@ public interface VitalSignService {
 
     List<WearableDevice> listDevices(Long elderId);
 
-    void uploadData(List<VitalSignData> dataList);
+    int uploadData(List<VitalSignData> dataList);
 
     List<VitalSignData> getTrendData(Long elderId, Integer dataType, String startDate, String endDate);
 

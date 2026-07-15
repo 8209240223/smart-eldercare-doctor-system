@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 体征监测与设备管理控制器
@@ -48,9 +49,12 @@ public class VitalSignController {
 
     @RequireRole({2, 3})
     @PostMapping("/upload")
+    @OperationLog(module = "体征监测", type = "模拟", desc = "通过已绑定设备录入模拟生命体征数据")
     public R<?> uploadData(@RequestBody List<VitalSignData> dataList) {
-        vitalSignService.uploadData(dataList);
-        return R.ok("上传成功");
+        int triggeredWarningCount = vitalSignService.uploadData(dataList);
+        return R.ok("上传成功", Map.of(
+                "uploadedCount", dataList.size(),
+                "triggeredWarningCount", triggeredWarningCount));
     }
 
     @GetMapping("/trend/{elderId}")
