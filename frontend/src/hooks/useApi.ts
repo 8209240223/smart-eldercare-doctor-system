@@ -1504,11 +1504,23 @@ export function useAiReportDetail(id?: number) {
 }
 
 export function useGenerateAiReport() {
-  return useApiMutation<AiHealthReport, number>(
-    (elderId) => `/api/ai/health-report/generate/${elderId}`,
-    "POST",
-    [["ai", "reports"]],
-  );
+  const queryClient = useQueryClient();
+  return useMutation<AiHealthReport, Error, number>({
+    mutationFn: async (elderId) =>
+      unwrap(
+        await post<ApiResponse<AiHealthReport>>(
+          `/api/ai/health-report/generate/${elderId}`,
+          undefined,
+          { timeout: 240000 },
+        ),
+      ),
+    onSuccess: (_report, elderId) => {
+      queryClient.invalidateQueries({ queryKey: ["ai", "reports"] });
+      queryClient.invalidateQueries({
+        queryKey: ["care-workflow", String(elderId)],
+      });
+    },
+  });
 }
 
 export function useConfirmAiReport() {

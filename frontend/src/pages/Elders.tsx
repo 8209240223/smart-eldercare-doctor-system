@@ -188,8 +188,8 @@ export default function Elders() {
       },
       {
         key: "report",
-        label: "查看 AI 健康报告",
-        description: "查看基于本次真实健康数据生成的结构化报告",
+        label: "生成 AI 健康报告",
+        description: "前往 AI 报告页，按需手动生成或查看该老人的报告",
         to: workflowLink(
           workflowResult || undefined,
           "report",
@@ -584,7 +584,7 @@ export default function Elders() {
         open={!!workflowResult}
         onOpenChange={(open) => !open && setWorkflowResult(null)}
         title="老人建档与健康管理流程已完成"
-        description="老人主档、风险分层、随访计划、随访任务和 AI 健康报告已经按同一个老人 ID 建立。请选择下一步查看的位置。"
+        description="老人主档、风险分层、随访计划和随访任务已经按同一个老人 ID 建立。AI 健康报告不会在建档时自动生成，可按需前往报告页面手动生成。"
         options={workflowNavigationOptions}
         result={workflowResult}
       />

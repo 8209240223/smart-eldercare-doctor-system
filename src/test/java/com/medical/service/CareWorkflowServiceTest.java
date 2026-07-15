@@ -22,6 +22,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -33,7 +34,7 @@ import static org.mockito.Mockito.when;
 class CareWorkflowServiceTest {
 
     @Test
-    void generateReusesPlanAndTaskAndRefreshesRuleDraft() {
+    void generateReusesPlanTaskAndExistingReportWithoutCallingKimi() {
         Fixture fixture = fixture();
         ElderInfo elder = elder();
         ElderRiskProfile risk = risk();
@@ -49,8 +50,7 @@ class CareWorkflowServiceTest {
         when(fixture.followUpService.generateRiskFollowPlans(2L, 8L)).thenReturn(Map.of());
         when(fixture.followupTaskService.generateForElder(8L, 2L, 31L))
                 .thenReturn(new FollowupTaskGenerationResult(task, false));
-        when(fixture.aiHealthReportService.findRuleDraft(8L)).thenReturn(draft);
-        when(fixture.aiHealthReportService.generateOrRefreshByRule(8L, 2L)).thenReturn(draft);
+        when(fixture.aiHealthReportService.getLatestByElder(8L)).thenReturn(draft);
         when(fixture.healthRecordMapper.selectCount(any())).thenReturn(1L);
         when(fixture.physicalExamMapper.selectCount(any())).thenReturn(2L);
         when(fixture.nursingPlanMapper.selectCount(any())).thenReturn(3L);
@@ -60,7 +60,7 @@ class CareWorkflowServiceTest {
 
         assertEquals("reused", result.getPlan().getStatus());
         assertEquals("reused", result.getTask().getStatus());
-        assertEquals("refreshed", result.getReport().getStatus());
+        assertEquals("reused", result.getReport().getStatus());
         assertFalse(result.getPlan().isCreated());
         assertTrue(result.getPlan().isReused());
         assertTrue(result.isHealthRecordPresent());
@@ -68,6 +68,39 @@ class CareWorkflowServiceTest {
         assertEquals(3L, result.getNursingPlanCount());
         assertEquals(4L, result.getNursingRecordCount());
         verify(fixture.followupTaskService).generateForElder(8L, 2L, 31L);
+        verify(fixture.aiHealthReportService, never()).generateOrRefreshByRule(any(), any());
+    }
+
+    @Test
+    void generateMarksReportPendingWhenDoctorHasNotGeneratedOne() {
+        Fixture fixture = fixture();
+        ElderInfo elder = elder();
+        ElderRiskProfile risk = risk();
+        FollowPlan plan = plan();
+        FollowupTask task = task();
+
+        when(fixture.elderReferenceService.requireActive(8L)).thenReturn(elder);
+        when(fixture.riskProfileMapper.selectOne(any())).thenReturn(risk);
+        when(fixture.riskProfileService.calculateRisk(8L)).thenReturn(risk);
+        when(fixture.followPlanMapper.selectLatestActiveByElderForUpdate(8L)).thenReturn(null);
+        when(fixture.followPlanMapper.selectLatestActiveByElder(8L)).thenReturn(plan);
+        when(fixture.followUpService.generateRiskFollowPlans(2L, 8L)).thenReturn(Map.of());
+        when(fixture.followupTaskService.generateForElder(8L, 2L, 31L))
+                .thenReturn(new FollowupTaskGenerationResult(task, true));
+        when(fixture.aiHealthReportService.getLatestByElder(8L)).thenReturn(null);
+        when(fixture.healthRecordMapper.selectCount(any())).thenReturn(0L);
+        when(fixture.physicalExamMapper.selectCount(any())).thenReturn(0L);
+        when(fixture.nursingPlanMapper.selectCount(any())).thenReturn(0L);
+        when(fixture.nursingRecordMapper.selectCount(any())).thenReturn(0L);
+
+        CareWorkflowResult result = fixture.service.generate(8L, 2L, 2);
+
+        assertEquals("pending", result.getReport().getStatus());
+        assertFalse(result.getReport().isCreated());
+        assertFalse(result.getReport().isReused());
+        assertNull(result.getReport().getData());
+        assertEquals("/ai-reports?elderId=8", result.getLinks().get("report"));
+        verify(fixture.aiHealthReportService, never()).generateOrRefreshByRule(any(), any());
     }
 
     @Test

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "motion/react";
-import { CheckCircle2, Eye, FileText, Sparkles, XCircle } from "lucide-react";
+import { CheckCircle2, Eye, FileText, LoaderCircle, Sparkles, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import PageShell from "@/components/layout/PageShell";
 import StatCard from "@/components/dashboard/StatCard";
@@ -280,6 +280,7 @@ export default function AiReports() {
                 <select
                   className="mt-2 h-9 w-full rounded-xl border border-border/60 bg-white/70 px-3 text-sm"
                   value={effectiveElderId || ""}
+                  disabled={generateReport.isPending}
                   onChange={(event) => selectElder(Number(event.target.value))}
                 >
                   <option value="">请选择老人</option>
@@ -297,8 +298,12 @@ export default function AiReports() {
                 disabled={!effectiveElderId || generateReport.isPending}
                 className="rounded-xl bg-gradient-to-r from-lavender-400 to-sky-400 text-white"
               >
-                <Sparkles className="mr-2 h-4 w-4" />
-                生成基础报告
+                {generateReport.isPending ? (
+                  <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 h-4 w-4" />
+                )}
+                {generateReport.isPending ? "正在生成报告" : "生成基础报告"}
               </Button>
             )}
             {!canOperateReports && (
