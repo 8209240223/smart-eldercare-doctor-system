@@ -72,7 +72,7 @@ public class ElderServiceImpl implements ElderService {
             }
             wrapper.in(ElderInfo::getId, elderIds);
         }
-        wrapper.orderByAsc(ElderInfo::getId);
+        wrapper.orderByDesc(ElderInfo::getId);
         return elderInfoMapper.selectPage(page, wrapper);
     }
 

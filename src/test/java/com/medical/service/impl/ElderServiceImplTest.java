@@ -1,5 +1,9 @@
 package com.medical.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.medical.common.exception.BusinessException;
 import com.medical.entity.ElderInfo;
 import com.medical.entity.HealthRecord;
@@ -7,7 +11,9 @@ import com.medical.entity.SysUser;
 import com.medical.mapper.ElderInfoMapper;
 import com.medical.mapper.HealthRecordMapper;
 import com.medical.mapper.SysUserMapper;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -18,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
@@ -45,6 +52,24 @@ class ElderServiceImplTest {
         assertEquals("张医生", options.get(0).get("realName"));
         assertEquals("doctor01", options.get(0).get("username"));
         assertFalse(options.get(0).containsKey("password"));
+    }
+
+    @Test
+    void listEldersOrdersNewestArchiveFirst() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), "ElderListOrderTest"),
+                ElderInfo.class);
+        ElderInfoMapper elderMapper = mock(ElderInfoMapper.class);
+        ElderServiceImpl service = createService(elderMapper);
+        when(elderMapper.selectPage(any(Page.class), any(Wrapper.class))).thenReturn(new Page<>(1, 10));
+
+        Page<ElderInfo> result = service.listElders(1, 10, null, null, null, null, null);
+
+        assertEquals(1, result.getCurrent());
+        assertEquals(10, result.getSize());
+        ArgumentCaptor<Wrapper<ElderInfo>> wrapperCaptor = ArgumentCaptor.forClass(Wrapper.class);
+        verify(elderMapper).selectPage(any(Page.class), wrapperCaptor.capture());
+        assertTrue(wrapperCaptor.getValue().getSqlSegment().toUpperCase().contains("ORDER BY ID DESC"));
     }
 
     @Test
