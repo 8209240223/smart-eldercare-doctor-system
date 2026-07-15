@@ -12,6 +12,7 @@ import {
   type AssistantApproval,
   type AssistantProgressEvent,
 } from "@/lib/assistantClient";
+import { normalizeAssistantMarkdown } from "@/lib/assistantMarkdown";
 import { useAuthStore } from "@/store/auth";
 import "./ranaAssistant.css";
 
@@ -93,7 +94,7 @@ function AssistantMarkdown({ content }: { content: string }) {
         ),
       }}
     >
-      {content}
+      {normalizeAssistantMarkdown(content)}
     </ReactMarkdown>
   );
 }
