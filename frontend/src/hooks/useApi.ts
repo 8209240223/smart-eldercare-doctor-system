@@ -1053,13 +1053,19 @@ export function useReferralStats() {
 
 // ============ Vitals ============
 export interface VitalSignData {
-  id: number;
+  id?: number;
   elderId: number;
+  deviceId?: number;
   dataType: number;
   dataValue: number;
   unit: string;
   measureTime: string;
   isAbnormal?: number;
+}
+
+export interface VitalUploadResult {
+  uploadedCount: number;
+  triggeredWarningCount: number;
 }
 
 export interface LatestVitals {
@@ -1139,7 +1145,11 @@ export function useUnbindDevice() {
 }
 
 export function useUploadVitals() {
-  return useApiMutation<void, VitalSignData[]>("/api/vitals/upload", "POST");
+  return useApiMutation<VitalUploadResult, VitalSignData[]>(
+    "/api/vitals/upload",
+    "POST",
+    [["vitals"], ["warnings"], ["timeline"], ["dashboard"]],
+  );
 }
 
 export function useMockVitals(elderId: number) {

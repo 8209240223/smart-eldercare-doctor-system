@@ -2,8 +2,10 @@ import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import {
   Activity,
+  ArrowRight,
   ChevronDown,
   Droplets,
+  FlaskConical,
   Footprints,
   Gauge,
   HeartPulse,
@@ -11,9 +13,11 @@ import {
   Plus,
   Thermometer,
   Trash2,
+  TriangleAlert,
   Watch,
   Zap,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
   CartesianGrid,
   Line,
@@ -32,6 +36,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/common/EmptyState";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import DeviceDialog from "@/components/vitals/DeviceDialog";
+import DeviceVitalDialog from "@/components/vitals/DeviceVitalDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   useBindDevice,
   useDevices,
@@ -39,7 +52,9 @@ import {
   useLatestVitals,
   useMockVitals,
   useUnbindDevice,
+  useUploadVitals,
   useVitalTrends,
+  type VitalSignData,
   type WearableDevice,
 } from "@/hooks/useApi";
 import { toast } from "sonner";
@@ -71,6 +86,7 @@ function formatDate(daysAgo: number) {
 }
 
 export default function Vitals() {
+  const navigate = useNavigate();
   const role = getUserRole(useAuthStore((state) => state.userInfo));
   const canManageDevices = role === "doctor" || role === "nurse";
   const canGenerateMockData = role === "admin";
@@ -81,6 +97,12 @@ export default function Vitals() {
   const [mockDays, setMockDays] = useState(7);
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [unbindTarget, setUnbindTarget] = useState<WearableDevice | null>(null);
+  const [simulationDevice, setSimulationDevice] = useState<WearableDevice | null>(null);
+  const [warningResult, setWarningResult] = useState<{
+    count: number;
+    elderName: string;
+    deviceName: string;
+  } | null>(null);
 
   const { data: eldersData, isLoading: eldersLoading } = useElders(1, 100);
   const elders = eldersData?.records || [];
@@ -89,6 +111,7 @@ export default function Vitals() {
   const { data: devices, isLoading: devicesLoading } = useDevices(selectedElderId || 0);
   const bindDevice = useBindDevice();
   const unbindDevice = useUnbindDevice();
+  const uploadVitals = useUploadVitals();
   const mockVitals = useMockVitals(selectedElderId || 0);
 
   const visibleTypes = useMemo(
@@ -132,6 +155,20 @@ export default function Vitals() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "模拟数据生成失败");
     }
+  };
+
+  const handleSimulationSubmit = async (data: VitalSignData[]) => {
+    const result = await uploadVitals.mutateAsync(data);
+    setSimulationDevice(null);
+    if (result.triggeredWarningCount > 0) {
+      setWarningResult({
+        count: result.triggeredWarningCount,
+        elderName: selectedElder?.name || "当前老人",
+        deviceName: simulationDevice?.deviceName || "已绑定设备",
+      });
+      return;
+    }
+    toast.success("模拟数据已录入，本次未触发预警");
   };
 
   const dateRangeValid = !startDate || !endDate || startDate <= endDate;
@@ -218,18 +255,26 @@ export default function Vitals() {
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {devices.map((device) => (
-                      <div key={device.id} className="flex items-center justify-between rounded-xl border border-border/50 bg-white/70 p-4">
+                      <div key={device.id} className="flex flex-col gap-4 rounded-xl border border-border/50 bg-white/70 p-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold">{device.deviceName}</p>
                           <p className="mt-1 truncate text-xs text-muted-foreground">序列号：{device.deviceSn}</p>
                           <p className="mt-1 text-xs text-muted-foreground">类型：{deviceTypeLabels[device.deviceType] || `未知类型（${device.deviceType}）`}</p>
                           <p className="mt-1 text-xs text-muted-foreground">状态：{device.bindStatus === 1 ? "已绑定" : "已解绑"}</p>
                         </div>
-                        {canManageDevices && device.bindStatus === 1 && (
-                          <Button size="icon" variant="ghost" onClick={() => setUnbindTarget(device)} className="shrink-0 text-red-500 hover:bg-red-50 hover:text-red-600" title="解绑设备">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+                        <div className="flex shrink-0 items-center gap-2">
+                          {canManageDevices && device.bindStatus === 1 && (
+                            <Button variant="outline" size="sm" onClick={() => setSimulationDevice(device)} className="rounded-xl border-medical-200 bg-medical-50 text-medical-700 hover:bg-medical-100">
+                              <FlaskConical className="h-4 w-4" />
+                              输入模拟数据
+                            </Button>
+                          )}
+                          {canManageDevices && device.bindStatus === 1 && (
+                            <Button size="icon" variant="ghost" onClick={() => setUnbindTarget(device)} className="shrink-0 text-red-500 hover:bg-red-50 hover:text-red-600" title="解绑设备">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -266,6 +311,42 @@ export default function Vitals() {
           isSubmitting={bindDevice.isPending}
         />
       )}
+      <DeviceVitalDialog
+        open={!!simulationDevice}
+        device={simulationDevice}
+        elderName={selectedElder?.name}
+        onOpenChange={(open) => !open && setSimulationDevice(null)}
+        onSubmit={handleSimulationSubmit}
+        isSubmitting={uploadVitals.isPending}
+      />
+      <Dialog open={!!warningResult} onOpenChange={(open) => !open && setWarningResult(null)}>
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md rounded-lg border-red-200 bg-white p-0 shadow-2xl">
+          <div className="border-b border-red-100 bg-red-50 px-6 py-5">
+            <DialogHeader>
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <TriangleAlert className="h-6 w-6" />
+              </div>
+              <DialogTitle className="text-xl text-red-700">检测到健康预警</DialogTitle>
+              <DialogDescription className="text-red-700/80">
+                {warningResult?.elderName}通过“{warningResult?.deviceName}”录入的数据命中了 {warningResult?.count || 0} 条启用规则。
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <DialogFooter className="gap-2 px-6 pb-6">
+            <Button variant="outline" onClick={() => setWarningResult(null)} className="rounded-xl">留在当前页</Button>
+            <Button
+              onClick={() => {
+                setWarningResult(null);
+                navigate("/warnings");
+              }}
+              className="rounded-xl bg-red-600 text-white hover:bg-red-700"
+            >
+              查看预警
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <ConfirmDialog
         open={!!unbindTarget}
         onOpenChange={(open) => !open && setUnbindTarget(null)}

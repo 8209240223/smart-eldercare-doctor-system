@@ -2,6 +2,7 @@ package com.medical.service.impl;
 
 import com.medical.common.exception.BusinessException;
 import com.medical.entity.ElderInfo;
+import com.medical.entity.VitalSignData;
 import com.medical.entity.WearableDevice;
 import com.medical.mapper.VitalSignDataMapper;
 import com.medical.mapper.WearableDeviceMapper;
@@ -12,12 +13,14 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -33,6 +36,15 @@ class VitalSignServiceImplTest {
                 .getAnnotation(Transactional.class);
 
         assertEquals(Isolation.SERIALIZABLE, transactional.isolation());
+    }
+
+    @Test
+    void uploadDataRunsInTransactionSoInvalidRuleEvaluationRollsBackInserts() throws Exception {
+        Transactional transactional = VitalSignServiceImpl.class
+                .getMethod("uploadData", List.class)
+                .getAnnotation(Transactional.class);
+
+        assertEquals(Exception.class, transactional.rollbackFor()[0]);
     }
 
     @Test
@@ -99,15 +111,85 @@ class VitalSignServiceImplTest {
         verify(mapper, times(2)).selectByDeviceSnForUpdate("DEVICE-ABC");
     }
 
+    @Test
+    void uploadsDataFromBoundCompatibleDeviceAndReturnsWarningCount() {
+        WearableDeviceMapper deviceMapper = mock(WearableDeviceMapper.class);
+        VitalSignDataMapper dataMapper = mock(VitalSignDataMapper.class);
+        WarningRuleService warningRuleService = mock(WarningRuleService.class);
+        VitalSignServiceImpl service = createService(deviceMapper, dataMapper, warningRuleService);
+        WearableDevice bloodPressureMonitor = device(10L, 1L, "BP-DEVICE-001", 1);
+        bloodPressureMonitor.setDeviceType(2);
+        when(deviceMapper.selectById(10L)).thenReturn(bloodPressureMonitor);
+        when(warningRuleService.evaluateVitalSigns(eq(1L), any())).thenReturn(2);
+
+        VitalSignData systolic = vital(1L, 10L, 1, 190);
+        VitalSignData diastolic = vital(1L, 10L, 2, 120);
+
+        int warningCount = service.uploadData(List.of(systolic, diastolic));
+
+        assertEquals(2, warningCount);
+        assertEquals("mmHg", systolic.getUnit());
+        assertEquals("mmHg", diastolic.getUnit());
+        verify(dataMapper).insert(systolic);
+        verify(dataMapper).insert(diastolic);
+        verify(warningRuleService).evaluateVitalSigns(eq(1L), any());
+    }
+
+    @Test
+    void rejectsUploadWithoutBoundDevice() {
+        WearableDeviceMapper deviceMapper = mock(WearableDeviceMapper.class);
+        VitalSignDataMapper dataMapper = mock(VitalSignDataMapper.class);
+        WarningRuleService warningRuleService = mock(WarningRuleService.class);
+        VitalSignServiceImpl service = createService(deviceMapper, dataMapper, warningRuleService);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.uploadData(List.of(vital(1L, null, 1, 180))));
+
+        assertEquals("请先绑定设备后再录入生命体征数据", exception.getMessage());
+        verify(dataMapper, never()).insert(any(VitalSignData.class));
+    }
+
+    @Test
+    void rejectsMetricThatDoesNotMatchDeviceType() {
+        WearableDeviceMapper deviceMapper = mock(WearableDeviceMapper.class);
+        VitalSignDataMapper dataMapper = mock(VitalSignDataMapper.class);
+        WarningRuleService warningRuleService = mock(WarningRuleService.class);
+        VitalSignServiceImpl service = createService(deviceMapper, dataMapper, warningRuleService);
+        WearableDevice bloodPressureMonitor = device(10L, 1L, "BP-DEVICE-001", 1);
+        bloodPressureMonitor.setDeviceType(2);
+        when(deviceMapper.selectById(10L)).thenReturn(bloodPressureMonitor);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.uploadData(List.of(vital(1L, 10L, 3, 130))));
+
+        assertEquals("该设备不支持所选生命体征指标", exception.getMessage());
+        verify(dataMapper, never()).insert(any(VitalSignData.class));
+    }
+
     private VitalSignServiceImpl createService(WearableDeviceMapper mapper) {
+        return createService(mapper, mock(VitalSignDataMapper.class), mock(WarningRuleService.class));
+    }
+
+    private VitalSignServiceImpl createService(WearableDeviceMapper mapper,
+                                               VitalSignDataMapper dataMapper,
+                                               WarningRuleService warningRuleService) {
         VitalSignServiceImpl service = new VitalSignServiceImpl();
         ElderReferenceService elderReferenceService = mock(ElderReferenceService.class);
         when(elderReferenceService.requireActive(anyLong())).thenReturn(new ElderInfo());
         ReflectionTestUtils.setField(service, "wearableDeviceMapper", mapper);
-        ReflectionTestUtils.setField(service, "vitalSignDataMapper", mock(VitalSignDataMapper.class));
-        ReflectionTestUtils.setField(service, "warningRuleService", mock(WarningRuleService.class));
+        ReflectionTestUtils.setField(service, "vitalSignDataMapper", dataMapper);
+        ReflectionTestUtils.setField(service, "warningRuleService", warningRuleService);
         ReflectionTestUtils.setField(service, "elderReferenceService", elderReferenceService);
         return service;
+    }
+
+    private VitalSignData vital(Long elderId, Long deviceId, int dataType, double value) {
+        VitalSignData data = new VitalSignData();
+        data.setElderId(elderId);
+        data.setDeviceId(deviceId);
+        data.setDataType(dataType);
+        data.setDataValue(BigDecimal.valueOf(value));
+        return data;
     }
 
     private WearableDevice device(Long id, Long elderId, String serial, Integer bindStatus) {

@@ -126,15 +126,43 @@ public class VitalSignServiceImpl implements VitalSignService {
     }
 
     @Override
-    public void uploadData(List<VitalSignData> dataList) {
-        if (dataList == null || dataList.isEmpty()) return;
+    @Transactional(rollbackFor = Exception.class)
+    public int uploadData(List<VitalSignData> dataList) {
+        if (dataList == null || dataList.isEmpty()) {
+            throw new BusinessException(400, "请至少输入一项生命体征数据");
+        }
+
+        Long deviceId = dataList.get(0) == null ? null : dataList.get(0).getDeviceId();
+        if (deviceId == null) {
+            throw new BusinessException(400, "请先绑定设备后再录入生命体征数据");
+        }
+        WearableDevice device = wearableDeviceMapper.selectById(deviceId);
+        if (device == null || !Integer.valueOf(1).equals(device.getBindStatus())) {
+            throw new BusinessException(400, "设备不存在或已解绑，请重新绑定后再录入");
+        }
+        elderReferenceService.requireActive(device.getElderId());
 
         Set<Long> elderIds = new HashSet<>();
+        Set<Integer> dataTypes = new HashSet<>();
         for (VitalSignData data : dataList) {
             if (data == null) {
                 throw new BusinessException(400, "生命体征数据不能为空");
             }
-            elderReferenceService.requireActive(data.getElderId());
+            if (!deviceId.equals(data.getDeviceId())) {
+                throw new BusinessException(400, "一次只能录入同一台设备的生命体征数据");
+            }
+            if (data.getElderId() == null || !device.getElderId().equals(data.getElderId())) {
+                throw new BusinessException(400, "设备与老人档案不匹配");
+            }
+            if (data.getDataType() == null || !supportedDataTypes(device.getDeviceType()).contains(data.getDataType())) {
+                throw new BusinessException(400, "该设备不支持所选生命体征指标");
+            }
+            if (!dataTypes.add(data.getDataType())) {
+                throw new BusinessException(400, "同一次录入不能包含重复指标");
+            }
+            if (data.getDataValue() == null) {
+                throw new BusinessException(400, "生命体征数值不能为空");
+            }
             elderIds.add(data.getElderId());
         }
         if (elderIds.size() != 1) {
@@ -142,10 +170,17 @@ public class VitalSignServiceImpl implements VitalSignService {
         }
         Long elderId = elderIds.iterator().next();
         Map<String, BigDecimal> vitalMap = new HashMap<>();
+        LocalDateTime now = LocalDateTime.now();
 
         for (VitalSignData data : dataList) {
-            if (data.getCreateTime() == null) data.setCreateTime(LocalDateTime.now());
-            if (data.getMeasureTime() == null) data.setMeasureTime(LocalDateTime.now());
+            if (data.getMeasureTime() != null && data.getMeasureTime().isAfter(now.plusMinutes(1))) {
+                throw new BusinessException(400, "测量时间不能晚于当前时间");
+            }
+            data.setId(null);
+            data.setCreateTime(now);
+            if (data.getMeasureTime() == null) data.setMeasureTime(now);
+            data.setIsAbnormal(null);
+            data.setUnit(unitForDataType(data.getDataType()));
             vitalSignDataMapper.insert(data);
 
             // 构建体征数据Map供规则引擎评估
@@ -157,8 +192,34 @@ public class VitalSignServiceImpl implements VitalSignService {
 
         // 自动触发预警规则评估
         if (!vitalMap.isEmpty() && elderId != null) {
-            warningRuleService.evaluateVitalSigns(elderId, vitalMap);
+            return warningRuleService.evaluateVitalSigns(elderId, vitalMap);
         }
+        return 0;
+    }
+
+    private Set<Integer> supportedDataTypes(Integer deviceType) {
+        if (deviceType == null) return Set.of();
+        return switch (deviceType) {
+            case 1 -> Set.of(3, 6, 7, 8, 9);
+            case 2 -> Set.of(1, 2);
+            case 3 -> Set.of(4, 5);
+            case 4 -> Set.of(3);
+            default -> Set.of();
+        };
+    }
+
+    private String unitForDataType(Integer dataType) {
+        if (dataType == null) return "";
+        return switch (dataType) {
+            case 1, 2 -> "mmHg";
+            case 3 -> "bpm";
+            case 4, 5 -> "mmol/L";
+            case 6 -> "%";
+            case 7 -> "°C";
+            case 8 -> "步";
+            case 9 -> "小时";
+            default -> "";
+        };
     }
 
     @Override
