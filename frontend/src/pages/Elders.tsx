@@ -224,8 +224,9 @@ export default function Elders() {
     try {
       const result = await onboardElder.mutateAsync(payload);
       setOnboardingOpen(false);
+      setPage(1);
       toast.success(`“${result.elder.name}”统一建档成功`);
-      await refetch();
+      await queryClient.invalidateQueries({ queryKey: ["elders"] });
       if (result.workflow) {
         setWorkflowResult(normalizeCareWorkflow(result.workflow));
       } else if (result.elder.id) {
