@@ -1,0 +1,14 @@
+{
+  "url": "http://159.75.139.2/followup-tasks",
+  "responseStatus": 200,
+  "progressSteps": 12,
+  "answerCharacters": 888,
+  "containsMarkdownHeading": true,
+  "rawHeadingMarkersVisible": false,
+  "browserErrors": [],
+  "screenshots": [
+    "output/playwright/production-followup-task-scope.png",
+    "output/playwright/production-assistant-agent-progress.png",
+    "output/playwright/production-assistant-stream-complete.png"
+  ]
+}

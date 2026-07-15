@@ -1,0 +1,63 @@
+{
+  "publicPage": {
+    "status": 200,
+    "containsCurrentAsset": true
+  },
+  "assistantStatus": {
+    "code": 200,
+    "msg": "操作成功",
+    "data": {
+      "model": "kimi-for-coding",
+      "configured": true
+    },
+    "timestamp": 1784079175238
+  },
+  "doctorScope": {
+    "userId": 2,
+    "elderCount": 23,
+    "taskCount": 20,
+    "taskEldersAreVisible": true,
+    "crossDoctorFilterCode": 403
+  },
+  "stream": {
+    "contentType": "text/event-stream",
+    "xAccelBuffering": "",
+    "eventSequenceStart": [
+      "step",
+      "tool",
+      "tool_result",
+      "tool",
+      "tool_result",
+      "tool",
+      "tool_result",
+      "tool",
+      "tool_result",
+      "tool",
+      "tool_result",
+      "step",
+      "delta",
+      "delta",
+      "delta",
+      "delta",
+      "delta",
+      "delta",
+      "delta",
+      "delta"
+    ],
+    "eventTypeCounts": {
+      "step": 2,
+      "tool": 5,
+      "tool_result": 5,
+      "delta": 473,
+      "done": 1
+    },
+    "deltaCount": 473,
+    "deltaCharacters": 867,
+    "firstDeltaMs": 25842,
+    "doneMs": 31520,
+    "hasPlanningStep": true,
+    "toolCount": 5,
+    "toolResultCount": 5,
+    "errors": []
+  }
+}
