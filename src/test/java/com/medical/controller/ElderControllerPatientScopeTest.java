@@ -1,6 +1,8 @@
 package com.medical.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.medical.dto.ElderOnboardRequest;
+import com.medical.dto.ElderOnboardResult;
 import com.medical.entity.ElderInfo;
 import com.medical.service.ElderOnboardingService;
 import com.medical.service.ElderService;
@@ -8,12 +10,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -52,15 +54,23 @@ class ElderControllerPatientScopeTest {
     }
 
     @Test
-    void doctorCreatedElderIsForcedToCurrentDoctor() {
+    void legacyCreateUsesUnifiedOnboardingAndKeepsTheIdResponse() {
         ElderInfo elder = new ElderInfo();
         elder.setDoctorId(999L);
-        when(elderService.create(elder)).thenReturn(30L);
+        ElderInfo persisted = new ElderInfo();
+        persisted.setId(30L);
+        ElderOnboardResult result = new ElderOnboardResult();
+        result.setElder(persisted);
+        when(elderOnboardingService.onboard(any(), any(), any())).thenReturn(result);
 
-        controller.create(elder, doctorRequest(7L));
+        Object responseData = controller.create(elder, doctorRequest(7L)).getData();
 
-        verify(elderService).create(eq(elder));
-        assertThat(elder.getDoctorId()).isEqualTo(7L);
+        ArgumentCaptor<ElderOnboardRequest> requestCaptor = ArgumentCaptor.forClass(ElderOnboardRequest.class);
+        verify(elderOnboardingService).onboard(requestCaptor.capture(), org.mockito.ArgumentMatchers.eq(7L),
+                org.mockito.ArgumentMatchers.eq(2));
+        assertThat(requestCaptor.getValue().getElder()).isSameAs(elder);
+        assertThat(requestCaptor.getValue().getGenerateWorkflow()).isTrue();
+        assertThat(responseData).isEqualTo(30L);
     }
 
     private MockHttpServletRequest doctorRequest(Long doctorId) {

@@ -20,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -284,6 +285,40 @@ class FollowupTaskServiceImplTest {
 
         assertEquals(400, error.getCode());
         verify(fixture.followupTaskMapper, never()).insert(any(FollowupTask.class));
+    }
+
+    @Test
+    void doctorCannotQueryAnotherDoctorsTasks() {
+        Fixture fixture = fixture();
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> fixture.service.getTaskList(1, 10, 3L, null, null, 2L, 2));
+
+        assertEquals(403, error.getCode());
+        verify(fixture.followupTaskMapper, never()).selectTasks(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void doctorTaskListAlwaysUsesCurrentDoctorScope() {
+        Fixture fixture = fixture();
+        when(fixture.followupTaskMapper.selectTasks(2L, null, 0, 2L, 2)).thenReturn(List.of());
+
+        var page = fixture.service.getTaskList(1, 10, null, null, 0, 2L, 2);
+
+        assertEquals(0L, page.getTotal());
+        verify(fixture.followupTaskMapper).selectTasks(2L, null, 0, 2L, 2);
+    }
+
+    @Test
+    void nurseTaskSummaryUsesNurseRelationScope() {
+        Fixture fixture = fixture();
+        when(fixture.followupTaskMapper.countPendingTasks(5L, 3)).thenReturn(4);
+        when(fixture.followupTaskMapper.countTodayTasks(any(LocalDate.class), any(), any())).thenReturn(2);
+
+        assertEquals(4, fixture.service.countPendingTasks(5L, 3));
+        assertEquals(2, fixture.service.countTodayTasks(5L, 3));
+        verify(fixture.followupTaskMapper).countPendingTasks(5L, 3);
+        verify(fixture.followupTaskMapper).countTodayTasks(any(LocalDate.class), any(), any());
     }
 
     private Fixture fixture() {

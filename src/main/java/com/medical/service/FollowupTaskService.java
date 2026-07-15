@@ -28,7 +28,7 @@ public interface FollowupTaskService {
      * 查询今日待执行任务
      * @return 今日任务列表
      */
-    List<Map<String, Object>> getTodayTasks();
+    List<Map<String, Object>> getTodayTasks(Long currentUserId, Integer currentUserType);
 
     /**
      * 根据医生ID查询任务列表
@@ -38,7 +38,9 @@ public interface FollowupTaskService {
      * @param status 任务状态
      * @return 分页结果
      */
-    Page<Map<String, Object>> getTaskList(Integer pageNum, Integer pageSize, Long doctorId, Long elderId, Integer status);
+    Page<Map<String, Object>> getTaskList(Integer pageNum, Integer pageSize,
+                                          Long doctorId, Long elderId, Integer status,
+                                          Long currentUserId, Integer currentUserType);
 
     /**
      * 完成随访任务
@@ -59,16 +61,16 @@ public interface FollowupTaskService {
     /**
      * 统计待执行任务数量
      */
-    int countPendingTasks();
+    int countPendingTasks(Long currentUserId, Integer currentUserType);
 
     /**
      * 统计今日任务数量
      */
-    int countTodayTasks();
+    int countTodayTasks(Long currentUserId, Integer currentUserType);
 
     /**
      * 查询逾期随访任务
      * @return 逾期任务列表
      */
-    List<Map<String, Object>> getOverdueTasks();
+    List<Map<String, Object>> getOverdueTasks(Long currentUserId, Integer currentUserType);
 }

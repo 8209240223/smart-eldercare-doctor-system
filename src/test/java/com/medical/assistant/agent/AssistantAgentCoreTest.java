@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -45,8 +46,12 @@ class AssistantAgentCoreTest {
         when(memory.resolveConversationId(null)).thenReturn("conversation-1");
         when(memory.load(any(), any(), any())).thenReturn(List.of());
         when(tools.specificationsForRole(2)).thenReturn(List.of());
-        when(kimiClient.chat(anyList(), anyList(), anyInt())).thenReturn(
-                ChatResponse.builder().aiMessage(AiMessage.from("completed answer")).build());
+        when(kimiClient.streamChat(anyList(), anyList(), anyInt(), any())).thenAnswer(invocation -> {
+            Consumer<String> onDelta = invocation.getArgument(3);
+            onDelta.accept("completed ");
+            onDelta.accept("answer");
+            return ChatResponse.builder().aiMessage(AiMessage.from("completed answer")).build();
+        });
         when(kimiClient.modelName()).thenReturn("kimi-for-coding");
         AssistantAgentService service = new AssistantAgentService(
                 kimiClient, memory, tools, new AssistantRequestModeResolver(), approvals,
@@ -59,7 +64,7 @@ class AssistantAgentCoreTest {
                 (type, payload) -> events.add(type));
 
         assertThat(result.answer()).isEqualTo("completed answer");
-        assertThat(events).containsExactly("delta", "done");
+        assertThat(events).containsExactly("delta", "delta", "done");
         verify(memory).appendExchange(7L, "conversation-1", "query status", "completed answer");
     }
 
@@ -103,7 +108,7 @@ class AssistantAgentCoreTest {
     }
 
     @Test
-    void emitsAgentStepsOnlyWhenTheModelActuallyCallsAWebsiteTool() {
+    void emitsPlanningStepBeforeEachAgentModelRound() {
         KimiClient kimiClient = mock(KimiClient.class);
         AssistantConversationMemoryService memory = mock(AssistantConversationMemoryService.class);
         AssistantToolRegistry tools = mock(AssistantToolRegistry.class);
@@ -138,6 +143,14 @@ class AssistantAgentCoreTest {
                     .aiMessage(AiMessage.from("当前可见老人档案共 26 条。"))
                     .build();
         });
+        when(kimiClient.streamChat(anyList(), anyList(), anyInt(), any())).thenAnswer(invocation -> {
+            Consumer<String> onDelta = invocation.getArgument(3);
+            onDelta.accept("当前可见老人");
+            onDelta.accept("档案共 26 条。");
+            return ChatResponse.builder()
+                    .aiMessage(AiMessage.from("当前可见老人档案共 26 条。"))
+                    .build();
+        });
         when(tools.handle(any(), any())).thenReturn(
                 new AssistantToolHandlingResult("{\"total\":26}", null));
         when(kimiClient.modelName()).thenReturn("kimi-for-coding");
@@ -152,7 +165,7 @@ class AssistantAgentCoreTest {
                 (type, payload) -> events.add(type));
 
         assertThat(result.answer()).contains("26");
-        assertThat(events).containsExactly("step", "tool", "tool_result", "delta", "done");
+        assertThat(events).containsExactly("step", "tool", "tool_result", "step", "delta", "delta", "done");
         verify(tools).capabilityHintsForRole(2, "查询当前系统老人档案总数");
         verify(tools).handle(argThat(requestValue -> "query_site_api".equals(requestValue.name())), any());
     }

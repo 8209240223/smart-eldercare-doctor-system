@@ -165,17 +165,20 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
     }
 
     @Override
-    public List<Map<String, Object>> getTodayTasks() {
-        return followupTaskMapper.selectTodayTasks(LocalDate.now());
+    public List<Map<String, Object>> getTodayTasks(Long currentUserId, Integer currentUserType) {
+        requireQueryScope(currentUserId, currentUserType);
+        return followupTaskMapper.selectTodayTasks(LocalDate.now(), currentUserId, currentUserType);
     }
 
     @Override
-    public Page<Map<String, Object>> getTaskList(Integer pageNum, Integer pageSize, Long doctorId, Long elderId, Integer status) {
+    public Page<Map<String, Object>> getTaskList(Integer pageNum, Integer pageSize,
+                                                 Long doctorId, Long elderId, Integer status,
+                                                 Long currentUserId, Integer currentUserType) {
+        requireQueryScope(currentUserId, currentUserType);
         Page<Map<String, Object>> page = new Page<>(pageNum, pageSize);
-        if (elderId != null) {
-            elderReferenceService.requireActive(elderId);
-        }
-        List<Map<String, Object>> allRecords = followupTaskMapper.selectTasks(doctorId, elderId, status);
+        Long scopedDoctorId = normalizeDoctorFilter(doctorId, currentUserId, currentUserType);
+        List<Map<String, Object>> allRecords = followupTaskMapper.selectTasks(
+                scopedDoctorId, elderId, status, currentUserId, currentUserType);
         
         // 手动分页处理
         int total = allRecords.size();
@@ -258,36 +261,42 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
     }
 
     @Override
-    public int countPendingTasks() {
-        return followupTaskMapper.countPendingTasks();
+    public int countPendingTasks(Long currentUserId, Integer currentUserType) {
+        requireQueryScope(currentUserId, currentUserType);
+        return followupTaskMapper.countPendingTasks(currentUserId, currentUserType);
     }
 
     @Override
-    public int countTodayTasks() {
-        return followupTaskMapper.countTodayTasks(LocalDate.now());
+    public int countTodayTasks(Long currentUserId, Integer currentUserType) {
+        requireQueryScope(currentUserId, currentUserType);
+        return followupTaskMapper.countTodayTasks(LocalDate.now(), currentUserId, currentUserType);
     }
 
     @Override
-    public List<Map<String, Object>> getOverdueTasks() {
-        QueryWrapper<FollowupTask> wrapper = new QueryWrapper<>();
-        wrapper.eq("status", 0);
-        wrapper.lt("due_date", LocalDate.now());
-        wrapper.orderByDesc("priority");
+    public List<Map<String, Object>> getOverdueTasks(Long currentUserId, Integer currentUserType) {
+        requireQueryScope(currentUserId, currentUserType);
+        return followupTaskMapper.selectOverdueTasks(LocalDate.now(), currentUserId, currentUserType);
+    }
 
-        List<FollowupTask> tasks = followupTaskMapper.selectList(wrapper);
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (FollowupTask task : tasks) {
-            Map<String, Object> map = new HashMap<>();
-            map.put("task", task);
-            ElderInfo elder = elderInfoMapper.selectById(task.getElderId());
-            if (elder != null) {
-                map.put("elderName", elder.getName());
-                map.put("elderPhone", elder.getPhone());
-                map.put("community", elder.getCommunity());
-            }
-            result.add(map);
+    private void requireQueryScope(Long currentUserId, Integer currentUserType) {
+        if (currentUserId == null || currentUserType == null
+                || (!Integer.valueOf(1).equals(currentUserType)
+                && !Integer.valueOf(2).equals(currentUserType)
+                && !Integer.valueOf(3).equals(currentUserType))) {
+            throw new BusinessException(403, "当前用户无权查看随访任务");
         }
-        return result;
+    }
+
+    private Long normalizeDoctorFilter(Long requestedDoctorId,
+                                       Long currentUserId,
+                                       Integer currentUserType) {
+        if (Integer.valueOf(2).equals(currentUserType)) {
+            if (requestedDoctorId != null && !requestedDoctorId.equals(currentUserId)) {
+                throw new BusinessException(403, "医生只能查看本人负责的随访任务");
+            }
+            return currentUserId;
+        }
+        return requestedDoctorId;
     }
 
     private String getRiskLevelText(int level) {

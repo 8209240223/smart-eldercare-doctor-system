@@ -3,6 +3,7 @@ package com.medical.service;
 import com.medical.dto.CareWorkflowResult;
 import com.medical.dto.ElderOnboardRequest;
 import com.medical.dto.ElderOnboardResult;
+import com.medical.common.exception.BusinessException;
 import com.medical.entity.ElderInfo;
 import com.medical.entity.HealthRecord;
 import com.medical.entity.MedicalHistory;
@@ -19,6 +20,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -26,6 +28,50 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ElderOnboardingServiceTest {
+
+    @Test
+    void disablingWorkflowCannotAssignElderToAnotherDoctor() {
+        ElderOnboardingService service = new ElderOnboardingService();
+        ElderInfo elder = new ElderInfo();
+        elder.setDoctorId(8L);
+        ElderOnboardRequest request = new ElderOnboardRequest();
+        request.setElder(elder);
+        request.setGenerateWorkflow(false);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.onboard(request, 7L, 2));
+
+        assertEquals(403, error.getCode());
+        assertEquals("老人责任医生必须是当前登录医生", error.getMessage());
+    }
+
+    @Test
+    void healthRecordAndInitialExamCannotForgeDoctorOwnership() {
+        ElderOnboardingService service = new ElderOnboardingService();
+        ElderOnboardRequest healthRequest = new ElderOnboardRequest();
+        healthRequest.setElder(new ElderInfo());
+        HealthRecord healthRecord = new HealthRecord();
+        healthRecord.setCreateDoctorId(8L);
+        healthRequest.setHealthRecord(healthRecord);
+
+        BusinessException healthError = assertThrows(BusinessException.class,
+                () -> service.onboard(healthRequest, 7L, 2));
+
+        assertEquals(403, healthError.getCode());
+        assertEquals("健康档案建档医生必须是当前登录医生", healthError.getMessage());
+
+        ElderOnboardRequest examRequest = new ElderOnboardRequest();
+        examRequest.setElder(new ElderInfo());
+        PhysicalExam exam = new PhysicalExam();
+        exam.setDoctorId(8L);
+        examRequest.setInitialExam(exam);
+
+        BusinessException examError = assertThrows(BusinessException.class,
+                () -> service.onboard(examRequest, 7L, 2));
+
+        assertEquals(403, examError.getCode());
+        assertEquals("初始体检医生必须是当前登录医生", examError.getMessage());
+    }
 
     @Test
     void onboardBindsAllSubmittedRecordsToNewElderAndRunsWorkflow() throws Exception {

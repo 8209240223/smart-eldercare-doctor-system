@@ -71,10 +71,14 @@ public class ElderController {
     @PostMapping
     @OperationLog(module = "老人档案", type = "新增", desc = "新增老人信息")
     public R<?> create(@Valid @RequestBody ElderInfo elderInfo, HttpServletRequest request) {
-        if (isDoctor(request)) {
-            elderInfo.setDoctorId(currentUserId(request));
-        }
-        return R.ok("新增成功", elderService.create(elderInfo));
+        ElderOnboardRequest onboardRequest = new ElderOnboardRequest();
+        onboardRequest.setElder(elderInfo);
+        onboardRequest.setGenerateWorkflow(Boolean.TRUE);
+        ElderOnboardResult result = elderOnboardingService.onboard(
+                onboardRequest,
+                currentUserId(request),
+                (Integer) request.getAttribute("currentUserType"));
+        return R.ok("新增成功", result.getElder().getId());
     }
 
     @RequireRole({2})

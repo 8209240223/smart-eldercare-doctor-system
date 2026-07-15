@@ -36,8 +36,10 @@ public class FollowupTaskController {
      * 今日任务列表
      */
     @GetMapping("/today")
-    public R<List<Map<String, Object>>> getTodayTasks() {
-        List<Map<String, Object>> tasks = followupTaskService.getTodayTasks();
+    public R<List<Map<String, Object>>> getTodayTasks(
+            @RequestAttribute("currentUserId") Long currentUserId,
+            @RequestAttribute("currentUserType") Integer currentUserType) {
+        List<Map<String, Object>> tasks = followupTaskService.getTodayTasks(currentUserId, currentUserType);
         return R.ok(tasks);
     }
 
@@ -50,8 +52,11 @@ public class FollowupTaskController {
             @RequestParam(defaultValue = "10") Integer pageSize,
             @RequestParam(required = false) Long doctorId,
             @RequestParam(required = false) Long elderId,
-            @RequestParam(required = false) Integer status) {
-        Page<Map<String, Object>> page = followupTaskService.getTaskList(pageNum, pageSize, doctorId, elderId, status);
+            @RequestParam(required = false) Integer status,
+            @RequestAttribute("currentUserId") Long currentUserId,
+            @RequestAttribute("currentUserType") Integer currentUserType) {
+        Page<Map<String, Object>> page = followupTaskService.getTaskList(
+                pageNum, pageSize, doctorId, elderId, status, currentUserId, currentUserType);
         return R.ok(page);
     }
 
@@ -85,8 +90,10 @@ public class FollowupTaskController {
      * 逾期任务列表
      */
     @GetMapping("/overdue")
-    public R<List<Map<String, Object>>> getOverdueTasks() {
-        List<Map<String, Object>> tasks = followupTaskService.getOverdueTasks();
+    public R<List<Map<String, Object>>> getOverdueTasks(
+            @RequestAttribute("currentUserId") Long currentUserId,
+            @RequestAttribute("currentUserType") Integer currentUserType) {
+        List<Map<String, Object>> tasks = followupTaskService.getOverdueTasks(currentUserId, currentUserType);
         return R.ok(tasks);
     }
 
@@ -94,10 +101,12 @@ public class FollowupTaskController {
      * 任务统计
      */
     @GetMapping("/stats")
-    public R<Map<String, Object>> getTaskStats() {
+    public R<Map<String, Object>> getTaskStats(
+            @RequestAttribute("currentUserId") Long currentUserId,
+            @RequestAttribute("currentUserType") Integer currentUserType) {
         Map<String, Object> stats = new java.util.HashMap<>();
-        stats.put("pending", followupTaskService.countPendingTasks());
-        stats.put("today", followupTaskService.countTodayTasks());
+        stats.put("pending", followupTaskService.countPendingTasks(currentUserId, currentUserType));
+        stats.put("today", followupTaskService.countTodayTasks(currentUserId, currentUserType));
         return R.ok(stats);
     }
 }

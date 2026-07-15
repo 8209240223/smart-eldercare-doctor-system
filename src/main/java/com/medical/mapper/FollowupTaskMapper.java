@@ -22,15 +22,33 @@ public interface FollowupTaskMapper extends BaseMapper<FollowupTask> {
             "ft.finish_time AS finishTime, ft.follow_record_id AS followRecordId, ft.remark, " +
             "ei.name, ei.name AS elderName, ei.phone, ei.phone AS elderPhone, ei.community ";
 
+    String ROLE_SCOPE_SQL = "<choose>" +
+            "<when test='currentUserType == 2'>" +
+            "AND ft.doctor_id = #{currentUserId} AND ei.doctor_id = #{currentUserId} " +
+            "</when>" +
+            "<when test='currentUserType == 3'>" +
+            "AND (ei.nurse_id = #{currentUserId} OR EXISTS (" +
+            "SELECT 1 FROM doctor_nurse_relation dnr " +
+            "WHERE dnr.doctor_id = ei.doctor_id AND dnr.nurse_id = #{currentUserId} AND dnr.status = 1" +
+            ")) " +
+            "</when>" +
+            "<when test='currentUserType == 1'></when>" +
+            "<otherwise>AND 1 = 0 </otherwise>" +
+            "</choose>";
+
     /**
      * 查询今日待执行任务
      */
-    @Select(TASK_WITH_ELDER_COLUMNS +
+    @Select("<script>" + TASK_WITH_ELDER_COLUMNS +
             "FROM followup_task ft " +
             "LEFT JOIN elder_info ei ON ft.elder_id = ei.id " +
-            "WHERE ft.status = 0 AND ft.due_date <= #{today} AND ei.deleted = 0 " +
-            "ORDER BY ft.priority DESC, ft.due_date ASC")
-    List<Map<String, Object>> selectTodayTasks(@Param("today") LocalDate today);
+            "WHERE ft.status = 0 AND ft.due_date &lt;= #{today} AND ei.deleted = 0 " +
+            ROLE_SCOPE_SQL +
+            "ORDER BY ft.priority DESC, ft.due_date ASC" +
+            "</script>")
+    List<Map<String, Object>> selectTodayTasks(@Param("today") LocalDate today,
+                                                @Param("currentUserId") Long currentUserId,
+                                                @Param("currentUserType") Integer currentUserType);
 
     /**
      * 根据医生ID查询任务列表(返回List)
@@ -54,6 +72,7 @@ public interface FollowupTaskMapper extends BaseMapper<FollowupTask> {
             "FROM followup_task ft " +
             "LEFT JOIN elder_info ei ON ft.elder_id = ei.id " +
             "WHERE ei.deleted = 0 " +
+            ROLE_SCOPE_SQL +
             "<if test='doctorId != null'>AND ft.doctor_id = #{doctorId} </if>" +
             "<if test='elderId != null'>AND ft.elder_id = #{elderId} </if>" +
             "<if test='status != null'>AND ft.status = #{status} </if>" +
@@ -61,19 +80,45 @@ public interface FollowupTaskMapper extends BaseMapper<FollowupTask> {
             "</script>")
     List<Map<String, Object>> selectTasks(@Param("doctorId") Long doctorId,
                                           @Param("elderId") Long elderId,
-                                          @Param("status") Integer status);
+                                          @Param("status") Integer status,
+                                          @Param("currentUserId") Long currentUserId,
+                                          @Param("currentUserType") Integer currentUserType);
 
     /**
      * 统计待执行任务数量
      */
-    @Select("SELECT COUNT(*) FROM followup_task WHERE status = 0")
-    int countPendingTasks();
+    @Select("<script>" +
+            "SELECT COUNT(*) FROM followup_task ft " +
+            "JOIN elder_info ei ON ei.id = ft.elder_id " +
+            "WHERE ft.status = 0 AND ei.deleted = 0 " +
+            ROLE_SCOPE_SQL +
+            "</script>")
+    int countPendingTasks(@Param("currentUserId") Long currentUserId,
+                          @Param("currentUserType") Integer currentUserType);
 
     /**
      * 统计今日任务数量
      */
-    @Select("SELECT COUNT(*) FROM followup_task WHERE status = 0 AND due_date <= #{today}")
-    int countTodayTasks(@Param("today") LocalDate today);
+    @Select("<script>" +
+            "SELECT COUNT(*) FROM followup_task ft " +
+            "JOIN elder_info ei ON ei.id = ft.elder_id " +
+            "WHERE ft.status = 0 AND ft.due_date &lt;= #{today} AND ei.deleted = 0 " +
+            ROLE_SCOPE_SQL +
+            "</script>")
+    int countTodayTasks(@Param("today") LocalDate today,
+                        @Param("currentUserId") Long currentUserId,
+                        @Param("currentUserType") Integer currentUserType);
+
+    @Select("<script>" + TASK_WITH_ELDER_COLUMNS +
+            "FROM followup_task ft " +
+            "JOIN elder_info ei ON ei.id = ft.elder_id " +
+            "WHERE ft.status = 0 AND ft.due_date &lt; #{today} AND ei.deleted = 0 " +
+            ROLE_SCOPE_SQL +
+            "ORDER BY ft.priority DESC, ft.due_date ASC" +
+            "</script>")
+    List<Map<String, Object>> selectOverdueTasks(@Param("today") LocalDate today,
+                                                  @Param("currentUserId") Long currentUserId,
+                                                  @Param("currentUserType") Integer currentUserType);
 
     /**
      * 检查是否存在相同任务

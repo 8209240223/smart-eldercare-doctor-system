@@ -37,7 +37,16 @@ public class ElderOnboardingService {
 
         ElderInfo elder = request.getElder();
         elder.setId(null);
-        if (Integer.valueOf(2).equals(currentUserType) && elder.getDoctorId() == null) {
+        if (Integer.valueOf(2).equals(currentUserType)) {
+            requireCurrentDoctor("老人责任医生", elder.getDoctorId(), currentUserId);
+            if (request.getHealthRecord() != null) {
+                requireCurrentDoctor("健康档案建档医生",
+                        request.getHealthRecord().getCreateDoctorId(), currentUserId);
+            }
+            if (request.getInitialExam() != null) {
+                requireCurrentDoctor("初始体检医生",
+                        request.getInitialExam().getDoctorId(), currentUserId);
+            }
             elder.setDoctorId(currentUserId);
         }
         if (elder.getDoctorId() != null) {
@@ -50,9 +59,7 @@ public class ElderOnboardingService {
             HealthRecord healthRecord = request.getHealthRecord();
             healthRecord.setId(null);
             healthRecord.setElderId(elderId);
-            if (healthRecord.getCreateDoctorId() == null) {
-                healthRecord.setCreateDoctorId(currentUserId);
-            }
+            healthRecord.setCreateDoctorId(currentUserId);
             elderService.saveHealthRecord(elderId, healthRecord);
             persistedHealthRecord = elderService.getHealthRecord(elderId);
         }
@@ -74,10 +81,7 @@ public class ElderOnboardingService {
         if (initialExam != null) {
             initialExam.setId(null);
             initialExam.setElderId(elderId);
-            if (initialExam.getDoctorId() == null) {
-                initialExam.setDoctorId(Integer.valueOf(2).equals(currentUserType)
-                        ? currentUserId : elder.getDoctorId());
-            }
+            initialExam.setDoctorId(currentUserId);
             examService.create(initialExam);
         }
 
@@ -101,6 +105,12 @@ public class ElderOnboardingService {
         }
         if (!Integer.valueOf(2).equals(currentUserType)) {
             throw new BusinessException(403, "只有医生可以统一建档");
+        }
+    }
+
+    private void requireCurrentDoctor(String fieldName, Long requestedDoctorId, Long currentUserId) {
+        if (requestedDoctorId != null && !requestedDoctorId.equals(currentUserId)) {
+            throw new BusinessException(403, fieldName + "必须是当前登录医生");
         }
     }
 
