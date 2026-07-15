@@ -31,7 +31,7 @@ class PatientDataPermissionHandlerTest {
     }
 
     @Test
-    void nurseRelatedRecordsAreScopedThroughOwnedElders() {
+    void nurseRelatedRecordsIncludeDirectAndCareTeamElders() {
         bindUser(8L, 3);
         Table table = new Table("follow_plan");
         table.setAlias(new Alias("fp"));
@@ -39,8 +39,10 @@ class PatientDataPermissionHandlerTest {
         Expression expression = handler.getSqlSegment(table, null, "followPlanList");
 
         assertThat(expression.toString()).contains("fp.elder_id IN")
-                .contains("nurse_id = 8")
-                .contains("deleted = 0");
+                .contains("e.nurse_id = 8")
+                .contains("doctor_nurse_relation")
+                .contains("dnr.nurse_id = 8")
+                .contains("e.deleted = 0");
     }
 
     @Test

@@ -105,9 +105,19 @@ public class AssistantAgentService {
         List<ToolSpecification> tools = siteToolsRequired
                 ? toolRegistry.specificationsForRole(role)
                 : List.of();
+        boolean streamEnabled = eventSink != null && eventSink != AssistantEventSink.NOOP;
 
         for (int step = 1; step <= maxSteps; step++) {
-            ChatResponse response = kimiClient.chat(messages, tools, MAX_OUTPUT_TOKENS);
+            if (siteToolsRequired) {
+                emit(eventSink, "step", Map.of(
+                        "step", step,
+                        "phase", "planning",
+                        "conversationId", conversationId));
+            }
+            ChatResponse response = !siteToolsRequired && streamEnabled
+                    ? kimiClient.streamChat(messages, tools, MAX_OUTPUT_TOKENS,
+                            delta -> emit(eventSink, "delta", Map.of("content", delta)))
+                    : kimiClient.chat(messages, tools, MAX_OUTPUT_TOKENS);
             AiMessage aiMessage = response.aiMessage();
             if (aiMessage == null) {
                 throw new BusinessException(502, "Kimi 未返回有效消息");
@@ -115,10 +125,15 @@ public class AssistantAgentService {
             messages.add(aiMessage);
 
             if (!aiMessage.hasToolExecutionRequests()) {
-                String answer = StringUtils.hasText(aiMessage.text())
+                String draft = StringUtils.hasText(aiMessage.text())
                         ? aiMessage.text().trim()
                         : "已完成本次站内查询。";
-                emitDelta(eventSink, answer);
+                String answer = siteToolsRequired && streamEnabled
+                        ? streamAgentFinalAnswer(messages, draft, eventSink)
+                        : draft;
+                if (!streamEnabled) {
+                    emit(eventSink, "delta", Map.of("content", answer));
+                }
                 memoryService.appendExchange(userId, conversationId, request.getMessage(), answer);
                 emit(eventSink, "done", Map.of(
                         "conversationId", conversationId,
@@ -127,10 +142,6 @@ public class AssistantAgentService {
                 return new AssistantAgentResult(answer, conversationId, false);
             }
 
-            emit(eventSink, "step", Map.of(
-                    "step", step,
-                    "phase", "model",
-                    "conversationId", conversationId));
             for (ToolExecutionRequest toolRequest : aiMessage.toolExecutionRequests()) {
                 emit(eventSink, "tool", mapOfNullable(
                         "id", toolRequest.id(),
@@ -161,7 +172,7 @@ public class AssistantAgentService {
                             "expiresInSeconds", approval.expiresInSeconds(),
                             "conversationId", conversationId));
                     String answer = "操作已准备完成，请确认后执行：" + approval.summary();
-                    emitDelta(eventSink, answer);
+                    emit(eventSink, "delta", Map.of("content", answer));
                     memoryService.appendExchange(userId, conversationId, request.getMessage(), answer);
                     emit(eventSink, "done", Map.of(
                             "conversationId", conversationId,
@@ -207,13 +218,35 @@ public class AssistantAgentService {
         }
     }
 
-    private void emitDelta(AssistantEventSink sink, String answer) {
-        int offset = 0;
-        while (offset < answer.length()) {
-            int end = Math.min(answer.length(), offset + 120);
-            emit(sink, "delta", Map.of("content", answer.substring(offset, end)));
-            offset = end;
+    private String streamAgentFinalAnswer(List<ChatMessage> messages,
+                                          String draft,
+                                          AssistantEventSink eventSink) {
+        List<ChatMessage> finalMessages = new ArrayList<>(messages);
+        finalMessages.add(SystemMessage.from(String.join("\n",
+                "站内工具调用和数据查询已经完成。",
+                "请基于上面的真实工具结果直接生成给当前用户的最终回答。",
+                "不得再次调用工具，不得提及内部规划、工具名称或草稿。",
+                "保持 Markdown 结构清晰，并严格服从当前角色的数据权限。",
+                "内部参考草稿：" + draft)));
+        StringBuilder streamed = new StringBuilder();
+        ChatResponse finalResponse = kimiClient.streamChat(
+                finalMessages,
+                List.of(),
+                MAX_OUTPUT_TOKENS,
+                delta -> {
+                    streamed.append(delta);
+                    emit(eventSink, "delta", Map.of("content", delta));
+                });
+        String answer = streamed.toString().trim();
+        if (!StringUtils.hasText(answer) && finalResponse.aiMessage() != null
+                && StringUtils.hasText(finalResponse.aiMessage().text())) {
+            answer = finalResponse.aiMessage().text().trim();
+            emit(eventSink, "delta", Map.of("content", answer));
         }
+        if (!StringUtils.hasText(answer)) {
+            throw new BusinessException(502, "Kimi 未返回有效的流式回答");
+        }
+        return answer;
     }
 
     private void emit(AssistantEventSink sink, String type, Map<String, Object> payload) {

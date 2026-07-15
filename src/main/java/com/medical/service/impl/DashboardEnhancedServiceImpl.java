@@ -183,7 +183,7 @@ public class DashboardEnhancedServiceImpl implements DashboardEnhancedService {
     }
 
     @Override
-    public Map<String, Object> getKeyPopulationStats() {
+    public Map<String, Object> getKeyPopulationStats(Long currentUserId, Integer currentUserType) {
         Map<String, Object> stats = new HashMap<>();
 
         // 获取风险等级统计
@@ -208,10 +208,10 @@ public class DashboardEnhancedServiceImpl implements DashboardEnhancedService {
         stats.put("todayFollowups", todayFollowups);
 
         // 今日随访任务
-        stats.put("todayTasks", followupTaskService.countTodayTasks());
+        stats.put("todayTasks", followupTaskService.countTodayTasks(currentUserId, currentUserType));
 
         // 待执行随访任务
-        stats.put("pendingTasks", followupTaskService.countPendingTasks());
+        stats.put("pendingTasks", followupTaskService.countPendingTasks(currentUserId, currentUserType));
 
         return stats;
     }

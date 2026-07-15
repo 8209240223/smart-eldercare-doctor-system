@@ -26,5 +26,5 @@ public interface DashboardEnhancedService {
      * 获取重点人群统计数据(模块三新增)
      * 包含高危人数、重点人数、逾期随访数、今日应随访任务
      */
-    Map<String, Object> getKeyPopulationStats();
+    Map<String, Object> getKeyPopulationStats(Long currentUserId, Integer currentUserType);
 }

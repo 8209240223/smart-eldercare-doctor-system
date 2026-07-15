@@ -18,11 +18,6 @@ public class PatientDataPermissionHandler implements MultiDataPermissionHandler 
     private static final String ELDER_INFO = "elder_info";
     private static final String WARNING_LOG = "warning_event_log";
     private static final String REFERRAL_ORDER = "referral_order";
-    private static final String DOCTOR_COLUMN = "doctor_id";
-    private static final String NURSE_COLUMN = "nurse_id";
-    private static final String OWNER_EQUALS = " = ";
-    private static final String ELDER_SUBQUERY = ".elder_id IN (SELECT id FROM elder_info WHERE ";
-    private static final String ACTIVE_ELDER_SUFFIX = " AND deleted = 0)";
     private static final Set<String> ELDER_TABLES = Set.of(
             "health_record", "health_warning", "follow_plan", "follow_record", "followup_task",
             "assessment_record", "timeline_event", "wearable_device",
@@ -38,26 +33,23 @@ public class PatientDataPermissionHandler implements MultiDataPermissionHandler 
         }
         String tableName = normalize(table.getName());
         String qualifier = table.getAlias() == null ? table.getName() : table.getAlias().getName();
-        String ownerColumn = scope.userType() == 2 ? DOCTOR_COLUMN : NURSE_COLUMN;
-        String condition = permissionCondition(tableName, qualifier, ownerColumn,
-                scope.userId(), scope.userType());
+        String condition = permissionCondition(tableName, qualifier, scope.userId(), scope.userType());
         if (condition == null) {
             return null;
         }
         return parse(condition, mappedStatementId);
     }
 
-    private String permissionCondition(String table, String qualifier, String ownerColumn,
+    private String permissionCondition(String table, String qualifier,
                                        Long userId, Integer userType) {
         if (ELDER_INFO.equals(table)) {
-            return qualifier + "." + ownerColumn + OWNER_EQUALS + userId;
+            return elderOwnerCondition(qualifier, userId, userType);
         }
         if (ELDER_TABLES.contains(table)) {
-            return qualifier + ELDER_SUBQUERY + ownerColumn + OWNER_EQUALS + userId + ACTIVE_ELDER_SUFFIX;
+            return elderReferenceCondition(qualifier, userId, userType);
         }
         if (REFERRAL_ORDER.equals(table)) {
-            String ownedPatient = qualifier + ELDER_SUBQUERY + ownerColumn + OWNER_EQUALS
-                    + userId + ACTIVE_ELDER_SUFFIX;
+            String ownedPatient = elderReferenceCondition(qualifier, userId, userType);
             if (Integer.valueOf(2).equals(userType)) {
                 return "(" + ownedPatient + " OR (" + qualifier + ".status IN (0, 1, 2) AND ("
                         + qualifier + ".from_doctor_id = " + userId + " OR "
@@ -67,10 +59,25 @@ public class PatientDataPermissionHandler implements MultiDataPermissionHandler 
         }
         if (WARNING_LOG.equals(table)) {
             return qualifier + ".warning_id IN (SELECT id FROM health_warning WHERE elder_id IN "
-                    + "(SELECT id FROM elder_info WHERE " + ownerColumn + OWNER_EQUALS + userId
-                    + " AND deleted = 0))";
+                    + "(SELECT e.id FROM elder_info e WHERE "
+                    + elderOwnerCondition("e", userId, userType) + " AND e.deleted = 0))";
         }
         return null;
+    }
+
+    private String elderReferenceCondition(String qualifier, Long userId, Integer userType) {
+        return qualifier + ".elder_id IN (SELECT e.id FROM elder_info e WHERE "
+                + elderOwnerCondition("e", userId, userType) + " AND e.deleted = 0)";
+    }
+
+    private String elderOwnerCondition(String qualifier, Long userId, Integer userType) {
+        if (Integer.valueOf(2).equals(userType)) {
+            return qualifier + ".doctor_id = " + userId;
+        }
+        return "(" + qualifier + ".nurse_id = " + userId + " OR EXISTS ("
+                + "SELECT 1 FROM doctor_nurse_relation dnr WHERE "
+                + "dnr.doctor_id = " + qualifier + ".doctor_id AND "
+                + "dnr.nurse_id = " + userId + " AND dnr.status = 1))";
     }
 
     private Expression parse(String condition, String mappedStatementId) {
