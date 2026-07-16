@@ -74,10 +74,7 @@ public class PatientDataPermissionHandler implements MultiDataPermissionHandler 
         if (Integer.valueOf(2).equals(userType)) {
             return qualifier + ".doctor_id = " + userId;
         }
-        return "(" + qualifier + ".nurse_id = " + userId + " OR EXISTS ("
-                + "SELECT 1 FROM doctor_nurse_relation dnr WHERE "
-                + "dnr.doctor_id = " + qualifier + ".doctor_id AND "
-                + "dnr.nurse_id = " + userId + " AND dnr.status = 1))";
+        return qualifier + ".nurse_id = " + userId;
     }
 
     private Expression parse(String condition, String mappedStatementId) {
