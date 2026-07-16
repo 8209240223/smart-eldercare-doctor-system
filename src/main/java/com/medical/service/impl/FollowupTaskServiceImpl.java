@@ -88,9 +88,6 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
                     || (doctorId != null && !Objects.equals(responsibleDoctorId, doctorId))) {
                 continue;
             }
-            if (followupTaskMapper.selectPendingByPlanId(plan.getElderId(), plan.getId()) != null) {
-                continue;
-            }
             Long assignedNurseId = resolveAssignedNurse(responsibleDoctorId, elder, nurseId);
             if (assignedNurseId == null) {
                 logger.warn("随访计划 {} 没有可分配的协作护士，已跳过任务生成", plan.getId());

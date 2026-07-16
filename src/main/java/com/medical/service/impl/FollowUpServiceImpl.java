@@ -101,6 +101,9 @@ public class FollowUpServiceImpl implements FollowUpService {
         if (plan.getEndDate() == null) {
             plan.setEndDate(calculateEndDate(plan.getStartDate(), plan.getFrequencyType(), plan.getTotalCount()));
         }
+        if (plan.getEndDate() != null && plan.getEndDate().isBefore(LocalDate.now())) {
+            throw new BusinessException(400, "结束日期不能早于今天，不能创建已过期的随访计划");
+        }
         followPlanMapper.insert(plan);
         return plan.getId();
     }

@@ -49,7 +49,6 @@ class FollowupTaskServiceImplTest {
 
         when(fixture.followPlanMapper.selectList(any())).thenReturn(java.util.List.of(plan));
         when(fixture.elderInfoMapper.selectById(12L)).thenReturn(elder);
-        when(fixture.followupTaskMapper.selectPendingByPlanId(12L, 40L)).thenReturn(null);
         when(fixture.riskProfileMapper.selectOne(any())).thenReturn(risk);
 
         int count = fixture.service.generateAutoTasks(2L, 12L, 5L);
@@ -69,6 +68,31 @@ class FollowupTaskServiceImplTest {
                         && "PLAN_AUTO".equals(task.getSource())
                         && task.getTaskReason() != null
                         && task.getTaskReason().contains("健康随访计划")));
+    }
+
+    @Test
+    void autoGenerationCreatesAnotherTaskEvenWhenPlanAlreadyHasPendingTask() {
+        // 去重逻辑已移除:同一计划已有待办任务时,仍应再生成一条(允许多条任务)
+        Fixture fixture = fixture();
+        FollowPlan plan = plan(40L, 12L);
+        ElderInfo elder = elder(12L);
+        ElderRiskProfile risk = new ElderRiskProfile();
+        risk.setElderId(12L);
+        risk.setRiskLevel(1);
+        risk.setRiskScore(8);
+
+        when(fixture.followPlanMapper.selectList(any())).thenReturn(java.util.List.of(plan));
+        when(fixture.elderInfoMapper.selectById(12L)).thenReturn(elder);
+        when(fixture.followupTaskMapper.selectPendingByPlanId(12L, 40L))
+                .thenReturn(task(99L, 12L, 40L, 2L));
+        when(fixture.riskProfileMapper.selectOne(any())).thenReturn(risk);
+
+        int count = fixture.service.generateAutoTasks(2L, 12L, 5L);
+
+        assertEquals(1, count);
+        verify(fixture.followupTaskMapper).insert(any(FollowupTask.class));
+        // 不再调用去重查询
+        verify(fixture.followupTaskMapper, never()).selectPendingByPlanId(any(), any());
     }
 
     @Test
