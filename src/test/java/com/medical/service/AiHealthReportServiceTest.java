@@ -111,6 +111,47 @@ class AiHealthReportServiceTest {
         assertThat(JSONUtil.parseObj(cleaned).getStr("aiAnalysis")).isEqualTo("ok");
     }
 
+    @Test
+    void assignedNurseCanReadDraftReportInReadOnlyView() {
+        AiHealthReportMapper mapper = mock(AiHealthReportMapper.class);
+        ElderInfoMapper elderMapper = mock(ElderInfoMapper.class);
+        AiHealthReportService service = new AiHealthReportService();
+        ReflectionTestUtils.setField(service, "reportMapper", mapper);
+        ReflectionTestUtils.setField(service, "elderInfoMapper", elderMapper);
+        AiHealthReport report = draftReport();
+        ElderInfo elder = new ElderInfo();
+        elder.setId(9L);
+        elder.setNurseId(7L);
+        elder.setDeleted(0);
+        when(mapper.selectById(80L)).thenReturn(report);
+        when(elderMapper.selectById(9L)).thenReturn(elder);
+
+        AiHealthReport result = service.getByIdForUser(80L, 7L, 3);
+
+        assertThat(result).isSameAs(report);
+        assertThat(result.getStatus()).isZero();
+    }
+
+    @Test
+    void nurseCannotReadReportForAnotherNursesElder() {
+        AiHealthReportMapper mapper = mock(AiHealthReportMapper.class);
+        ElderInfoMapper elderMapper = mock(ElderInfoMapper.class);
+        AiHealthReportService service = new AiHealthReportService();
+        ReflectionTestUtils.setField(service, "reportMapper", mapper);
+        ReflectionTestUtils.setField(service, "elderInfoMapper", elderMapper);
+        ElderInfo elder = new ElderInfo();
+        elder.setId(9L);
+        elder.setNurseId(8L);
+        elder.setDeleted(0);
+        when(mapper.selectById(80L)).thenReturn(draftReport());
+        when(elderMapper.selectById(9L)).thenReturn(elder);
+
+        assertThatThrownBy(() -> service.getByIdForUser(80L, 7L, 3))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code")
+                .isEqualTo(403);
+    }
+
     private AiHealthReport draftReport() {
         AiHealthReport report = new AiHealthReport();
         report.setId(80L);

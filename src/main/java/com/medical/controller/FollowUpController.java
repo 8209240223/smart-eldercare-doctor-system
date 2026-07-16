@@ -16,7 +16,7 @@ import javax.validation.Valid;
  */
 @RestController
 @RequestMapping("/api/followup")
-@RequireRole({1, 2, 3})
+@RequireRole({1, 2})
 public class FollowUpController {
 
     @Autowired

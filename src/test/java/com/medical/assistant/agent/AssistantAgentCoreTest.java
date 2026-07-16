@@ -127,7 +127,7 @@ class AssistantAgentCoreTest {
                 Map.of("method", "GET", "path", "/api/elders",
                         "queryParameters", Map.of("pageSize", Map.of("type", "integer")))));
         AtomicInteger modelCalls = new AtomicInteger();
-        when(kimiClient.chat(anyList(), anyList(), anyInt())).thenAnswer(invocation -> {
+        when(kimiClient.streamChat(anyList(), anyList(), anyInt(), any())).thenAnswer(invocation -> {
             List<ChatMessage> messages = invocation.getArgument(0);
             if (modelCalls.getAndIncrement() == 0) {
                 assertThat(messages.stream()
@@ -139,11 +139,6 @@ class AssistantAgentCoreTest {
                                 && text.contains("queryParameters"));
                 return ChatResponse.builder().aiMessage(AiMessage.from(toolRequest)).build();
             }
-            return ChatResponse.builder()
-                    .aiMessage(AiMessage.from("当前可见老人档案共 26 条。"))
-                    .build();
-        });
-        when(kimiClient.streamChat(anyList(), anyList(), anyInt(), any())).thenAnswer(invocation -> {
             Consumer<String> onDelta = invocation.getArgument(3);
             onDelta.accept("当前可见老人");
             onDelta.accept("档案共 26 条。");

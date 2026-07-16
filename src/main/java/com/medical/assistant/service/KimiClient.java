@@ -15,6 +15,8 @@ import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -26,6 +28,8 @@ import java.util.function.Consumer;
 
 @Service
 public class KimiClient {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(KimiClient.class);
 
     private final ChatModel chatModel;
     private final StreamingChatModel streamingChatModel;
@@ -135,6 +139,7 @@ public class KimiClient {
         if (cause instanceof BusinessException businessException) {
             return businessException;
         }
+        LOGGER.warn("Kimi request failed: {}: {}", cause.getClass().getName(), cause.getMessage());
         if (cause instanceof AuthenticationException) {
             return new BusinessException(502, "Kimi 认证失败，请检查服务端密钥");
         }

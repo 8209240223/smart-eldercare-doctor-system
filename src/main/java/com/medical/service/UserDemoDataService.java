@@ -116,7 +116,7 @@ public class UserDemoDataService {
         createPhysicalExam(elder, doctorId, index);
         createRiskProfile(elder, index);
         createAssessment(elder, doctorId, index);
-        createFollowup(elder, doctorId, index);
+        createFollowup(elder, doctorId, nurseId, index);
         createNursing(elder, doctorId, nurseId, index);
         createReport(elder, doctorId, index);
     }
@@ -214,7 +214,7 @@ public class UserDemoDataService {
         assessmentRecordMapper.insert(assessment);
     }
 
-    private void createFollowup(ElderInfo elder, Long doctorId, int index) {
+    private void createFollowup(ElderInfo elder, Long doctorId, Long nurseId, int index) {
         if (doctorId == null) {
             return;
         }
@@ -237,6 +237,7 @@ public class UserDemoDataService {
         task.setElderId(elder.getId());
         task.setPlanId(plan.getId());
         task.setDoctorId(doctorId);
+        task.setNurseId(nurseId);
         task.setTaskType(3);
         task.setPriority(index == 0 ? 2 : 3);
         task.setDueDate(plan.getNextFollowDate());

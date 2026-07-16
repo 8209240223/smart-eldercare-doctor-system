@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Camera, CheckCircle2, ClipboardList, Lock, Mail, Phone, Save, Shield } from "lucide-react";
+import { Bell, Camera, CheckCircle2, ClipboardList, Lock, Mail, Phone, Save, Shield, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import PageShell from "@/components/layout/PageShell";
 import StatCard from "@/components/dashboard/StatCard";
@@ -18,6 +18,7 @@ import {
   useMarkAllProfileMessagesRead,
   useMarkProfileMessageRead,
   useProfileLogs,
+  useProfileCollaborators,
   useProfileInfo,
   useProfileMessages,
   useProfileUnreadCount,
@@ -73,6 +74,7 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState("info");
 
   const { data: serverProfile } = useProfileInfo();
+  const { data: collaborators = [], isLoading: collaboratorsLoading } = useProfileCollaborators();
   const { data: messages, isLoading: messagesLoading, refetch: refetchMessages } = useProfileMessages(1, 10, userId);
   const { data: unreadCount, refetch: refetchUnread } = useProfileUnreadCount(userId);
   const { data: logs, isLoading: logsLoading } = useProfileLogs(1, 10, userId);
@@ -282,6 +284,53 @@ export default function Profile() {
                         <Input value={userId ? String(userId) : "未分配"} className="rounded-xl bg-muted/40" readOnly />
                       </div>
                     </div>
+                    {role !== "admin" && (
+                      <section className="border-t border-border/40 pt-5">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <UsersRound className="h-5 w-5 text-medical-500" />
+                            <div>
+                              <h3 className="font-semibold text-foreground">
+                                {role === "doctor" ? "协作护士" : "协作医生"}
+                              </h3>
+                              <p className="text-sm text-muted-foreground">
+                                当前账号已建立的医护协作关系
+                              </p>
+                            </div>
+                          </div>
+                          <span className="rounded-lg bg-medical-50 px-2.5 py-1 text-sm font-medium text-medical-700">
+                            {collaborators.length} 人
+                          </span>
+                        </div>
+                        {collaboratorsLoading ? (
+                          <Skeleton className="h-16 w-full" />
+                        ) : collaborators.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-border/60 px-4 py-5 text-sm text-muted-foreground">
+                            暂未配置协作关系，请联系管理员分配。
+                          </div>
+                        ) : (
+                          <div className="divide-y divide-border/40 rounded-lg border border-border/50 bg-white/60">
+                            {collaborators.map((collaborator) => (
+                              <div key={collaborator.id} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                  <span className="font-medium text-foreground">
+                                    {collaborator.realName || collaborator.username || "未命名账号"}
+                                  </span>
+                                  {collaborator.department && (
+                                    <span className="ml-2 text-sm text-muted-foreground">
+                                      {collaborator.department}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-sm font-medium text-medical-700">
+                                  {role === "doctor" ? "护士ID" : "医生ID"}：{collaborator.id}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </section>
+                    )}
                     <div className="flex justify-end gap-3 pt-2">
                       <Button variant="outline" className="rounded-xl" onClick={() => setProfile({ realName: userInfo?.realName || "", phone: userInfo?.phone || "", email: String(userInfo?.email || ""), avatar: userInfo?.avatar || "" })}>
                         重置

@@ -802,6 +802,7 @@ CREATE TABLE IF NOT EXISTS followup_task (
     elder_id BIGINT NOT NULL COMMENT '老人ID',
     plan_id BIGINT DEFAULT NULL COMMENT '关联随访计划ID',
     doctor_id BIGINT DEFAULT NULL COMMENT '负责医生ID',
+    nurse_id BIGINT DEFAULT NULL COMMENT '任务执行护士ID',
     task_type TINYINT NOT NULL DEFAULT 1 COMMENT '任务类型:1风险随访 2逾期随访 3预约随访',
     priority TINYINT NOT NULL DEFAULT 1 COMMENT '优先级:1低 2中 3高 4紧急',
     due_date DATE DEFAULT NULL COMMENT '截止日期',
@@ -816,6 +817,7 @@ CREATE TABLE IF NOT EXISTS followup_task (
     KEY idx_elder_id (elder_id),
     KEY idx_plan_id (plan_id),
     KEY idx_doctor_id (doctor_id),
+    KEY idx_nurse_id (nurse_id),
     KEY idx_status (status),
     KEY idx_due_date (due_date),
     KEY idx_source (source)
@@ -831,6 +833,32 @@ SET @col_exists := (
 SET @sql := IF(@col_exists = 0,
     'ALTER TABLE followup_task ADD COLUMN plan_id BIGINT DEFAULT NULL COMMENT ''关联随访计划ID'' AFTER elder_id',
     'SELECT ''followup_task.plan_id exists''');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @col_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'followup_task'
+      AND COLUMN_NAME = 'nurse_id'
+);
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE followup_task ADD COLUMN nurse_id BIGINT DEFAULT NULL COMMENT ''任务执行护士ID'' AFTER doctor_id',
+    'SELECT ''followup_task.nurse_id exists''');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @index_exists := (
+    SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'followup_task'
+      AND INDEX_NAME = 'idx_nurse_id'
+);
+SET @sql := IF(@index_exists = 0,
+    'ALTER TABLE followup_task ADD INDEX idx_nurse_id (nurse_id)',
+    'SELECT ''followup_task.idx_nurse_id exists''');
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;

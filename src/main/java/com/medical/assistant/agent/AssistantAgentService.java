@@ -27,7 +27,7 @@ import java.util.Map;
 @Service
 public class AssistantAgentService {
 
-    private static final int MAX_OUTPUT_TOKENS = 2000;
+    private static final int MAX_OUTPUT_TOKENS = 1400;
     private static final String SYSTEM_PROMPT = String.join("\n",
             "你是智慧医养医生服务系统中的站内 Agent 乐奈猫。",
             "你同时具备普通问答与站内 Agent 两种能力。",
@@ -73,7 +73,7 @@ public class AssistantAgentService {
         this.approvalService = approvalService;
         this.permissionService = permissionService;
         this.objectMapper = objectMapper;
-        this.maxSteps = Math.max(2, Math.min(properties.getMaxAgentSteps(), 12));
+        this.maxSteps = Math.max(2, Math.min(properties.getMaxAgentSteps(), 6));
     }
 
     public AssistantAgentResult run(AssistantChatRequest request,
@@ -114,9 +114,12 @@ public class AssistantAgentService {
                         "phase", "planning",
                         "conversationId", conversationId));
             }
-            ChatResponse response = !siteToolsRequired && streamEnabled
-                    ? kimiClient.streamChat(messages, tools, MAX_OUTPUT_TOKENS,
-                            delta -> emit(eventSink, "delta", Map.of("content", delta)))
+            StringBuilder streamedRound = new StringBuilder();
+            ChatResponse response = streamEnabled
+                    ? kimiClient.streamChat(messages, tools, MAX_OUTPUT_TOKENS, delta -> {
+                        streamedRound.append(delta);
+                        emit(eventSink, "delta", Map.of("content", delta));
+                    })
                     : kimiClient.chat(messages, tools, MAX_OUTPUT_TOKENS);
             AiMessage aiMessage = response.aiMessage();
             if (aiMessage == null) {
@@ -127,13 +130,14 @@ public class AssistantAgentService {
             if (!aiMessage.hasToolExecutionRequests()) {
                 String draft = StringUtils.hasText(aiMessage.text())
                         ? aiMessage.text().trim()
-                        : "已完成本次站内查询。";
-                String answer = siteToolsRequired && streamEnabled
-                        ? streamAgentFinalAnswer(messages, draft, eventSink)
-                        : draft;
-                if (!streamEnabled) {
-                    emit(eventSink, "delta", Map.of("content", answer));
+                        : streamedRound.toString().trim();
+                if (!StringUtils.hasText(draft)) {
+                    draft = "已完成本次站内查询。";
                 }
+                if (streamEnabled && streamedRound.length() == 0) {
+                    emitTextChunks(eventSink, draft);
+                }
+                String answer = draft;
                 memoryService.appendExchange(userId, conversationId, request.getMessage(), answer);
                 emit(eventSink, "done", Map.of(
                         "conversationId", conversationId,
@@ -218,35 +222,13 @@ public class AssistantAgentService {
         }
     }
 
-    private String streamAgentFinalAnswer(List<ChatMessage> messages,
-                                          String draft,
-                                          AssistantEventSink eventSink) {
-        List<ChatMessage> finalMessages = new ArrayList<>(messages);
-        finalMessages.add(SystemMessage.from(String.join("\n",
-                "站内工具调用和数据查询已经完成。",
-                "请基于上面的真实工具结果直接生成给当前用户的最终回答。",
-                "不得再次调用工具，不得提及内部规划、工具名称或草稿。",
-                "保持 Markdown 结构清晰，并严格服从当前角色的数据权限。",
-                "内部参考草稿：" + draft)));
-        StringBuilder streamed = new StringBuilder();
-        ChatResponse finalResponse = kimiClient.streamChat(
-                finalMessages,
-                List.of(),
-                MAX_OUTPUT_TOKENS,
-                delta -> {
-                    streamed.append(delta);
-                    emit(eventSink, "delta", Map.of("content", delta));
-                });
-        String answer = streamed.toString().trim();
-        if (!StringUtils.hasText(answer) && finalResponse.aiMessage() != null
-                && StringUtils.hasText(finalResponse.aiMessage().text())) {
-            answer = finalResponse.aiMessage().text().trim();
-            emit(eventSink, "delta", Map.of("content", answer));
+    private void emitTextChunks(AssistantEventSink eventSink, String content) {
+        int offset = 0;
+        while (offset < content.length()) {
+            int end = Math.min(content.length(), offset + 24);
+            emit(eventSink, "delta", Map.of("content", content.substring(offset, end)));
+            offset = end;
         }
-        if (!StringUtils.hasText(answer)) {
-            throw new BusinessException(502, "Kimi 未返回有效的流式回答");
-        }
-        return answer;
     }
 
     private void emit(AssistantEventSink sink, String type, Map<String, Object> payload) {

@@ -27,9 +27,19 @@ public class FollowupTaskController {
     @RequireRole({2})
     @PostMapping("/generate")
     public R<Integer> generateAutoTasks(@RequestAttribute("currentUserId") Long currentUserId,
-                                        @RequestParam(required = false) Long elderId) {
-        int count = followupTaskService.generateAutoTasks(currentUserId, elderId);
+                                        @RequestParam(required = false) Long elderId,
+                                        @RequestParam Long nurseId) {
+        int count = followupTaskService.generateAutoTasks(currentUserId, elderId, nurseId);
         return R.ok("自动生成随访任务完成，共生成" + count + "条", count);
+    }
+
+    @RequireRole({2})
+    @PutMapping("/{id}/assign")
+    public R<?> assignTask(@PathVariable Long id,
+                           @RequestParam Long nurseId,
+                           @RequestAttribute("currentUserId") Long currentUserId) {
+        followupTaskService.assignTask(id, nurseId, currentUserId);
+        return R.ok("随访任务已分配");
     }
 
     /**

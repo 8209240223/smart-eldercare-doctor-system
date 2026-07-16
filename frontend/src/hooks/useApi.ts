@@ -1635,6 +1635,9 @@ export interface FollowupTask {
   planId?: number;
   followRecordId?: number;
   elderName?: string;
+  nurseId?: number;
+  nurseName?: string;
+  nurseUsername?: string;
   taskType?: number;
   taskReason?: string;
   priority?: number;
@@ -1695,9 +1698,21 @@ export function useCancelFollowupTask() {
 }
 
 export function useGenerateFollowupTasks() {
-  return useApiMutation<number, { elderId?: number }>(
-    (vars) => `/api/followup/tasks/generate${vars.elderId ? `?elderId=${vars.elderId}` : ""}`,
+  return useApiMutation<number, { elderId?: number; nurseId: number }>(
+    (vars) => {
+      const query = new URLSearchParams({ nurseId: String(vars.nurseId) });
+      if (vars.elderId) query.set("elderId", String(vars.elderId));
+      return `/api/followup/tasks/generate?${query.toString()}`;
+    },
     "POST",
+    [["followup", "tasks"]],
+  );
+}
+
+export function useAssignFollowupTask() {
+  return useApiMutation<void, { id: number; nurseId: number }>(
+    (vars) => `/api/followup/tasks/${vars.id}/assign?nurseId=${vars.nurseId}`,
+    "PUT",
     [["followup", "tasks"]],
   );
 }
@@ -2045,6 +2060,13 @@ export interface ProfileInfo {
   userType?: number | string;
 }
 
+export interface ProfileCollaborator {
+  id: number;
+  username?: string;
+  realName?: string;
+  department?: string;
+}
+
 export interface SysMessage {
   id?: number;
   userId?: number;
@@ -2076,6 +2098,13 @@ export interface OperationLog {
 
 export function useProfileInfo() {
   return useApiQuery<ProfileInfo>(["profile", "info"], "/api/auth/info");
+}
+
+export function useProfileCollaborators() {
+  return useApiQuery<ProfileCollaborator[]>(
+    ["profile", "collaborators"],
+    "/api/profile/collaborators",
+  );
 }
 
 export function useUpdateProfileInfo() {

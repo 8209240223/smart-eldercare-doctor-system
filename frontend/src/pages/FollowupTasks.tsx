@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CalendarClock,
   CheckCircle2,
@@ -29,12 +29,14 @@ import WorkflowNavigationDialog, {
 import { useElderWorkflowTasks } from "@/hooks/useCareWorkflow";
 import {
   useCancelFollowupTask,
+  useAssignFollowupTask,
   useFinishFollowupTask,
   useFollowupRecords,
   useFollowupTasks,
   useGenerateFollowupTasks,
   useElders,
   useOverdueFollowupTasks,
+  useProfileCollaborators,
   useTodayFollowupTasks,
   type FollowupTask,
 } from "@/hooks/useApi";
@@ -56,7 +58,8 @@ function statusClass(status?: number) {
 
 export default function FollowupTasks() {
   const navigate = useNavigate();
-  const canManageTasks = getUserRole(useAuthStore((state) => state.userInfo)) === "doctor";
+  const role = getUserRole(useAuthStore((state) => state.userInfo));
+  const canManageTasks = role === "doctor";
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedElderId = Number(searchParams.get("elderId") || 0) || undefined;
   const [page, setPage] = useState(1);
@@ -65,6 +68,7 @@ export default function FollowupTasks() {
   const [followRecordId, setFollowRecordId] = useState("");
   const [cancelTarget, setCancelTarget] = useState<FollowupTask | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [selectedNurseId, setSelectedNurseId] = useState<number | undefined>();
   const [navigationState, setNavigationState] = useState<{
     title: string;
     description: string;
@@ -84,12 +88,14 @@ export default function FollowupTasks() {
   } = useOverdueFollowupTasks(overdueScope);
   const { data: todayTasks } = useTodayFollowupTasks();
   const { data: eldersData } = useElders(1, 500);
+  const { data: collaborators = [] } = useProfileCollaborators();
   const {
     data: elderTaskData,
     isLoading: elderTasksLoading,
     refetch: refetchElderTasks,
   } = useElderWorkflowTasks(selectedElderId, status);
   const generateTasks = useGenerateFollowupTasks();
+  const assignTask = useAssignFollowupTask();
   const finishTask = useFinishFollowupTask();
   const cancelTask = useCancelFollowupTask();
   const { data: finishRecordsData, isLoading: finishRecordsLoading } =
@@ -101,6 +107,13 @@ export default function FollowupTasks() {
       !!finishTarget,
     );
   const finishRecordOptions = finishRecordsData?.records || [];
+
+  useEffect(() => {
+    if (!canManageTasks || collaborators.length === 0) return;
+    if (!selectedNurseId || !collaborators.some((item) => item.id === selectedNurseId)) {
+      setSelectedNurseId(collaborators[0].id);
+    }
+  }, [canManageTasks, collaborators, selectedNurseId]);
 
   const elderNames = new Map(
     (eldersData?.records || []).map((elder) => [elder.id, elder.name]),
@@ -169,8 +182,15 @@ export default function FollowupTasks() {
   ];
 
   const generate = async () => {
+    if (!selectedNurseId) {
+      toast.error("请先从协作护士列表中选择任务执行护士");
+      return;
+    }
     try {
-      const count = await generateTasks.mutateAsync({ elderId: selectedElderId });
+      const count = await generateTasks.mutateAsync({
+        elderId: selectedElderId,
+        nurseId: selectedNurseId,
+      });
       toast.success(`已生成 ${count || 0} 条随访任务`);
       refetch();
       setNavigationState({
@@ -180,6 +200,17 @@ export default function FollowupTasks() {
       });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "生成随访任务失败");
+    }
+  };
+
+  const assignNurse = async (task: FollowupTask, nurseId: number) => {
+    if (!task.id) return;
+    try {
+      await assignTask.mutateAsync({ id: task.id, nurseId });
+      toast.success("随访任务执行护士已更新");
+      refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "分配护士失败");
     }
   };
 
@@ -226,7 +257,11 @@ export default function FollowupTasks() {
   return (
     <PageShell
       title="随访任务"
-      subtitle="按风险和计划生成随访任务，跟踪今日、待办、完成和取消状态"
+      subtitle={
+        role === "nurse"
+          ? "查看责任医生明确分配给我的协作随访任务"
+          : "按随访计划生成任务并分配协作护士，跟踪待办、完成和取消状态"
+      }
     >
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -314,6 +349,25 @@ export default function FollowupTasks() {
               value={selectedElderId}
               onChange={selectElder}
             />
+            {canManageTasks && (
+              <div className="min-w-[220px]">
+                <label className="text-sm font-medium text-muted-foreground">
+                  任务执行护士
+                </label>
+                <select
+                  value={selectedNurseId || ""}
+                  onChange={(event) => setSelectedNurseId(Number(event.target.value) || undefined)}
+                  className="mt-2 h-9 w-full rounded-xl border border-border/60 bg-white/70 px-3 text-sm outline-none focus:border-medical-400"
+                >
+                  <option value="">请选择协作护士</option>
+                  {collaborators.map((nurse) => (
+                    <option key={nurse.id} value={nurse.id}>
+                      {nurse.realName || nurse.username || "未命名护士"}（护士ID：{nurse.id}）
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <Button
               onClick={() => refetch()}
               variant="outline"
@@ -323,7 +377,7 @@ export default function FollowupTasks() {
               查询
             </Button>
             {canManageTasks && (
-              <Button onClick={generate} disabled={generateTasks.isPending} className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white">
+              <Button onClick={generate} disabled={generateTasks.isPending || !selectedNurseId} className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white">
                 自动生成任务
               </Button>
             )}
@@ -349,7 +403,9 @@ export default function FollowupTasks() {
                 description={
                   overdueScope
                     ? "当前没有超过截止日期且仍待处理的随访任务"
-                    : "可点击自动生成任务同步后端任务池"
+                    : role === "nurse"
+                      ? "当前没有责任医生分配给你的随访任务"
+                      : "请选择协作护士后生成随访任务"
                 }
               />
             ) : (
@@ -384,9 +440,29 @@ export default function FollowupTasks() {
                           原因：{task.taskReason || "-"} · 截止：
                           {task.dueDate || "-"}
                         </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          执行护士：{task.nurseName || task.nurseUsername || "待分配"}
+                          {task.nurseId ? `（护士ID：${task.nurseId}）` : ""}
+                        </p>
                       </div>
-                      {canManageTasks && task.status === 0 && (
-                        <div className="flex flex-wrap gap-2">
+                      {canManageTasks && (task.status === 0 || task.status === 1) && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <select
+                            aria-label="分配任务执行护士"
+                            value={task.nurseId || ""}
+                            disabled={assignTask.isPending}
+                            onChange={(event) => void assignNurse(task, Number(event.target.value))}
+                            className="h-9 min-w-[190px] rounded-lg border border-border/60 bg-white px-2 text-sm outline-none focus:border-medical-400"
+                          >
+                            <option value="">请选择协作护士</option>
+                            {collaborators.map((nurse) => (
+                              <option key={nurse.id} value={nurse.id}>
+                                {nurse.realName || nurse.username || "未命名护士"}（ID：{nurse.id}）
+                              </option>
+                            ))}
+                          </select>
+                          {task.status === 0 && (
+                            <>
                           <Button
                             size="sm"
                             variant="outline"
@@ -408,6 +484,8 @@ export default function FollowupTasks() {
                             <XCircle className="mr-1 h-4 w-4" />
                             取消
                           </Button>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>

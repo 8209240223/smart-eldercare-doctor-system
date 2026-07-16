@@ -59,7 +59,8 @@ export default function KeyPopulation() {
   const requestedElderId =
     Number(searchParams.get("elderId") || 0) || undefined;
   const userInfo = useAuthStore((state) => state.userInfo);
-  const canManageRisk = getUserRole(userInfo) === "doctor";
+  const role = getUserRole(userInfo);
+  const canManageRisk = role === "doctor";
   const [page, setPage] = useState(1);
   const [riskLevel, setRiskLevel] = useState<number | undefined>();
   const [keyword, setKeyword] = useState("");
@@ -366,16 +367,18 @@ export default function KeyPopulation() {
                           </Button>
                         </>
                       )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          navigate(`/elders/${item.elderId}/care-journey`)
-                        }
-                        className="rounded-lg"
-                      >
-                        照护全流程
-                      </Button>
+                      {role !== "nurse" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            navigate(`/elders/${item.elderId}/care-journey`)
+                          }
+                          className="rounded-lg"
+                        >
+                          照护全流程
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}

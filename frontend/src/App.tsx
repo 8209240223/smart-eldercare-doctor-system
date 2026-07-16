@@ -118,7 +118,7 @@ function AppRoutes() {
         <Route
           path="/elders/:elderId/care-journey"
           element={
-            <ProtectedRoute roles={["admin", "doctor", "nurse"]}>
+            <ProtectedRoute roles={["admin", "doctor"]}>
               <ElderCareJourney />
             </ProtectedRoute>
           }
@@ -134,7 +134,7 @@ function AppRoutes() {
         <Route
           path="/followup"
           element={
-            <ProtectedRoute roles={["admin", "doctor", "nurse"]}>
+            <ProtectedRoute roles={["admin", "doctor"]}>
               <FollowUp />
             </ProtectedRoute>
           }

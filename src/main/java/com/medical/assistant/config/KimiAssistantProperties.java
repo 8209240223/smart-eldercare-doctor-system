@@ -14,8 +14,8 @@ public class KimiAssistantProperties {
     private String model = "kimi-for-coding";
     private Duration connectTimeout = Duration.ofSeconds(10);
     private Duration readTimeout = Duration.ofSeconds(60);
-    private int maxRetries = 2;
-    private int maxAgentSteps = 6;
+    private int maxRetries = 1;
+    private int maxAgentSteps = 4;
     private int memoryTtlSeconds = 86400;
     private int approvalTtlSeconds = 300;
 
