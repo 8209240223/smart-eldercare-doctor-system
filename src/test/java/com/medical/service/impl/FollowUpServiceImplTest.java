@@ -126,6 +126,24 @@ class FollowUpServiceImplTest {
     }
 
     @Test
+    void createPlanRejectsAlreadyExpiredEndDate() {
+        FollowPlanMapper planMapper = mock(FollowPlanMapper.class);
+        FollowRecordMapper recordMapper = mock(FollowRecordMapper.class);
+        FollowUpServiceImpl service = createService(planMapper, recordMapper);
+        FollowPlan plan = plan(null, 1, 0, 3);
+        plan.setPlanName("过期随访计划");
+        plan.setStartDate(LocalDate.now().minusDays(30));
+        plan.setEndDate(LocalDate.now().minusDays(1));
+        plan.setNextFollowDate(LocalDate.now().minusDays(10));
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.createPlan(plan));
+
+        assertEquals("结束日期不能早于今天，不能创建已过期的随访计划", error.getMessage());
+        verify(planMapper, never()).insert(any(FollowPlan.class));
+    }
+
+    @Test
     void completionRateUsesCompletedPlansInsteadOfActivePlans() {
         FollowPlanMapper planMapper = mock(FollowPlanMapper.class);
         FollowRecordMapper recordMapper = mock(FollowRecordMapper.class);
