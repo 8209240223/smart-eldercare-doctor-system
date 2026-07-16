@@ -20,6 +20,9 @@ public class ReferralOrder implements Serializable {
 
     private Long elderId;
 
+    @TableField(exist = false)
+    private String elderName;
+
     /** 历史兼容字段，医生间移交统一写入1。 */
     private Integer referralType;
 

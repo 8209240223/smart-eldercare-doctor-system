@@ -14,6 +14,7 @@ import com.medical.mapper.FollowPlanMapper;
 import com.medical.mapper.FollowRecordMapper;
 import com.medical.mapper.FollowupTaskMapper;
 import com.medical.service.ElderReferenceService;
+import com.medical.service.DoctorNurseRelationService;
 import com.medical.service.TimelineService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -50,7 +51,7 @@ class FollowupTaskServiceImplTest {
         when(fixture.followupTaskMapper.selectPendingByPlanId(12L, 40L)).thenReturn(null);
         when(fixture.riskProfileMapper.selectOne(any())).thenReturn(risk);
 
-        int count = fixture.service.generateAutoTasks(2L, 12L);
+        int count = fixture.service.generateAutoTasks(2L, 12L, 5L);
 
         assertEquals(1, count);
         ArgumentCaptor<QueryWrapper<FollowPlan>> planQuery = ArgumentCaptor.forClass(QueryWrapper.class);
@@ -62,7 +63,8 @@ class FollowupTaskServiceImplTest {
         verify(fixture.followupTaskMapper).insert(org.mockito.ArgumentMatchers.argThat(task ->
                 Long.valueOf(40L).equals(task.getPlanId())
                         && Long.valueOf(12L).equals(task.getElderId())
-                        && Long.valueOf(2L).equals(task.getDoctorId())));
+                        && Long.valueOf(2L).equals(task.getDoctorId())
+                        && Long.valueOf(5L).equals(task.getNurseId())));
     }
 
     @Test
@@ -75,7 +77,7 @@ class FollowupTaskServiceImplTest {
         when(fixture.followPlanMapper.selectList(any())).thenReturn(java.util.List.of(plan));
         when(fixture.elderInfoMapper.selectById(13L)).thenReturn(elder);
 
-        int count = fixture.service.generateAutoTasks(2L, 13L);
+        int count = fixture.service.generateAutoTasks(2L, 13L, 5L);
 
         assertEquals(0, count);
         verify(fixture.followupTaskMapper, never()).insert(any(FollowupTask.class));
@@ -95,7 +97,7 @@ class FollowupTaskServiceImplTest {
         when(fixture.elderInfoMapper.selectById(14L)).thenReturn(elder(14L));
         when(fixture.elderInfoMapper.selectById(15L)).thenReturn(elder(15L));
 
-        int count = fixture.service.generateAutoTasks(2L, null);
+        int count = fixture.service.generateAutoTasks(2L, null, 5L);
 
         assertEquals(0, count);
         verify(fixture.followupTaskMapper, never()).insert(any(FollowupTask.class));
@@ -190,6 +192,7 @@ class FollowupTaskServiceImplTest {
         assertEquals(30L, result.getTask().getPlanId());
         assertEquals(10L, result.getTask().getElderId());
         assertEquals(50L, result.getTask().getId());
+        assertEquals(5L, result.getTask().getNurseId());
     }
 
     @Test
@@ -310,7 +313,7 @@ class FollowupTaskServiceImplTest {
     }
 
     @Test
-    void nurseTaskSummaryUsesNurseRelationScope() {
+    void nurseTaskSummaryUsesExactNurseAssignmentScope() {
         Fixture fixture = fixture();
         when(fixture.followupTaskMapper.countPendingTasks(5L, 3)).thenReturn(4);
         when(fixture.followupTaskMapper.countTodayTasks(any(LocalDate.class), any(), any())).thenReturn(2);
@@ -331,6 +334,7 @@ class FollowupTaskServiceImplTest {
         fixture.riskProfileMapper = mock(ElderRiskProfileMapper.class);
         fixture.elderReferenceService = mock(ElderReferenceService.class);
         fixture.timelineService = mock(TimelineService.class);
+        fixture.doctorNurseRelationService = mock(DoctorNurseRelationService.class);
         ReflectionTestUtils.setField(fixture.service, "followupTaskMapper", fixture.followupTaskMapper);
         ReflectionTestUtils.setField(fixture.service, "elderInfoMapper", fixture.elderInfoMapper);
         ReflectionTestUtils.setField(fixture.service, "followPlanMapper", fixture.followPlanMapper);
@@ -338,6 +342,13 @@ class FollowupTaskServiceImplTest {
         ReflectionTestUtils.setField(fixture.service, "elderRiskProfileMapper", fixture.riskProfileMapper);
         ReflectionTestUtils.setField(fixture.service, "elderReferenceService", fixture.elderReferenceService);
         ReflectionTestUtils.setField(fixture.service, "timelineService", fixture.timelineService);
+        ReflectionTestUtils.setField(fixture.service, "doctorNurseRelationService", fixture.doctorNurseRelationService);
+        when(fixture.doctorNurseRelationService.isLinked(any(), any())).thenReturn(true);
+        when(fixture.doctorNurseRelationService.chooseNurseForDoctor(any(), any(), any()))
+                .thenAnswer(invocation -> {
+                    Long preferred = invocation.getArgument(2);
+                    return preferred == null ? 5L : preferred;
+                });
         return fixture;
     }
 
@@ -390,5 +401,33 @@ class FollowupTaskServiceImplTest {
         ElderRiskProfileMapper riskProfileMapper;
         ElderReferenceService elderReferenceService;
         TimelineService timelineService;
+        DoctorNurseRelationService doctorNurseRelationService;
+    }
+
+    @Test
+    void doctorCanAssignPendingTaskToLinkedNurse() {
+        Fixture fixture = fixture();
+        FollowupTask task = task(73L, 10L, 30L, 2L);
+        when(fixture.followupTaskMapper.selectById(73L)).thenReturn(task);
+
+        fixture.service.assignTask(73L, 6L, 2L);
+
+        assertEquals(6L, task.getNurseId());
+        verify(fixture.doctorNurseRelationService).isLinked(2L, 6L);
+        verify(fixture.followupTaskMapper).updateById(task);
+    }
+
+    @Test
+    void doctorCannotAssignTaskToUnlinkedNurse() {
+        Fixture fixture = fixture();
+        FollowupTask task = task(74L, 10L, 30L, 2L);
+        when(fixture.followupTaskMapper.selectById(74L)).thenReturn(task);
+        when(fixture.doctorNurseRelationService.isLinked(2L, 99L)).thenReturn(false);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> fixture.service.assignTask(74L, 99L, 2L));
+
+        assertEquals(400, error.getCode());
+        verify(fixture.followupTaskMapper, never()).updateById(task);
     }
 }

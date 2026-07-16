@@ -8,6 +8,7 @@ import com.medical.entity.*;
 import com.medical.mapper.*;
 import com.medical.service.FollowupTaskService;
 import com.medical.service.ElderReferenceService;
+import com.medical.service.DoctorNurseRelationService;
 import com.medical.service.RiskProfileService;
 import com.medical.service.TimelineService;
 import org.slf4j.Logger;
@@ -53,9 +54,15 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
     @Autowired
     private FollowRecordMapper followRecordMapper;
 
+    @Autowired
+    private DoctorNurseRelationService doctorNurseRelationService;
+
     @Override
     @Transactional
-    public int generateAutoTasks(Long doctorId, Long elderId) {
+    public int generateAutoTasks(Long doctorId, Long elderId, Long nurseId) {
+        if (doctorId != null) {
+            requireLinkedNurse(doctorId, nurseId);
+        }
         int taskCount = 0;
         LocalDate today = LocalDate.now();
         QueryWrapper<FollowPlan> planWrapper = new QueryWrapper<>();
@@ -84,6 +91,11 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
             if (followupTaskMapper.selectPendingByPlanId(plan.getElderId(), plan.getId()) != null) {
                 continue;
             }
+            Long assignedNurseId = resolveAssignedNurse(responsibleDoctorId, elder, nurseId);
+            if (assignedNurseId == null) {
+                logger.warn("随访计划 {} 没有可分配的协作护士，已跳过任务生成", plan.getId());
+                continue;
+            }
             ElderRiskProfile profile = elderRiskProfileMapper.selectOne(
                     new QueryWrapper<ElderRiskProfile>().eq("elder_id", plan.getElderId()));
             int riskLevel = profile == null || profile.getRiskLevel() == null ? 1 : profile.getRiskLevel();
@@ -98,6 +110,7 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
             task.setPlanId(plan.getId());
             elderReferenceService.requireActiveDoctor(responsibleDoctorId);
             task.setDoctorId(responsibleDoctorId);
+            task.setNurseId(assignedNurseId);
             task.setTaskType(overdueDays > 7 ? 2 : 1);
             task.setPriority(Math.max(priorityForRiskLevel(riskLevel), overdueDays >= 14 ? 3 : 1));
             task.setDueDate(nextFollowDate.isBefore(today) ? today : nextFollowDate);
@@ -140,6 +153,10 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
 
         FollowupTask existing = followupTaskMapper.selectPendingByPlanId(elderId, planId);
         if (existing != null) {
+            if (existing.getNurseId() == null) {
+                existing.setNurseId(resolveRequiredAssignedNurse(doctorId, elder, null));
+                followupTaskMapper.updateById(existing);
+            }
             return new FollowupTaskGenerationResult(existing, false);
         }
 
@@ -152,6 +169,7 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
         task.setElderId(elderId);
         task.setPlanId(planId);
         task.setDoctorId(doctorId);
+        task.setNurseId(resolveRequiredAssignedNurse(doctorId, elder, null));
         task.setTaskType(1);
         task.setPriority(priorityForRiskLevel(riskLevel));
         LocalDate dueDate = plan.getNextFollowDate() == null ? LocalDate.now() : plan.getNextFollowDate();
@@ -162,6 +180,24 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
                 getRiskLevelText(riskLevel), riskScore, plan.getPlanName()));
         followupTaskMapper.insert(task);
         return new FollowupTaskGenerationResult(task, true);
+    }
+
+    @Override
+    @Transactional
+    public void assignTask(Long taskId, Long nurseId, Long doctorId) {
+        FollowupTask task = taskId == null ? null : followupTaskMapper.selectById(taskId);
+        if (task == null) {
+            throw new BusinessException(404, "随访任务不存在");
+        }
+        if (!Objects.equals(task.getDoctorId(), doctorId)) {
+            throw new BusinessException(403, "只能分配当前医生本人负责的随访任务");
+        }
+        if (!Integer.valueOf(0).equals(task.getStatus()) && !Integer.valueOf(1).equals(task.getStatus())) {
+            throw new BusinessException(400, "已完成或已取消的随访任务不能重新分配");
+        }
+        requireLinkedNurse(doctorId, nurseId);
+        task.setNurseId(nurseId);
+        followupTaskMapper.updateById(task);
     }
 
     @Override
@@ -322,6 +358,29 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
         if (doctorId == null || !Objects.equals(elder.getDoctorId(), doctorId)) {
             throw new BusinessException(403, "只能为当前医生明确负责的老人生成随访任务");
         }
+    }
+
+    private void requireLinkedNurse(Long doctorId, Long nurseId) {
+        if (nurseId == null || nurseId <= 0) {
+            throw new BusinessException(400, "请选择负责执行任务的协作护士");
+        }
+        if (!doctorNurseRelationService.isLinked(doctorId, nurseId)) {
+            throw new BusinessException(400, "所选护士不在当前医生的协作护士列表中");
+        }
+    }
+
+    private Long resolveAssignedNurse(Long doctorId, ElderInfo elder, Long requestedNurseId) {
+        Long preferredNurseId = requestedNurseId != null ? requestedNurseId : elder.getNurseId();
+        return doctorNurseRelationService.chooseNurseForDoctor(
+                doctorId, String.valueOf(elder.getId()), preferredNurseId);
+    }
+
+    private Long resolveRequiredAssignedNurse(Long doctorId, ElderInfo elder, Long requestedNurseId) {
+        Long nurseId = resolveAssignedNurse(doctorId, elder, requestedNurseId);
+        if (nurseId == null) {
+            throw new BusinessException(400, "当前医生没有可用的协作护士，无法生成随访任务");
+        }
+        return nurseId;
     }
 
     private void validateExecutablePlan(FollowPlan plan, LocalDate today) {

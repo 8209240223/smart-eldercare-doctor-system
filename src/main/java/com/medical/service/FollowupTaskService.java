@@ -17,12 +17,17 @@ public interface FollowupTaskService {
      * 根据风险等级和逾期情况自动生成
      * @return 生成的任务数量
      */
-    int generateAutoTasks(Long doctorId, Long elderId);
+    int generateAutoTasks(Long doctorId, Long elderId, Long nurseId);
 
     /**
      * 为指定老人和随访计划生成任务；已有待执行任务时直接复用。
      */
     FollowupTaskGenerationResult generateForElder(Long elderId, Long doctorId, Long planId);
+
+    /**
+     * 由责任医生将待执行任务分配给协作护士。
+     */
+    void assignTask(Long taskId, Long nurseId, Long doctorId);
 
     /**
      * 查询今日待执行任务

@@ -151,19 +151,13 @@ export default function NursePlans() {
       setNavigationState({
         title: form.id ? "护理计划已更新" : "护理计划已新增",
         description:
-          "护理计划已关联到统一老人主档，是否继续记录护理执行情况或查看全流程？",
+          "护理计划已关联到统一老人主档，是否继续记录护理执行情况或查看健康报告？",
         options: [
           {
             key: "records",
             label: "新增护理记录",
             description: "进入该老人的护理记录页面",
             to: `/nurse-records?elderId=${payload.elderId}`,
-          },
-          {
-            key: "journey",
-            label: "查看照护全流程",
-            description: "核对医生、护士和管理员端联动",
-            to: `/elders/${payload.elderId}/care-journey`,
           },
           {
             key: "report",

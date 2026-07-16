@@ -337,7 +337,11 @@ export default function AiReports() {
             ) : records.length === 0 ? (
               <EmptyState
                 title="暂无 AI 报告"
-                description="可生成基础报告后再进行 AI 深度分析"
+                description={
+                  canOperateReports
+                    ? "可生成基础报告后再进行 AI 深度分析"
+                    : "该老人尚未生成报告，请联系责任医生在医生端生成"
+                }
               />
             ) : (
               <div className="space-y-3">

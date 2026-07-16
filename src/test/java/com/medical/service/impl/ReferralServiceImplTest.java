@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -21,6 +22,22 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ReferralServiceImplTest {
+
+    @Test
+    void detailHydratesElderNameForHistoricalHandoff() {
+        ReferralOrderMapper referralMapper = mock(ReferralOrderMapper.class);
+        PatientHandoffMapper handoffMapper = mock(PatientHandoffMapper.class);
+        ReferralServiceImpl service = new ReferralServiceImpl(
+                referralMapper, handoffMapper, mock(TimelineService.class),
+                mock(DoctorProfileService.class), mock(DoctorNurseRelationService.class));
+        ReferralOrder order = acceptedOrder();
+        when(referralMapper.selectById(9L)).thenReturn(order);
+        when(handoffMapper.selectElderName(42L)).thenReturn("周建平");
+
+        ReferralOrder result = service.getDetail(9L);
+
+        assertThat(result.getElderName()).isEqualTo("周建平");
+    }
 
     @Test
     void completingHandoffTransfersOpenWorkflowsThenPatientOwnership() {
@@ -45,7 +62,7 @@ class ReferralServiceImplTest {
         InOrder orderOfUpdates = inOrder(handoffMapper, referralMapper);
         orderOfUpdates.verify(handoffMapper).transferOpenWarnings(42L, 3L);
         orderOfUpdates.verify(handoffMapper).transferActiveFollowPlans(42L, 3L);
-        orderOfUpdates.verify(handoffMapper).transferOpenFollowupTasks(42L, 3L);
+        orderOfUpdates.verify(handoffMapper).transferOpenFollowupTasks(42L, 3L, 6L);
         orderOfUpdates.verify(handoffMapper).transferActiveInterventions(42L, 3L);
         orderOfUpdates.verify(handoffMapper).transferActiveNursingPlans(42L, 3L, 6L);
         orderOfUpdates.verify(handoffMapper).transferOpenNursingRecords(42L, 3L, 6L);

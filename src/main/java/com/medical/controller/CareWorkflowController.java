@@ -16,7 +16,7 @@ import javax.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/care-workflows/elders")
-@RequireRole({1, 2, 3})
+@RequireRole({1, 2})
 public class CareWorkflowController {
 
     @Autowired

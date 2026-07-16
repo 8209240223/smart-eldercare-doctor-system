@@ -40,7 +40,7 @@ const menuItems: MenuItem[] = [
   { path: "/elders", label: "老人档案", icon: Users, roles: ["admin", "doctor", "nurse"] },
   { path: "/warnings", label: "预警中心", icon: Bell, roles: ["admin", "doctor", "nurse"] },
   { path: "/key-population", label: "重点人群", icon: ShieldAlert, roles: ["admin", "doctor", "nurse"] },
-  { path: "/followup", label: "随访计划", icon: CalendarCheck, roles: ["admin", "doctor", "nurse"] },
+  { path: "/followup", label: "随访计划", icon: CalendarCheck, roles: ["admin", "doctor"] },
   { path: "/followup-tasks", label: "随访任务", icon: Clock, roles: ["admin", "doctor", "nurse"] },
   { path: "/interventions", label: "干预管理", icon: Stethoscope, roles: ["admin", "doctor", "nurse"] },
   { path: "/assessments", label: "评估记录", icon: FileText, roles: ["admin", "doctor", "nurse"] },

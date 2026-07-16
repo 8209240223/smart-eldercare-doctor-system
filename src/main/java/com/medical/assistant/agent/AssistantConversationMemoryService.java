@@ -22,8 +22,8 @@ import java.util.regex.Pattern;
 @Service
 public class AssistantConversationMemoryService {
 
-    private static final int MAX_MESSAGES = 20;
-    private static final int MAX_MESSAGE_CHARS = 4000;
+    private static final int MAX_MESSAGES = 12;
+    private static final int MAX_MESSAGE_CHARS = 2000;
     private static final Pattern CONVERSATION_ID_PATTERN = Pattern.compile("[A-Za-z0-9_-]{8,64}");
     private static final String KEY_PREFIX = "assistant:memory:";
 

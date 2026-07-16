@@ -454,16 +454,18 @@ export default function Elders() {
                           <FileText className="mr-1 h-4 w-4" />
                           综合报告
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            navigate(`/elders/${elder.id}/care-journey`)
-                          }
-                        >
-                          <Route className="mr-1 h-4 w-4" />
-                          照护全流程
-                        </Button>
+                        {role !== "nurse" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              navigate(`/elders/${elder.id}/care-journey`)
+                            }
+                          >
+                            <Route className="mr-1 h-4 w-4" />
+                            照护全流程
+                          </Button>
+                        )}
                         {canManage && (
                           <>
                             <Button

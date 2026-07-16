@@ -21,7 +21,6 @@ class RolePermissionMatrixTest {
         assertClassRoles(AssistantController.class, 1, 2, 3);
         assertClassRoles(ElderController.class, 1, 2, 3);
         assertClassRoles(WarningController.class, 1, 2, 3);
-        assertClassRoles(FollowUpController.class, 1, 2, 3);
         assertClassRoles(FollowupTaskController.class, 1, 2, 3);
         assertClassRoles(AssessmentController.class, 1, 2, 3);
         assertClassRoles(InterventionController.class, 1, 2, 3);
@@ -30,6 +29,12 @@ class RolePermissionMatrixTest {
         assertClassRoles(NurseDashboardController.class, 1, 2, 3);
         assertClassRoles(NursePlanController.class, 1, 2, 3);
         assertClassRoles(NurseRecordController.class, 1, 2, 3);
+    }
+
+    @Test
+    void doctorWorkflowControllersExcludeNurseRole() {
+        assertClassRoles(FollowUpController.class, 1, 2);
+        assertClassRoles(CareWorkflowController.class, 1, 2);
     }
 
     @Test
@@ -46,7 +51,7 @@ class RolePermissionMatrixTest {
                 "approveRecord", "rejectRecord", "approvePlan", "rejectPlan");
         assertMethodRoles(CareWorkflowController.class, 2, "generate");
         assertMethodRoles(FollowupTaskController.class, 2,
-                "generateAutoTasks", "finishTask", "cancelTask");
+                "generateAutoTasks", "assignTask", "finishTask", "cancelTask");
     }
 
     @Test

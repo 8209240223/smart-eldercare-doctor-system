@@ -174,7 +174,6 @@ public class AiHealthReportService {
         Page<AiHealthReport> page = new Page<>(pageNum == null ? 1 : pageNum, boundedPageSize(pageSize));
         LambdaQueryWrapper<AiHealthReport> wrapper = new LambdaQueryWrapper<AiHealthReport>()
                 .eq(AiHealthReport::getElderId, elderId)
-                .eq(Integer.valueOf(3).equals(role), AiHealthReport::getStatus, 1)
                 .orderByDesc(AiHealthReport::getCreateTime);
         return reportMapper.selectPage(page, wrapper);
     }
@@ -289,9 +288,6 @@ public class AiHealthReportService {
 
     private void requireReportReadAccess(AiHealthReport report, Long userId, Integer role) {
         requireElderReadAccess(report.getElderId(), userId, role);
-        if (Integer.valueOf(3).equals(role) && !Integer.valueOf(1).equals(report.getStatus())) {
-            throw new BusinessException(403, "护士只能查看已确认的AI健康报告");
-        }
     }
 
     private void requireElderReadAccess(Long elderId, Long userId, Integer role) {
@@ -305,7 +301,7 @@ public class AiHealthReportService {
         if (Integer.valueOf(2).equals(role) && userId.equals(elder.getDoctorId())) {
             return;
         }
-        if (Integer.valueOf(3).equals(role)) {
+        if (Integer.valueOf(3).equals(role) && userId.equals(elder.getNurseId())) {
             return;
         }
         throw new BusinessException(403, "无权查看该老人的AI健康报告");

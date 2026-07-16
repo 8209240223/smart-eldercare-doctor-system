@@ -102,6 +102,7 @@ public class ReferralServiceImpl implements ReferralService {
         order.setCreateTime(now);
         order.setUpdateTime(now);
         referralOrderMapper.insert(order);
+        order.setElderName(elder.getName());
 
         TimelineEvent event = new TimelineEvent();
         event.setElderId(order.getElderId());
@@ -151,7 +152,7 @@ public class ReferralServiceImpl implements ReferralService {
 
         patientHandoffMapper.transferOpenWarnings(elder.getId(), order.getToDoctorId());
         patientHandoffMapper.transferActiveFollowPlans(elder.getId(), order.getToDoctorId());
-        patientHandoffMapper.transferOpenFollowupTasks(elder.getId(), order.getToDoctorId());
+        patientHandoffMapper.transferOpenFollowupTasks(elder.getId(), order.getToDoctorId(), toNurseId);
         patientHandoffMapper.transferActiveInterventions(elder.getId(), order.getToDoctorId());
         patientHandoffMapper.transferActiveNursingPlans(elder.getId(), order.getToDoctorId(), toNurseId);
         patientHandoffMapper.transferOpenNursingRecords(elder.getId(), order.getToDoctorId(), toNurseId);
@@ -225,12 +226,14 @@ public class ReferralServiceImpl implements ReferralService {
         }
         wrapper.eq(status != null, ReferralOrder::getStatus, status)
                 .orderByDesc(ReferralOrder::getCreateTime);
-        return referralOrderMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+        Page<ReferralOrder> page = referralOrderMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+        page.getRecords().forEach(this::hydrateElderName);
+        return page;
     }
 
     @Override
     public ReferralOrder getDetail(Long id) {
-        return requireOrder(id);
+        return hydrateElderName(requireOrder(id));
     }
 
     @Override
@@ -257,6 +260,13 @@ public class ReferralServiceImpl implements ReferralService {
         ReferralOrder order = id == null ? null : referralOrderMapper.selectById(id);
         if (order == null) {
             throw new BusinessException(404, "患者移交申请不存在");
+        }
+        return order;
+    }
+
+    private ReferralOrder hydrateElderName(ReferralOrder order) {
+        if (order != null && order.getElderId() != null) {
+            order.setElderName(patientHandoffMapper.selectElderName(order.getElderId()));
         }
         return order;
     }

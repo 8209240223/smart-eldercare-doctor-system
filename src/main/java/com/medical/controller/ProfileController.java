@@ -14,6 +14,7 @@ import com.medical.mapper.SysMessageMapper;
 import com.medical.mapper.SysOperationLogMapper;
 import com.medical.mapper.SysUserMapper;
 import com.medical.service.AuthService;
+import com.medical.service.DoctorNurseRelationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
@@ -53,10 +54,20 @@ public class ProfileController {
     @Autowired
     private AuthService authService;
 
+    @Autowired
+    private DoctorNurseRelationService doctorNurseRelationService;
+
     @Value("${file.upload-path:./upload}")
     private String uploadPath;
 
     private static final long MAX_AVATAR_SIZE = 2L * 1024 * 1024;
+
+    @GetMapping("/collaborators")
+    public R<?> collaborators(HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        Integer userType = (Integer) request.getAttribute("currentUserType");
+        return R.ok(doctorNurseRelationService.listCollaborators(userId, userType));
+    }
 
     @PutMapping("/info")
     @OperationLog(module = "个人中心", type = "修改", desc = "修改个人信息")

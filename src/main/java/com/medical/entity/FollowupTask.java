@@ -33,6 +33,11 @@ public class FollowupTask implements Serializable {
     private Long doctorId;
 
     /**
+     * 执行随访协作任务的护士ID
+     */
+    private Long nurseId;
+
+    /**
      * 任务类型:1风险随访 2逾期随访 3预约随访
      */
     private Integer taskType;

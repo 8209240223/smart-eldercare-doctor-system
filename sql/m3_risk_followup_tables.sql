@@ -24,7 +24,9 @@ CREATE TABLE IF NOT EXISTS elder_risk_profile (
 CREATE TABLE IF NOT EXISTS followup_task (
     id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     elder_id BIGINT NOT NULL COMMENT '老人ID',
+    plan_id BIGINT DEFAULT NULL COMMENT '关联随访计划ID',
     doctor_id BIGINT DEFAULT NULL COMMENT '负责医生ID',
+    nurse_id BIGINT DEFAULT NULL COMMENT '任务执行护士ID',
     task_type TINYINT NOT NULL DEFAULT 1 COMMENT '任务类型:1风险随访 2逾期随访 3预约随访',
     priority TINYINT NOT NULL DEFAULT 1 COMMENT '优先级:1低 2中 3高 4紧急',
     due_date DATE DEFAULT NULL COMMENT '截止日期',
@@ -37,6 +39,8 @@ CREATE TABLE IF NOT EXISTS followup_task (
     remark VARCHAR(500) DEFAULT NULL COMMENT '备注',
     PRIMARY KEY (id),
     KEY idx_elder_id (elder_id),
+    KEY idx_plan_id (plan_id),
+    KEY idx_nurse_id (nurse_id),
     KEY idx_doctor_id (doctor_id),
     KEY idx_status (status),
     KEY idx_due_date (due_date),

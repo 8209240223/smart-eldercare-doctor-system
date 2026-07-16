@@ -103,18 +103,15 @@ export default function NurseDashboard() {
                   查看护理记录
                 </Link>
               </Button>
-              <Button
-                asChild
-                className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white"
-              >
+              <Button asChild className="rounded-xl bg-gradient-to-r from-medical-400 to-medical-600 text-white">
                 <Link
                   to={
                     selectedElderId
-                      ? `/elders/${selectedElderId}/care-journey`
-                      : "/elders"
+                      ? `/nurse-plans?elderId=${selectedElderId}`
+                      : "/nurse-plans"
                   }
                 >
-                  进入照护全流程
+                  查看护理计划
                 </Link>
               </Button>
             </div>
