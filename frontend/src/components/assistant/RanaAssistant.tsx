@@ -27,9 +27,9 @@ interface Message {
 }
 
 function progressLabel(event: AssistantProgressEvent) {
-  if (event.type === "step") return "正在分析请求";
-  if (event.type === "tool") return "正在读取站内数据";
-  if (event.type === "tool_result") return event.error ? `数据读取失败：${event.error}` : "站内数据已读取";
+  if (event.type === "step") return `步骤 ${event.step || ""}：分析请求并选择工具`;
+  if (event.type === "tool") return `调用站内工具：${event.name || "系统能力"}`;
+  if (event.type === "tool_result") return event.error ? `工具执行失败：${event.error}` : `工具执行完成：${event.name || "系统能力"}`;
   if (event.type === "done") return event.status === "awaiting_approval" ? "执行计划已生成，等待确认" : "已完成";
   return "正在处理";
 }
@@ -55,19 +55,17 @@ function AgentProgress({
   onCancel: () => void;
 }) {
   const visibleEvents = (events || []).filter((event) => event.type !== "delta" && event.type !== "approval_required");
-  const latestEvent = [...visibleEvents].reverse().find((event) =>
-    event.type === "step" || event.type === "tool" || event.type === "tool_result" || event.type === "done");
   const hasAgentActivity = Boolean(approval) || visibleEvents.some((event) =>
     event.type === "step" || event.type === "tool" || event.type === "tool_result");
   if (!hasAgentActivity) return null;
   return (
     <div className="rana-agent-progress">
-      {latestEvent && (
-        <div className={`rana-agent-step ${latestEvent.error ? "is-error" : latestEvent.type === "done" ? "is-done" : ""}`}>
-          <span className="rana-agent-step-icon"><ProgressIcon event={latestEvent} /></span>
-          <span>{progressLabel(latestEvent)}</span>
+      {visibleEvents.map((event, index) => (
+        <div key={`${event.type}-${event.step || 0}-${event.id || index}`} className={`rana-agent-step ${event.error ? "is-error" : event.type === "done" ? "is-done" : ""}`}>
+          <span className="rana-agent-step-icon"><ProgressIcon event={event} /></span>
+          <span>{progressLabel(event)}</span>
         </div>
-      )}
+      ))}
       {approval && (
         <div className="rana-agent-approval">
           <div className="flex items-start gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><div><strong>需要确认</strong><p>{approval.summary || "该操作会修改站内数据，请确认是否执行。"}</p></div></div>
@@ -89,6 +87,11 @@ function AssistantMarkdown({ content }: { content: string }) {
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
+        table: ({ children }) => (
+          <div className="rana-markdown-table-wrap">
+            <table>{children}</table>
+          </div>
+        ),
         a: ({ children, ...props }) => (
           <a {...props} target="_blank" rel="noreferrer noopener">
             {children}
@@ -295,9 +298,9 @@ export default function RanaAssistant() {
       { id: assistantMessageId, role: "assistant", content: "" },
     ]);
     try {
-      const history = messages.filter((message) => message.content).slice(-6).map(({ role, content }) => ({
+      const history = messages.filter((message) => message.content).slice(-12).map(({ role, content }) => ({
         role,
-        content: content.slice(0, 800),
+        content: content.slice(0, 1000),
       }));
       const reply = await streamAssistantMessage(
         { message: text, history, conversationId },

@@ -180,7 +180,7 @@
 .rana-markdown ol,
 .rana-markdown blockquote,
 .rana-markdown pre,
-.rana-markdown table {
+.rana-markdown-table-wrap {
   margin: 0.55rem 0;
 }
 
@@ -246,10 +246,18 @@
   padding: 0;
 }
 
-.rana-markdown table {
-  display: block;
+.rana-markdown-table-wrap {
   max-width: 100%;
   overflow-x: auto;
+  border: 1px solid #cbdfe1;
+  border-radius: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: #a9cdd0 transparent;
+}
+
+.rana-markdown table {
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
 }
 
@@ -258,7 +266,9 @@
   border: 1px solid #cbdfe1;
   padding: 0.35rem 0.5rem;
   text-align: left;
-  white-space: nowrap;
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .rana-markdown th {

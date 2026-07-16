@@ -1,0 +1,3 @@
+display_name: Software Testing Quality
+short_description: Adds regression testing, QA checks, and verification discipline to coding work.
+default_prompt: Test this change thoroughly, add regression coverage where appropriate, run the relevant checks, and report remaining risk honestly.
