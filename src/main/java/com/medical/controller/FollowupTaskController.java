@@ -54,6 +54,16 @@ public class FollowupTaskController {
     }
 
     /**
+     * 当前用户随访任务涉及的老人筛选项。
+     */
+    @GetMapping("/elder-options")
+    public R<List<Map<String, Object>>> getTaskElderOptions(
+            @RequestAttribute("currentUserId") Long currentUserId,
+            @RequestAttribute("currentUserType") Integer currentUserType) {
+        return R.ok(followupTaskService.getTaskElderOptions(currentUserId, currentUserType));
+    }
+
+    /**
      * 任务列表(按医生查询)
      */
     @GetMapping

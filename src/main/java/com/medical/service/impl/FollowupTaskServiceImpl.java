@@ -232,6 +232,12 @@ public class FollowupTaskServiceImpl implements FollowupTaskService {
     }
 
     @Override
+    public List<Map<String, Object>> getTaskElderOptions(Long currentUserId, Integer currentUserType) {
+        requireQueryScope(currentUserId, currentUserType);
+        return followupTaskMapper.selectTaskElderOptions(currentUserId, currentUserType);
+    }
+
+    @Override
     @Transactional
     public boolean finishTask(Long taskId, Long followRecordId, Long doctorId) {
         FollowupTask task = followupTaskMapper.selectById(taskId);
