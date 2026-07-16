@@ -45,6 +45,16 @@ public class CareWorkflowService {
 
     @Transactional
     public CareWorkflowResult generate(Long elderId, Long currentUserId, Integer currentUserType) {
+        return generate(elderId, currentUserId, currentUserType, true);
+    }
+
+    /**
+     * 生成健康管理流程。
+     * @param createTask true 时同步生成随访任务(照护全流程按钮);false 时只算风险与随访计划,
+     *                   随访任务留待在随访任务页手动点"自动生成任务"再落地(建档默认行为)。
+     */
+    @Transactional
+    public CareWorkflowResult generate(Long elderId, Long currentUserId, Integer currentUserType, boolean createTask) {
         assertGeneratePermission(currentUserId, currentUserType);
         ElderInfo elder = elderReferenceService.requireActive(elderId);
         Long responsibleDoctorId = elder.getDoctorId();
@@ -65,8 +75,19 @@ public class CareWorkflowService {
             throw new BusinessException(500, "未能为老人生成或复用随访计划");
         }
 
-        FollowupTaskGenerationResult taskResult = followupTaskService.generateForElder(
-                elderId, responsibleDoctorId, plan.getId());
+        FollowupTask task;
+        CareWorkflowResult.Step<FollowupTask> taskStep;
+        if (createTask) {
+            FollowupTaskGenerationResult taskResult = followupTaskService.generateForElder(
+                    elderId, responsibleDoctorId, plan.getId());
+            task = taskResult.getTask();
+            taskStep = step(taskResult.isCreated() ? "created" : "reused",
+                    taskResult.isCreated(), !taskResult.isCreated(), task);
+        } else {
+            // 建档默认不落任务:只查是否已有该计划的待办任务,不新建
+            task = followupTaskMapper.selectPendingByPlanId(elderId, plan.getId());
+            taskStep = step(task == null ? "pending" : "existing", false, task != null, task);
+        }
 
         AiHealthReport report = aiHealthReportService.getLatestByElder(elderId);
 
@@ -76,12 +97,11 @@ public class CareWorkflowService {
                 previousRisk == null, previousRisk != null, risk));
         result.setPlan(step(previousPlan == null ? "created" : "reused",
                 previousPlan == null, previousPlan != null, plan));
-        result.setTask(step(taskResult.isCreated() ? "created" : "reused",
-                taskResult.isCreated(), !taskResult.isCreated(), taskResult.getTask()));
+        result.setTask(taskStep);
         result.setReport(step(report == null ? "pending" : "reused",
                 false, report != null, report));
         populateCounts(result, elderId);
-        result.setLinks(buildLinks(elderId, plan.getId(), taskResult.getTask().getId(),
+        result.setLinks(buildLinks(elderId, plan.getId(), task == null ? null : task.getId(),
                 report == null ? null : report.getId()));
         return result;
     }

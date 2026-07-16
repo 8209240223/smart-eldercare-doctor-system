@@ -117,7 +117,7 @@ class ElderOnboardingServiceTest {
             return 1;
         }).when(historyMapper).insert(history);
         CareWorkflowResult workflow = new CareWorkflowResult();
-        when(workflowService.generate(90L, 7L, 2)).thenReturn(workflow);
+        when(workflowService.generate(90L, 7L, 2, false)).thenReturn(workflow);
 
         ElderOnboardResult result = service.onboard(request, 7L, 2);
 
@@ -131,7 +131,7 @@ class ElderOnboardingServiceTest {
         assertEquals(workflow, result.getWorkflow());
         verify(elderService).saveHealthRecord(90L, healthRecord);
         verify(examService).create(exam);
-        verify(workflowService).generate(90L, 7L, 2);
+        verify(workflowService).generate(90L, 7L, 2, false);
 
         Method method = ElderOnboardingService.class.getMethod(
                 "onboard", ElderOnboardRequest.class, Long.class, Integer.class);

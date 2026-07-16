@@ -87,7 +87,9 @@ public class ElderOnboardingService {
 
         CareWorkflowResult workflow = null;
         if (!Boolean.FALSE.equals(request.getGenerateWorkflow())) {
-            workflow = careWorkflowService.generate(elderId, currentUserId, currentUserType);
+            // 建档只算风险并生成随访计划,不自动落随访任务;
+            // 随访任务由医生在随访任务页点"自动生成任务"按需生成。
+            workflow = careWorkflowService.generate(elderId, currentUserId, currentUserType, false);
         }
 
         ElderOnboardResult result = new ElderOnboardResult();
