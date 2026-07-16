@@ -16,6 +16,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class NursePlanServiceImpl implements NursePlanService {
@@ -28,14 +29,15 @@ public class NursePlanServiceImpl implements NursePlanService {
 
     @Override
     public Page<NursingPlan> list(Integer pageNum, Integer pageSize, Long elderId, Long nurseId,
-                                   Integer planType, Integer status) {
+                                   Integer planType, Integer status, Long currentUserId,
+                                   Integer currentUserType) {
         Page<NursingPlan> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<NursingPlan> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(NursingPlan::getDeleted, 0);
         if (elderId != null) {
             wrapper.eq(NursingPlan::getElderId, elderId);
         }
-        if (nurseId != null) {
+        if (!Integer.valueOf(3).equals(currentUserType) && nurseId != null) {
             wrapper.eq(NursingPlan::getNurseId, nurseId);
         }
         if (planType != null) {
@@ -44,13 +46,20 @@ public class NursePlanServiceImpl implements NursePlanService {
         if (status != null) {
             wrapper.eq(NursingPlan::getStatus, status);
         }
+        applyReadScope(wrapper, currentUserId, currentUserType);
         wrapper.orderByDesc(NursingPlan::getStartDate)
                .orderByDesc(NursingPlan::getCreateTime);
         return nursingPlanMapper.selectPage(page, wrapper);
     }
 
     @Override
-    public NursingPlan getById(Long id) {
+    public NursingPlan getById(Long id, Long currentUserId, Integer currentUserType) {
+        NursingPlan plan = requireExisting(id);
+        requireReadAccess(plan, currentUserId, currentUserType);
+        return plan;
+    }
+
+    private NursingPlan requireExisting(Long id) {
         NursingPlan plan = nursingPlanMapper.selectById(id);
         if (plan == null || (plan.getDeleted() != null && plan.getDeleted() == 1)) {
             throw new BusinessException(404, "护理计划不存在");
@@ -66,6 +75,7 @@ public class NursePlanServiceImpl implements NursePlanService {
             throw new BusinessException(400, "该老人尚未分配责任医生，不能创建待审核护理计划");
         }
         elderReferenceService.requireActiveDoctor(elder.getDoctorId());
+        requireAssignedElder(elder, plan.getNurseId());
         plan.setDoctorId(elder.getDoctorId());
         plan.setDeleted(0);
         plan.setStatus(0);
@@ -76,8 +86,9 @@ public class NursePlanServiceImpl implements NursePlanService {
     }
 
     @Override
-    public void update(Long id, NursingPlan plan) {
-        NursingPlan existing = getById(id);
+    public void update(Long id, NursingPlan plan, Long currentNurseId) {
+        NursingPlan existing = requireExisting(id);
+        requireNurseOwner(existing.getNurseId(), currentNurseId);
         // 已完成或已终止的计划不能修改
         if (existing.getStatus() != null && (existing.getStatus() == 2 || existing.getStatus() == 3)) {
             throw new BusinessException(400, "已完成或已终止的计划不能修改");
@@ -88,6 +99,7 @@ public class NursePlanServiceImpl implements NursePlanService {
             throw new BusinessException(400, "该老人尚未分配责任医生，不能更新护理计划");
         }
         elderReferenceService.requireActiveDoctor(elder.getDoctorId());
+        requireAssignedElder(elder, currentNurseId);
         existing.setDoctorId(elder.getDoctorId());
         BeanUtil.copyProperties(plan, existing, CopyOptions.create()
                 .ignoreNullValue()
@@ -97,11 +109,12 @@ public class NursePlanServiceImpl implements NursePlanService {
     }
 
     @Override
-    public void delete(Long id) {
+    public void delete(Long id, Long currentNurseId) {
         NursingPlan plan = nursingPlanMapper.selectById(id);
         if (plan == null) {
             throw new BusinessException(404, "护理计划不存在或已删除");
         }
+        requireNurseOwner(plan.getNurseId(), currentNurseId);
         int affectedRows = nursingPlanMapper.deleteById(id);
         if (affectedRows <= 0) {
             throw new BusinessException(500, "护理计划删除失败");
@@ -109,8 +122,9 @@ public class NursePlanServiceImpl implements NursePlanService {
     }
 
     @Override
-    public void updateStatus(Long id, Integer status) {
-        NursingPlan existing = getById(id);
+    public void updateStatus(Long id, Integer status, Long currentNurseId) {
+        NursingPlan existing = requireExisting(id);
+        requireNurseOwner(existing.getNurseId(), currentNurseId);
         elderReferenceService.requireActive(existing.getElderId());
         validateStatus(status);
         if (status == 2 && existing.getStatus() != null && existing.getStatus() == 1) {
@@ -122,8 +136,9 @@ public class NursePlanServiceImpl implements NursePlanService {
     }
 
     @Override
-    public void incrementCompleted(Long id) {
-        NursingPlan existing = getById(id);
+    public void incrementCompleted(Long id, Long currentNurseId) {
+        NursingPlan existing = requireExisting(id);
+        requireNurseOwner(existing.getNurseId(), currentNurseId);
         elderReferenceService.requireActive(existing.getElderId());
         if (existing.getStatus() == null || existing.getStatus() != 1) {
             throw new BusinessException(400, "只有进行中的计划才能增加完成次数");
@@ -137,13 +152,11 @@ public class NursePlanServiceImpl implements NursePlanService {
     }
 
     @Override
-    public Map<String, Object> getStats(Long nurseId) {
+    public Map<String, Object> getStats(Long currentUserId, Integer currentUserType) {
         Map<String, Object> stats = new HashMap<>();
         LambdaQueryWrapper<NursingPlan> baseQ = new LambdaQueryWrapper<NursingPlan>()
                 .eq(NursingPlan::getDeleted, 0);
-        if (nurseId != null) {
-            baseQ.eq(NursingPlan::getNurseId, nurseId);
-        }
+        applyReadScope(baseQ, currentUserId, currentUserType);
 
         stats.put("total", nursingPlanMapper.selectCount(baseQ));
         stats.put("pending", nursingPlanMapper.selectCount(baseQ.clone()
@@ -161,6 +174,50 @@ public class NursePlanServiceImpl implements NursePlanService {
                 .in(NursingPlan::getStatus, 0, 1)));
 
         return stats;
+    }
+
+    private void applyReadScope(LambdaQueryWrapper<NursingPlan> wrapper,
+                                Long currentUserId,
+                                Integer currentUserType) {
+        requireSupportedRole(currentUserId, currentUserType);
+        if (Integer.valueOf(2).equals(currentUserType)) {
+            wrapper.eq(NursingPlan::getDoctorId, currentUserId);
+        } else if (Integer.valueOf(3).equals(currentUserType)) {
+            wrapper.eq(NursingPlan::getNurseId, currentUserId);
+        }
+    }
+
+    private void requireReadAccess(NursingPlan plan, Long currentUserId, Integer currentUserType) {
+        requireSupportedRole(currentUserId, currentUserType);
+        if (Integer.valueOf(1).equals(currentUserType)) {
+            return;
+        }
+        boolean allowed = Integer.valueOf(2).equals(currentUserType)
+                ? Objects.equals(plan.getDoctorId(), currentUserId)
+                : Objects.equals(plan.getNurseId(), currentUserId);
+        if (!allowed) {
+            throw new BusinessException(403, "无权访问该护理计划");
+        }
+    }
+
+    private void requireSupportedRole(Long currentUserId, Integer currentUserType) {
+        if (currentUserId == null || currentUserId <= 0
+                || currentUserType == null || currentUserType < 1 || currentUserType > 3) {
+            throw new BusinessException(401, "登录状态无效");
+        }
+    }
+
+    private void requireNurseOwner(Long ownerNurseId, Long currentNurseId) {
+        if (currentNurseId == null || currentNurseId <= 0
+                || !Objects.equals(ownerNurseId, currentNurseId)) {
+            throw new BusinessException(403, "只能操作当前护士本人创建的护理计划");
+        }
+    }
+
+    private void requireAssignedElder(ElderInfo elder, Long nurseId) {
+        if (!Objects.equals(elder.getNurseId(), nurseId)) {
+            throw new BusinessException(403, "只能为明确分配给当前护士的老人创建或修改护理计划");
+        }
     }
 
     private void validateRequired(NursingPlan plan) {

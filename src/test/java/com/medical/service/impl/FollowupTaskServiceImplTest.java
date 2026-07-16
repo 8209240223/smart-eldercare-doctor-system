@@ -64,7 +64,10 @@ class FollowupTaskServiceImplTest {
                 Long.valueOf(40L).equals(task.getPlanId())
                         && Long.valueOf(12L).equals(task.getElderId())
                         && Long.valueOf(2L).equals(task.getDoctorId())
-                        && Long.valueOf(5L).equals(task.getNurseId())));
+                        && Long.valueOf(5L).equals(task.getNurseId())
+                        && "PLAN_AUTO".equals(task.getSource())
+                        && task.getTaskReason() != null
+                        && task.getTaskReason().contains("健康随访计划")));
     }
 
     @Test

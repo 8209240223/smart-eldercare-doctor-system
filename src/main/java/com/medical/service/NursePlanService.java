@@ -11,25 +11,25 @@ import java.util.Map;
 public interface NursePlanService {
 
     Page<NursingPlan> list(Integer pageNum, Integer pageSize, Long elderId, Long nurseId,
-                           Integer planType, Integer status);
+                           Integer planType, Integer status, Long currentUserId, Integer currentUserType);
 
-    NursingPlan getById(Long id);
+    NursingPlan getById(Long id, Long currentUserId, Integer currentUserType);
 
     Long create(NursingPlan plan);
 
-    void update(Long id, NursingPlan plan);
+    void update(Long id, NursingPlan plan, Long currentNurseId);
 
-    void delete(Long id);
+    void delete(Long id, Long currentNurseId);
 
     /**
      * 更新计划状态
      */
-    void updateStatus(Long id, Integer status);
+    void updateStatus(Long id, Integer status, Long currentNurseId);
 
     /**
      * 增加已完成次数
      */
-    void incrementCompleted(Long id);
+    void incrementCompleted(Long id, Long currentNurseId);
 
-    Map<String, Object> getStats(Long nurseId);
+    Map<String, Object> getStats(Long currentUserId, Integer currentUserType);
 }

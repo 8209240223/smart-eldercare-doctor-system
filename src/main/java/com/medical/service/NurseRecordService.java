@@ -11,20 +11,21 @@ import java.util.Map;
 public interface NurseRecordService {
 
     Page<NursingRecord> list(Integer pageNum, Integer pageSize, Long elderId, Long nurseId,
-                             Integer recordType, Integer reportStatus, String startDate, String endDate);
+                             Integer recordType, Integer reportStatus, String startDate, String endDate,
+                             Long currentUserId, Integer currentUserType);
 
-    NursingRecord getById(Long id);
+    NursingRecord getById(Long id, Long currentUserId, Integer currentUserType);
 
     Long create(NursingRecord record);
 
-    void update(Long id, NursingRecord record);
+    void update(Long id, NursingRecord record, Long currentNurseId);
 
-    void delete(Long id);
+    void delete(Long id, Long currentNurseId);
 
     /**
      * 上报异常护理记录给医生
      */
-    void reportAbnormal(Long id, String abnormalDesc);
+    void reportAbnormal(Long id, String abnormalDesc, Long currentNurseId);
 
-    Map<String, Object> getStats(Long nurseId);
+    Map<String, Object> getStats(Long currentUserId, Integer currentUserType);
 }
