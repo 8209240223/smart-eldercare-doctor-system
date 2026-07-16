@@ -1664,6 +1664,14 @@ export function useFollowupTasks(page = 1, pageSize = 10, status?: number) {
   );
 }
 
+export function useFollowupTaskElderOptions(enabled = true) {
+  return useApiQuery<ElderInfo[]>(
+    ["followup", "tasks", "elder-options"],
+    "/api/followup/tasks/elder-options",
+    enabled,
+  );
+}
+
 export function useTodayFollowupTasks() {
   return useApiQuery<FollowupTask[]>(
     ["followup", "tasks", "today"],

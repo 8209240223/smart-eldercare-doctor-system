@@ -48,6 +48,11 @@ public interface FollowupTaskService {
                                           Long currentUserId, Integer currentUserType);
 
     /**
+     * 查询当前用户任务范围内的老人筛选项。
+     */
+    List<Map<String, Object>> getTaskElderOptions(Long currentUserId, Integer currentUserType);
+
+    /**
      * 完成随访任务
      * @param taskId 任务ID
      * @param followRecordId 关联的随访记录ID

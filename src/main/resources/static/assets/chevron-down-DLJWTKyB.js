@@ -1,0 +1,1 @@
+import{Fr as e}from"./index-Q_N-ba4j.js";var t=e(`chevron-down`,[[`path`,{d:`m6 9 6 6 6-6`,key:`qrunsl`}]]);export{t};

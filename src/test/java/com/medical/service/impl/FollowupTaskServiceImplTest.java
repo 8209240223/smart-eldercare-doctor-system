@@ -22,6 +22,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -325,6 +326,30 @@ class FollowupTaskServiceImplTest {
         assertEquals(2, fixture.service.countTodayTasks(5L, 3));
         verify(fixture.followupTaskMapper).countPendingTasks(5L, 3);
         verify(fixture.followupTaskMapper).countTodayTasks(any(LocalDate.class), any(), any());
+    }
+
+    @Test
+    void nurseTaskElderOptionsUseExactTaskAssignmentScope() {
+        Fixture fixture = fixture();
+        List<Map<String, Object>> options = List.of(
+                Map.of("id", 25L, "name", "北京人", "idCard", "110102197507124498"));
+        when(fixture.followupTaskMapper.selectTaskElderOptions(5L, 3)).thenReturn(options);
+
+        List<Map<String, Object>> result = fixture.service.getTaskElderOptions(5L, 3);
+
+        assertEquals(options, result);
+        verify(fixture.followupTaskMapper).selectTaskElderOptions(5L, 3);
+    }
+
+    @Test
+    void unauthenticatedUserCannotQueryTaskElderOptions() {
+        Fixture fixture = fixture();
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> fixture.service.getTaskElderOptions(null, null));
+
+        assertEquals(403, error.getCode());
+        verify(fixture.followupTaskMapper, never()).selectTaskElderOptions(any(), any());
     }
 
     private Fixture fixture() {

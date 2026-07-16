@@ -71,6 +71,20 @@ public interface FollowupTaskMapper extends BaseMapper<FollowupTask> {
                                           @Param("currentUserType") Integer currentUserType);
 
     /**
+     * 查询当前用户任务范围内的老人筛选项。
+     */
+    @Select("<script>" +
+            "SELECT DISTINCT ei.id, ei.name, ei.id_card AS idCard " +
+            TASK_WITH_ELDER_FROM +
+            "WHERE ei.deleted = 0 " +
+            ROLE_SCOPE_SQL +
+            "ORDER BY ei.name ASC, ei.id ASC" +
+            "</script>")
+    List<Map<String, Object>> selectTaskElderOptions(
+            @Param("currentUserId") Long currentUserId,
+            @Param("currentUserType") Integer currentUserType);
+
+    /**
      * 统计待执行任务数量
      */
     @Select("<script>" +

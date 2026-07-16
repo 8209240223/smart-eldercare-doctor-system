@@ -32,6 +32,7 @@ import {
   useAssignFollowupTask,
   useFinishFollowupTask,
   useFollowupRecords,
+  useFollowupTaskElderOptions,
   useFollowupTasks,
   useGenerateFollowupTasks,
   useElders,
@@ -88,6 +89,9 @@ export default function FollowupTasks() {
   } = useOverdueFollowupTasks(overdueScope);
   const { data: todayTasks } = useTodayFollowupTasks();
   const { data: eldersData } = useElders(1, 500);
+  const { data: taskElderOptions = [] } = useFollowupTaskElderOptions(
+    role === "nurse",
+  );
   const { data: collaborators = [] } = useProfileCollaborators();
   const {
     data: elderTaskData,
@@ -115,8 +119,10 @@ export default function FollowupTasks() {
     }
   }, [canManageTasks, collaborators, selectedNurseId]);
 
+  const filterElders =
+    role === "nurse" ? taskElderOptions : eldersData?.records || [];
   const elderNames = new Map(
-    (eldersData?.records || []).map((elder) => [elder.id, elder.name]),
+    filterElders.map((elder) => [elder.id, elder.name]),
   );
   const sourceRecords = overdueScope
     ? overdueTasks || []
@@ -128,7 +134,7 @@ export default function FollowupTasks() {
     : sourceRecords;
   const total =
     selectedElderId || overdueScope ? records.length : data?.total || 0;
-  const totalPages = overdueScope ? 1 : data?.pages || 1;
+  const totalPages = selectedElderId || overdueScope ? 1 : data?.pages || 1;
   const isLoading = overdueScope
     ? overdueLoading
     : selectedElderId
@@ -345,7 +351,7 @@ export default function FollowupTasks() {
             <ElderMasterSelect
               className="min-w-[260px]"
               label="老人主档"
-              elders={eldersData?.records || []}
+              elders={filterElders}
               value={selectedElderId}
               onChange={selectElder}
             />
