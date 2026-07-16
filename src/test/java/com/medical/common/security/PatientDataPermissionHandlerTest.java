@@ -31,18 +31,14 @@ class PatientDataPermissionHandlerTest {
     }
 
     @Test
-    void nurseRelatedRecordsIncludeDirectAndCareTeamElders() {
+    void nurseOnlyReadsDirectlyAssignedElders() {
         bindUser(8L, 3);
         Table table = new Table("follow_plan");
         table.setAlias(new Alias("fp"));
 
         Expression expression = handler.getSqlSegment(table, null, "followPlanList");
 
-        assertThat(expression.toString()).contains("fp.elder_id IN")
-                .contains("e.nurse_id = 8")
-                .contains("doctor_nurse_relation")
-                .contains("dnr.nurse_id = 8")
-                .contains("e.deleted = 0");
+        assertThat(expression.toString()).isEqualTo("fp.elder_id IN (SELECT e.id FROM elder_info e WHERE e.nurse_id = 8 AND e.deleted = 0)");
     }
 
     @Test
