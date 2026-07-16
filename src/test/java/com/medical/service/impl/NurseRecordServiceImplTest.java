@@ -6,17 +6,28 @@ import com.medical.entity.NursingRecord;
 import com.medical.mapper.NursingRecordMapper;
 import com.medical.service.ElderReferenceService;
 import com.medical.service.TimelineService;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 
 class NurseRecordServiceImplTest {
 
@@ -54,7 +65,7 @@ class NurseRecordServiceImplTest {
         NurseRecordServiceImpl service = createService(mapper, elderReferenceService, 8L);
         NursingRecord existing = validRecord();
         existing.setId(30L);
-        existing.setNurseId(5L);
+        existing.setNurseId(3L);
         existing.setReportStatus(0);
         existing.setDoctorReview(0);
         existing.setDoctorId(2L);
@@ -69,9 +80,9 @@ class NurseRecordServiceImplTest {
         update.setReviewComment("伪造审核结果");
         update.setReviewTime(LocalDateTime.now());
 
-        service.update(30L, update);
+        service.update(30L, update, 3L);
 
-        assertEquals(5L, existing.getNurseId());
+        assertEquals(3L, existing.getNurseId());
         assertEquals(0, existing.getReportStatus());
         assertEquals(0, existing.getDoctorReview());
         assertEquals(8L, existing.getDoctorId());
@@ -88,10 +99,11 @@ class NurseRecordServiceImplTest {
         NurseRecordServiceImpl service = createService(mapper, elderReferenceService, 12L);
         NursingRecord existing = validRecord();
         existing.setId(40L);
+        existing.setNurseId(3L);
         existing.setDoctorId(2L);
         when(mapper.selectById(40L)).thenReturn(existing);
 
-        service.reportAbnormal(40L, "血压异常");
+        service.reportAbnormal(40L, "血压异常", 3L);
 
         assertEquals(12L, existing.getDoctorId());
         assertEquals(1, existing.getReportStatus());
@@ -111,6 +123,54 @@ class NurseRecordServiceImplTest {
         assertEquals("该老人尚未分配责任医生，不能创建护理记录", error.getMessage());
     }
 
+    @Test
+    void nurseListAlwaysUsesCurrentNurseInsteadOfRequestedNurse() {
+        initializeTableInfo();
+        NursingRecordMapper mapper = mock(NursingRecordMapper.class);
+        NurseRecordServiceImpl service = new NurseRecordServiceImpl();
+        ReflectionTestUtils.setField(service, "nursingRecordMapper", mapper);
+        when(mapper.selectPage(any(Page.class), any(Wrapper.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.list(1, 10, null, 99L, null, null, null, null, 3L, 3);
+
+        ArgumentCaptor<LambdaQueryWrapper<NursingRecord>> captor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(mapper).selectPage(any(Page.class), captor.capture());
+        assertTrue(captor.getValue().getSqlSegment().contains("nurse_id"));
+        var values = captor.getValue().getParamNameValuePairs().values().stream()
+                .map(String::valueOf)
+                .toList();
+        assertTrue(values.contains("3"));
+        assertFalse(values.contains("99"));
+    }
+
+    @Test
+    void nurseCannotReadOrDeleteAnotherNursesRecord() {
+        NursingRecordMapper mapper = mock(NursingRecordMapper.class);
+        NurseRecordServiceImpl service = new NurseRecordServiceImpl();
+        ReflectionTestUtils.setField(service, "nursingRecordMapper", mapper);
+        NursingRecord record = validRecord();
+        record.setId(41L);
+        record.setNurseId(5L);
+        record.setDeleted(0);
+        when(mapper.selectById(41L)).thenReturn(record);
+
+        BusinessException readError = assertThrows(BusinessException.class,
+                () -> service.getById(41L, 3L, 3));
+        BusinessException deleteError = assertThrows(BusinessException.class,
+                () -> service.delete(41L, 3L));
+
+        assertEquals(403, readError.getCode());
+        assertEquals(403, deleteError.getCode());
+        verify(mapper, never()).deleteById(41L);
+    }
+
+    private void initializeTableInfo() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), "nurse-record-scope-test"),
+                NursingRecord.class);
+    }
+
     private NurseRecordServiceImpl createService(NursingRecordMapper mapper,
                                                  ElderReferenceService elderReferenceService,
                                                  Long doctorId) {
@@ -121,6 +181,7 @@ class NurseRecordServiceImplTest {
         ElderInfo elder = new ElderInfo();
         elder.setId(1L);
         elder.setDoctorId(doctorId);
+        elder.setNurseId(3L);
         when(elderReferenceService.requireActive(1L)).thenReturn(elder);
         return service;
     }

@@ -149,6 +149,64 @@ class ReviewServiceImplTest {
         verify(planMapper, never()).updateById(any(NursingPlan.class));
     }
 
+    @Test
+    void assignedDoctorApprovesTheSameNursingPlanAndStartsIt() {
+        NursingPlanMapper planMapper = mock(NursingPlanMapper.class);
+        ReviewServiceImpl service = createService(mock(NursingRecordMapper.class), planMapper);
+        NursingPlan plan = new NursingPlan();
+        plan.setId(62L);
+        plan.setDoctorId(6L);
+        plan.setNurseId(3L);
+        plan.setDoctorApproval(0);
+        plan.setStatus(0);
+        plan.setDeleted(0);
+        when(planMapper.selectById(62L)).thenReturn(plan);
+
+        service.reviewPlan(62L, 6L, 1);
+
+        assertEquals(1, plan.getDoctorApproval());
+        assertEquals(1, plan.getStatus());
+        verify(planMapper).updateById(plan);
+    }
+
+    @Test
+    void assignedDoctorRejectsTheSameNursingPlanAndTerminatesIt() {
+        NursingPlanMapper planMapper = mock(NursingPlanMapper.class);
+        ReviewServiceImpl service = createService(mock(NursingRecordMapper.class), planMapper);
+        NursingPlan plan = new NursingPlan();
+        plan.setId(63L);
+        plan.setDoctorId(6L);
+        plan.setNurseId(3L);
+        plan.setDoctorApproval(0);
+        plan.setStatus(0);
+        plan.setDeleted(0);
+        when(planMapper.selectById(63L)).thenReturn(plan);
+
+        service.reviewPlan(63L, 6L, 2);
+
+        assertEquals(2, plan.getDoctorApproval());
+        assertEquals(3, plan.getStatus());
+        verify(planMapper).updateById(plan);
+    }
+
+    @Test
+    void doctorCannotReviewAnotherDoctorsNursingPlan() {
+        NursingPlanMapper planMapper = mock(NursingPlanMapper.class);
+        ReviewServiceImpl service = createService(mock(NursingRecordMapper.class), planMapper);
+        NursingPlan plan = new NursingPlan();
+        plan.setId(64L);
+        plan.setDoctorId(9L);
+        plan.setDoctorApproval(0);
+        plan.setDeleted(0);
+        when(planMapper.selectById(64L)).thenReturn(plan);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.reviewPlan(64L, 6L, 1));
+
+        assertEquals(403, error.getCode());
+        verify(planMapper, never()).updateById(any(NursingPlan.class));
+    }
+
     private void initializeNursingRecordTableInfo() {
         TableInfoHelper.initTableInfo(
                 new MapperBuilderAssistant(new MybatisConfiguration(), "review-test"),
