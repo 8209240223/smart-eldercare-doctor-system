@@ -104,6 +104,37 @@ class CareWorkflowServiceTest {
     }
 
     @Test
+    void generateWithoutTaskCreationOnlyBuildsPlanAndLooksUpTask() {
+        Fixture fixture = fixture();
+        ElderInfo elder = elder();
+        ElderRiskProfile risk = risk();
+        FollowPlan plan = plan();
+
+        when(fixture.elderReferenceService.requireActive(8L)).thenReturn(elder);
+        when(fixture.riskProfileMapper.selectOne(any())).thenReturn(risk);
+        when(fixture.riskProfileService.calculateRisk(8L)).thenReturn(risk);
+        when(fixture.followPlanMapper.selectLatestActiveByElderForUpdate(8L)).thenReturn(null);
+        when(fixture.followPlanMapper.selectLatestActiveByElder(8L)).thenReturn(plan);
+        when(fixture.followUpService.generateRiskFollowPlans(2L, 8L)).thenReturn(Map.of());
+        when(fixture.followupTaskMapper.selectPendingByPlanId(8L, 31L)).thenReturn(null);
+        when(fixture.aiHealthReportService.getLatestByElder(8L)).thenReturn(null);
+        when(fixture.healthRecordMapper.selectCount(any())).thenReturn(0L);
+        when(fixture.physicalExamMapper.selectCount(any())).thenReturn(0L);
+        when(fixture.nursingPlanMapper.selectCount(any())).thenReturn(0L);
+        when(fixture.nursingRecordMapper.selectCount(any())).thenReturn(0L);
+
+        CareWorkflowResult result = fixture.service.generate(8L, 2L, 2, false);
+
+        // 建档路径:计划照旧生成,任务不落库
+        assertEquals("created", result.getPlan().getStatus());
+        assertEquals("pending", result.getTask().getStatus());
+        assertFalse(result.getTask().isCreated());
+        assertNull(result.getTask().getData());
+        assertEquals("/followup-tasks?elderId=8", result.getLinks().get("task"));
+        verify(fixture.followupTaskService, never()).generateForElder(any(), any(), any());
+    }
+
+    @Test
     void nurseCannotGenerateButCanReadSummary() {
         Fixture fixture = fixture();
         when(fixture.elderReferenceService.requireActive(8L)).thenReturn(elder());
