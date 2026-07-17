@@ -1344,6 +1344,7 @@ export interface ReviewRecord {
   id: number;
   elderId: number;
   nurseId?: number;
+  doctorId?: number;
   recordType?: number;
   recordTitle?: string;
   recordContent?: string;

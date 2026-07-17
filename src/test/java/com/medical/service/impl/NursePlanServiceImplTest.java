@@ -5,6 +5,7 @@ import com.medical.entity.NursingPlan;
 import com.medical.entity.ElderInfo;
 import com.medical.mapper.NursingPlanMapper;
 import com.medical.service.ElderReferenceService;
+import com.medical.message.service.MessageService;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
@@ -23,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -50,6 +52,20 @@ class NursePlanServiceImplTest {
         assertEquals(2L, plan.getDoctorId());
         verify(elderReferenceService).requireActiveDoctor(2L);
         verify(mapper).insert(plan);
+    }
+
+    @Test
+    void createNotifiesResponsibleDoctorForReview() {
+        NursingPlanMapper mapper = mock(NursingPlanMapper.class);
+        ElderReferenceService elderReferenceService = mock(ElderReferenceService.class);
+        MessageService messageService = mock(MessageService.class);
+        NursePlanServiceImpl service = createService(mapper, elderReferenceService);
+        ReflectionTestUtils.setField(service, "messageService", messageService);
+
+        service.create(validPlan());
+
+        verify(messageService).sendSystemNotification(
+                eq(2L), any(String.class), any(String.class), eq(3), eq(2), eq("/nurse-review?tab=plans"));
     }
 
     @Test
@@ -179,6 +195,7 @@ class NursePlanServiceImplTest {
         NursePlanServiceImpl service = new NursePlanServiceImpl();
         ReflectionTestUtils.setField(service, "nursingPlanMapper", mapper);
         ReflectionTestUtils.setField(service, "elderReferenceService", elderReferenceService);
+        ReflectionTestUtils.setField(service, "messageService", mock(MessageService.class));
         ElderInfo elder = new ElderInfo();
         elder.setId(1L);
         elder.setDoctorId(2L);
