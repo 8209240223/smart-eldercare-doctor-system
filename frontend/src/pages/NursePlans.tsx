@@ -78,8 +78,12 @@ export default function NursePlans() {
   const currentNurseId = Number(userInfo?.userId || userInfo?.id || 0);
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedElderId = searchParams.get("elderId") || "";
+  const requestedPlanId = searchParams.get("planId") || "";
   const [page, setPage] = useState(1);
   const [elderId, setElderId] = useState(requestedElderId);
+  const [highlightPlanId, setHighlightPlanId] = useState<number | undefined>(
+    requestedPlanId ? Number(requestedPlanId) : undefined,
+  );
   const [planType, setPlanType] = useState<number | undefined>();
   const [status, setStatus] = useState<number | undefined>();
   const [formOpen, setFormOpen] = useState(false);
@@ -117,6 +121,12 @@ export default function NursePlans() {
     setElderId(requestedElderId);
     setPage(1);
   }, [requestedElderId]);
+
+  useEffect(() => {
+    if (highlightPlanId) {
+      setDetailId(highlightPlanId);
+    }
+  }, [highlightPlanId]);
 
   const selectElder = (value?: number) => {
     const next = new URLSearchParams(searchParams);
@@ -157,7 +167,7 @@ export default function NursePlans() {
             key: "records",
             label: "新增护理记录",
             description: "进入该老人的护理记录页面",
-            to: `/nurse-records?elderId=${payload.elderId}`,
+            to: `/nurse-records?elderId=${payload.elderId}&planId=${payload.id}`,
           },
           {
             key: "report",
@@ -321,7 +331,12 @@ export default function NursePlans() {
                     initial={{ opacity: 0, x: -16 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.04 }}
-                    className="rounded-xl border border-border/40 bg-white/60 p-4"
+                    className={
+                      "rounded-xl border p-4 transition-colors " +
+                      (plan.id === highlightPlanId
+                        ? "border-medical-400 bg-medical-50 ring-2 ring-medical-300"
+                        : "border-border/40 bg-white/60")
+                    }
                   >
                     <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                       <div>
@@ -559,7 +574,17 @@ export default function NursePlans() {
       </Dialog>
       <DetailDialog
         open={!!detailId}
-        onOpenChange={(open) => !open && setDetailId(undefined)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailId(undefined);
+            setHighlightPlanId(undefined);
+            if (searchParams.get("planId")) {
+              const next = new URLSearchParams(searchParams);
+              next.delete("planId");
+              setSearchParams(next, { replace: true });
+            }
+          }
+        }}
         title="护理计划详情"
         loading={detailLoading}
         fields={

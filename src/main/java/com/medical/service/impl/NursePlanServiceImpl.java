@@ -8,6 +8,7 @@ import com.medical.common.exception.BusinessException;
 import com.medical.entity.NursingPlan;
 import com.medical.entity.ElderInfo;
 import com.medical.mapper.NursingPlanMapper;
+import com.medical.message.service.MessageService;
 import com.medical.service.ElderReferenceService;
 import com.medical.service.NursePlanService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,9 @@ public class NursePlanServiceImpl implements NursePlanService {
 
     @Autowired
     private ElderReferenceService elderReferenceService;
+
+    @Autowired
+    private MessageService messageService;
 
     @Override
     public Page<NursingPlan> list(Integer pageNum, Integer pageSize, Long elderId, Long nurseId,
@@ -82,7 +86,20 @@ public class NursePlanServiceImpl implements NursePlanService {
         plan.setDoctorApproval(0);
         plan.setCompletedCount(0);
         nursingPlanMapper.insert(plan);
+        notifyDoctorReview(plan, elder, "护理计划待审核", "护士提交了一条护理计划，请及时审核。", "/nurse-review?tab=plans");
         return plan.getId();
+    }
+
+    private void notifyDoctorReview(NursingPlan plan, ElderInfo elder, String title, String content, String actionUrl) {
+        if (messageService == null || plan.getDoctorId() == null) {
+            return;
+        }
+        try {
+            String elderName = elder != null && StringUtils.hasText(elder.getName()) ? elder.getName() : ("老人 #" + plan.getElderId());
+            String fullContent = content + "（老人：" + elderName + "；计划：" + plan.getPlanName() + "）";
+            messageService.sendSystemNotification(plan.getDoctorId(), title, fullContent, 3, 2, actionUrl);
+        } catch (Exception ignored) {
+        }
     }
 
     @Override
