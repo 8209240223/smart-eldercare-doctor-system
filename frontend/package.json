@@ -9,6 +9,7 @@
     "deploy": "npm run build && node deploy-static.js",
     "lint": "oxlint",
     "test:assistant-markdown": "node --test src/lib/assistantMarkdown.test.ts",
+    "test:chunk-recovery": "node --test src/lib/lazyWithRetry.test.ts",
     "preview": "vite preview",
     "mobile:add": "cap add android",
     "mobile:sync": "npm run build && cap sync android",

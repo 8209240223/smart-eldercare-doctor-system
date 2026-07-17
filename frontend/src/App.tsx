@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+import { Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/sonner";
@@ -8,6 +8,7 @@ import RealtimeWarningBridge from "@/components/warnings/RealtimeWarningBridge";
 import RanaAssistant from "@/components/assistant/RanaAssistant";
 import MessageRealtimeBridge from "@/components/messages/MessageRealtimeBridge";
 import SessionReplacedDialog from "@/components/auth/SessionReplacedDialog";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,31 +19,33 @@ const queryClient = new QueryClient({
   },
 });
 
-const Login = lazy(() => import("@/pages/Login"));
-const Dashboard = lazy(() => import("@/pages/Dashboard"));
-const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
-const Elders = lazy(() => import("@/pages/Elders"));
-const Warnings = lazy(() => import("@/pages/Warnings"));
-const FollowUp = lazy(() => import("@/pages/FollowUp"));
-const FollowupTasks = lazy(() => import("@/pages/FollowupTasks"));
-const Interventions = lazy(() => import("@/pages/Interventions"));
-const Assessments = lazy(() => import("@/pages/Assessments"));
-const Referrals = lazy(() => import("@/pages/Referrals"));
-const Vitals = lazy(() => import("@/pages/Vitals"));
-const Exams = lazy(() => import("@/pages/Exams"));
-const Timeline = lazy(() => import("@/pages/Timeline"));
-const KeyPopulation = lazy(() => import("@/pages/KeyPopulation"));
-const NurseDashboard = lazy(() => import("@/pages/NurseDashboard"));
-const NurseRecords = lazy(() => import("@/pages/NurseRecords"));
-const NursePlans = lazy(() => import("@/pages/NursePlans"));
-const NurseReview = lazy(() => import("@/pages/NurseReview"));
-const AiReports = lazy(() => import("@/pages/AiReports"));
-const WarningRules = lazy(() => import("@/pages/WarningRules"));
-const Profile = lazy(() => import("@/pages/Profile"));
-const Messages = lazy(() => import("@/pages/Messages"));
-const AdminUsers = lazy(() => import("@/pages/AdminUsers"));
-const AdminOperationLogs = lazy(() => import("@/pages/AdminOperationLogs"));
-const ElderCareJourney = lazy(() => import("@/pages/ElderCareJourney"));
+const Login = lazyWithRetry(() => import("@/pages/Login"));
+const Dashboard = lazyWithRetry(() => import("@/pages/Dashboard"));
+const AdminDashboard = lazyWithRetry(() => import("@/pages/AdminDashboard"));
+const Elders = lazyWithRetry(() => import("@/pages/Elders"));
+const Warnings = lazyWithRetry(() => import("@/pages/Warnings"));
+const FollowUp = lazyWithRetry(() => import("@/pages/FollowUp"));
+const FollowupTasks = lazyWithRetry(() => import("@/pages/FollowupTasks"));
+const Interventions = lazyWithRetry(() => import("@/pages/Interventions"));
+const Assessments = lazyWithRetry(() => import("@/pages/Assessments"));
+const Referrals = lazyWithRetry(() => import("@/pages/Referrals"));
+const Vitals = lazyWithRetry(() => import("@/pages/Vitals"));
+const Exams = lazyWithRetry(() => import("@/pages/Exams"));
+const Timeline = lazyWithRetry(() => import("@/pages/Timeline"));
+const KeyPopulation = lazyWithRetry(() => import("@/pages/KeyPopulation"));
+const NurseDashboard = lazyWithRetry(() => import("@/pages/NurseDashboard"));
+const NurseRecords = lazyWithRetry(() => import("@/pages/NurseRecords"));
+const NursePlans = lazyWithRetry(() => import("@/pages/NursePlans"));
+const NurseReview = lazyWithRetry(() => import("@/pages/NurseReview"));
+const AiReports = lazyWithRetry(() => import("@/pages/AiReports"));
+const WarningRules = lazyWithRetry(() => import("@/pages/WarningRules"));
+const Profile = lazyWithRetry(() => import("@/pages/Profile"));
+const Messages = lazyWithRetry(() => import("@/pages/Messages"));
+const AdminUsers = lazyWithRetry(() => import("@/pages/AdminUsers"));
+const AdminOperationLogs = lazyWithRetry(
+  () => import("@/pages/AdminOperationLogs"),
+);
+const ElderCareJourney = lazyWithRetry(() => import("@/pages/ElderCareJourney"));
 
 function PageLoader() {
   return (
