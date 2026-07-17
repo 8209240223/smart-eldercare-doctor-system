@@ -107,6 +107,8 @@ public class NurseRecordServiceImpl implements NurseRecordService {
         }
         nursingRecordMapper.insert(record);
         addNursingRecordTimeline(record);
+        notifyUser(record.getDoctorId(), "护理记录待审核",
+                "护士提交了一条护理记录，请及时查看并完成审核。", 2, "/nurse-review");
         return record.getId();
     }
 

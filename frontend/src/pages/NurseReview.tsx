@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { CheckCircle2, ClipboardCheck, Eye, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useSearchParams } from "react-router-dom";
 import PageShell from "@/components/layout/PageShell";
 import StatCard from "@/components/dashboard/StatCard";
 import EmptyState from "@/components/common/EmptyState";
@@ -34,6 +35,18 @@ const planTypeLabels = ["", "基础护理", "康复护理", "专科护理", "心
 
 export default function NurseReview() {
   const canReview = getUserRole(useAuthStore((state) => state.userInfo)) === "doctor";
+  const [searchParams, setSearchParams] = useSearchParams();
+  const validTabs = ["records", "plans", "reviewed-records", "reviewed-plans"];
+  const tabParam = searchParams.get("tab") || "";
+  const [activeTab, setActiveTab] = useState<string>(
+    validTabs.includes(tabParam) ? tabParam : "records",
+  );
+  const switchTab = (value: string) => {
+    setActiveTab(value);
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", value);
+    setSearchParams(next, { replace: true });
+  };
   const [recordPage, setRecordPage] = useState(1);
   const [planPage, setPlanPage] = useState(1);
   const [recordDetail, setRecordDetail] = useState<ReviewRecord | null>(null);
@@ -157,7 +170,7 @@ export default function NurseReview() {
             <CardTitle className="text-base font-bold">审核工作台</CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="records">
+            <Tabs value={activeTab} onValueChange={switchTab}>
               <TabsList>
                 <TabsTrigger value="records">待审核护理记录</TabsTrigger>
                 <TabsTrigger value="plans">待审核护理计划</TabsTrigger>

@@ -82,6 +82,7 @@ export default function NurseRecords() {
   const currentNurseId = Number(userInfo?.userId || userInfo?.id || 0);
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedElderId = searchParams.get("elderId") || "";
+  const requestedPlanId = searchParams.get("planId") || "";
   const [page, setPage] = useState(1);
   const [elderId, setElderId] = useState(requestedElderId);
   const [recordType, setRecordType] = useState<number | undefined>();
@@ -208,7 +209,9 @@ export default function NurseRecords() {
             key: "plans",
             label: "制定护理计划",
             description: "继续为该老人安排护理计划",
-            to: `/nurse-plans?elderId=${payload.elderId}`,
+            to: `/nurse-plans?elderId=${payload.elderId}${
+              requestedPlanId ? `&planId=${requestedPlanId}` : ""
+            }`,
           },
           {
             key: "reports",

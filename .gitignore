@@ -56,3 +56,9 @@ dump.rdb
 tmp_*
 tmp_pdf_render_three_modules/
 generate_three_module_pdf.py
+
+# 本地测试/调试临时产物
+/tmp/
+/.playwright-cli/
+/output/
+/test-results/

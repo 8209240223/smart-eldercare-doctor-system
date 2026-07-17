@@ -30,3 +30,36 @@ test("normalizes compact ATX headings outside fenced code blocks", () => {
 test("does not treat seven hashes as a supported heading", () => {
   assert.equal(normalizeAssistantMarkdown("#######正文"), "#######正文");
 });
+
+test("repairs compact two-column tables emitted in one line", () => {
+  const source = [
+    "一、核心指标|指标|数值|",
+    "|------|------|负责人老人总数|7|待处理预警|1|",
+    "",
+    "二、预警详情",
+  ].join("\n");
+
+  assert.equal(
+    normalizeAssistantMarkdown(source),
+    [
+      "一、核心指标",
+      "| 指标 | 数值 |",
+      "| --- | --- |",
+      "| 负责人老人总数 | 7 |",
+      "| 待处理预警 | 1 |",
+      "",
+      "二、预警详情",
+    ].join("\n"),
+  );
+});
+
+test("does not rewrite pipe content inside fenced code", () => {
+  const source = [
+    "```markdown",
+    "|指标|数值|",
+    "|---|---|",
+    "```",
+  ].join("\n");
+
+  assert.equal(normalizeAssistantMarkdown(source), source);
+});
