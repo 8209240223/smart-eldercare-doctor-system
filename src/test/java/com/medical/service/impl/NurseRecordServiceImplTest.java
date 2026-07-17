@@ -6,6 +6,7 @@ import com.medical.entity.NursingRecord;
 import com.medical.mapper.NursingRecordMapper;
 import com.medical.service.ElderReferenceService;
 import com.medical.service.TimelineService;
+import com.medical.message.service.MessageService;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
@@ -28,6 +29,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 
 class NurseRecordServiceImplTest {
 
@@ -56,6 +58,20 @@ class NurseRecordServiceImplTest {
         assertNull(record.getReviewTime());
         verify(elderReferenceService).requireActiveDoctor(2L);
         verify(mapper).insert(record);
+    }
+
+    @Test
+    void createNotifiesResponsibleDoctorForReview() {
+        NursingRecordMapper mapper = mock(NursingRecordMapper.class);
+        ElderReferenceService elderReferenceService = mock(ElderReferenceService.class);
+        MessageService messageService = mock(MessageService.class);
+        NurseRecordServiceImpl service = createService(mapper, elderReferenceService, 2L);
+        ReflectionTestUtils.setField(service, "messageService", messageService);
+
+        service.create(validRecord());
+
+        verify(messageService).sendSystemNotification(
+                eq(2L), any(String.class), any(String.class), eq(3), eq(2), eq("/nurse-review"));
     }
 
     @Test
@@ -178,6 +194,7 @@ class NurseRecordServiceImplTest {
         ReflectionTestUtils.setField(service, "nursingRecordMapper", mapper);
         ReflectionTestUtils.setField(service, "elderReferenceService", elderReferenceService);
         ReflectionTestUtils.setField(service, "timelineService", mock(TimelineService.class));
+        ReflectionTestUtils.setField(service, "messageService", mock(MessageService.class));
         ElderInfo elder = new ElderInfo();
         elder.setId(1L);
         elder.setDoctorId(doctorId);

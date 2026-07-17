@@ -95,6 +95,23 @@ class ReviewServiceImplTest {
     }
 
     @Test
+    void pendingRecordQueriesUseDoctorReviewStateForNormalRecords() {
+        initializeNursingRecordTableInfo();
+        NursingRecordMapper recordMapper = mock(NursingRecordMapper.class);
+        ReviewServiceImpl service = createService(recordMapper, mock(NursingPlanMapper.class));
+        when(recordMapper.selectPage(any(Page.class), any(Wrapper.class)))
+                .thenReturn(new Page<>(1, 20));
+
+        service.listPendingRecords(1, 20, 6L);
+
+        ArgumentCaptor<Wrapper<NursingRecord>> captor = ArgumentCaptor.forClass(Wrapper.class);
+        verify(recordMapper).selectPage(any(Page.class), captor.capture());
+        String sql = captor.getValue().getSqlSegment();
+        assertTrue(sql.contains("doctor_review"));
+        assertFalse(sql.contains("report_status"));
+    }
+
+    @Test
     void doctorCannotReviewRecordAssignedToAnotherDoctor() {
         NursingRecordMapper recordMapper = mock(NursingRecordMapper.class);
         ReviewServiceImpl service = createService(recordMapper, mock(NursingPlanMapper.class));
@@ -129,6 +146,25 @@ class ReviewServiceImplTest {
         assertEquals(2, record.getReportStatus());
         assertEquals(2, record.getDoctorReview());
         assertEquals(6L, record.getReviewDoctorId());
+        verify(recordMapper).updateById(record);
+    }
+
+    @Test
+    void assignedDoctorCanReviewNormalRecordWithoutAbnormalReport() {
+        NursingRecordMapper recordMapper = mock(NursingRecordMapper.class);
+        ReviewServiceImpl service = createService(recordMapper, mock(NursingPlanMapper.class));
+        NursingRecord record = new NursingRecord();
+        record.setId(52L);
+        record.setDoctorId(6L);
+        record.setReportStatus(0);
+        record.setDoctorReview(0);
+        record.setDeleted(0);
+        when(recordMapper.selectById(52L)).thenReturn(record);
+
+        service.reviewRecord(52L, 6L, "", 1);
+
+        assertEquals(0, record.getReportStatus());
+        assertEquals(2, record.getDoctorReview());
         verify(recordMapper).updateById(record);
     }
 

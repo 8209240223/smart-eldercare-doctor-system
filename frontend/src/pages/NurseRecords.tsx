@@ -141,7 +141,7 @@ export default function NurseRecords() {
   const assignedDoctorId = selectedFormElder
     ? selectedFormElder.doctorId
     : form.doctorId;
-  const targetDoctorId = assignedDoctorId && doctorNames.has(assignedDoctorId)
+  const targetDoctorId = assignedDoctorId && assignedDoctorId > 0
     ? assignedDoctorId
     : undefined;
 
@@ -520,7 +520,7 @@ export default function NurseRecords() {
               <span className="text-muted-foreground">目标责任医生</span>
               <span className="font-medium">
                 {targetDoctorId
-                  ? doctorNames.get(targetDoctorId)
+                  ? doctorNames.get(targetDoctorId) || `医生 #${targetDoctorId}（ID: ${targetDoctorId}）`
                   : "未分配有效医生"}
               </span>
             </div>

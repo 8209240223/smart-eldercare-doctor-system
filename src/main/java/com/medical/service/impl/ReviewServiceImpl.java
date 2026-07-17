@@ -33,11 +33,11 @@ public class ReviewServiceImpl implements ReviewService {
     public Page<NursingRecord> listPendingRecords(Integer pageNum, Integer pageSize, Long doctorId) {
         Page<NursingRecord> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<NursingRecord> wrapper = new LambdaQueryWrapper<NursingRecord>()
-                .eq(NursingRecord::getReportStatus, 1)
                 .eq(NursingRecord::getDeleted, 0)
                 .eq(doctorId != null, NursingRecord::getDoctorId, doctorId)
                 .orderByDesc(NursingRecord::getRecordDate)
                 .orderByDesc(NursingRecord::getCreateTime);
+        applyPendingRecordReviewFilter(wrapper);
         return nursingRecordMapper.selectPage(page, wrapper);
     }
 
@@ -60,7 +60,7 @@ public class ReviewServiceImpl implements ReviewService {
         if (record == null || (record.getDeleted() != null && record.getDeleted() == 1)) {
             throw new BusinessException(404, "护理记录不存在");
         }
-        if (record.getReportStatus() == null || record.getReportStatus() != 1) {
+        if (record.getDoctorReview() != null && record.getDoctorReview() != 0) {
             throw new BusinessException(400, "该记录无需审核或已被处理");
         }
         if (record.getDoctorId() == null) {
@@ -70,6 +70,7 @@ public class ReviewServiceImpl implements ReviewService {
             throw new BusinessException(403, "只能审核分配给当前医生的护理记录");
         }
         // action: 1=通过(已处理)  2=驳回(退回)
+        boolean hasAbnormalReport = Integer.valueOf(1).equals(record.getReportStatus());
         if (action == 1) {
             record.setReportStatus(2);  // 已处理
             record.setDoctorReview(2);
@@ -78,6 +79,9 @@ public class ReviewServiceImpl implements ReviewService {
             record.setDoctorReview(1);
         } else {
             throw new BusinessException(400, "审核操作类型不正确");
+        }
+        if (!hasAbnormalReport) {
+            record.setReportStatus(0);
         }
         record.setReviewDoctorId(doctorId);
         record.setReviewComment(comment);
@@ -167,10 +171,7 @@ public class ReviewServiceImpl implements ReviewService {
         Map<String, Object> stats = new HashMap<>();
 
         long pendingRecords = nursingRecordMapper.selectCount(
-                new LambdaQueryWrapper<NursingRecord>()
-                        .eq(NursingRecord::getReportStatus, 1)
-                        .eq(doctorId != null, NursingRecord::getDoctorId, doctorId)
-                        .eq(NursingRecord::getDeleted, 0));
+                pendingRecordQuery(doctorId));
         stats.put("pendingRecords", pendingRecords);
 
         long pendingPlans = nursingPlanMapper.selectCount(
@@ -203,5 +204,20 @@ public class ReviewServiceImpl implements ReviewService {
         stats.put("approvedPlans", approvedPlans);
 
         return stats;
+    }
+
+    private LambdaQueryWrapper<NursingRecord> pendingRecordQuery(Long doctorId) {
+        LambdaQueryWrapper<NursingRecord> wrapper = new LambdaQueryWrapper<NursingRecord>()
+                .eq(NursingRecord::getDeleted, 0)
+                .eq(doctorId != null, NursingRecord::getDoctorId, doctorId);
+        applyPendingRecordReviewFilter(wrapper);
+        return wrapper;
+    }
+
+    private void applyPendingRecordReviewFilter(LambdaQueryWrapper<NursingRecord> wrapper) {
+        wrapper.and(condition -> condition
+                .eq(NursingRecord::getDoctorReview, 0)
+                .or()
+                .isNull(NursingRecord::getDoctorReview));
     }
 }
